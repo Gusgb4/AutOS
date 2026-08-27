@@ -1,18 +1,6 @@
-import "dotenv/config";
-import express from "express";
-import cors from "cors";
+import { app } from "./app";
+import { env } from "./config/env";
 import { prisma } from "./config/prisma";
-
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-app.get("/", (_req, res) => {
-  res.json({ message: "API AutOS funcionando!" });
-});
-
-const PORT = process.env.PORT ?? 3333;
 
 async function start() {
   try {
@@ -23,8 +11,8 @@ async function start() {
     process.exit(1);
   }
 
-  app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
+  app.listen(env.port, () => {
+    console.log(`🚀 Servidor rodando em http://localhost:${env.port}`);
   });
 }
 
