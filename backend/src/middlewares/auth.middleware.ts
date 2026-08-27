@@ -29,7 +29,7 @@ export function ensureAuthenticated(req: Request, res: Response, next: NextFunct
   const [, token] = authHeader.split(' ');
 
   try {
-    const secret = process.env.JWT_SECRET || 'chave_padrao_temporaria';
+    const secret = process.env.JWT_SECRET || 'chave_secreta_padrao_oficina_123';
     const decoded = jwt.verify(token, secret) as TokenPayload;
 
     req.user = {

@@ -19,7 +19,7 @@ const loginSchema = z.object({
 });
 
 export class AuthController {
-  // POST /api/auth/register
+  // Registro
   async register(req: Request, res: Response) {
     try {
       const { nome, email, senha, perfil } = registerSchema.parse(req.body);
@@ -56,7 +56,7 @@ export class AuthController {
     }
   }
 
-// POST /api/auth/login
+// login
   async login(req: Request, res: Response) {
     try {
       const { email, senha } = loginSchema.parse(req.body);
@@ -89,7 +89,7 @@ export class AuthController {
         token,
       });
     } catch (error: any) {
-      console.error('Erro detalhado no login:', error); // Mostra o erro exato no terminal do VS Code
+      console.error('Erro detalhado no login:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.issues });
       }
