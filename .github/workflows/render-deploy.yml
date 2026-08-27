@@ -7,6 +7,9 @@ on:
 jobs:
   deployment:
     runs-on: ubuntu-latest
+    permissions:
+      deployments: write
+      contents: read
     steps:
       - name: Registrar Ambiente no GitHub
         uses: actions/github-script@v7
