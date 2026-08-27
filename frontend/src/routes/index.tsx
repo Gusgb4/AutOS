@@ -4,6 +4,9 @@ import Dashboard from "../pages/Dashboard";
 import Login from "../pages/Login";
 import Clients from "../pages/Clients";
 import NotFound from "../pages/NotFound";
+import Stock from "../pages/Stock";
+import NewStockItem from "../pages/NewStockItem";
+
 
 /* 
 !!! TIRE DO COMENTARIO QUANDO ESTIVER FEITO ALGUMA DAS PAGINAS ABAIXO !!!
@@ -26,7 +29,8 @@ export const router = createBrowserRouter([
       { index: true, element: <Dashboard /> },
       ///{ path: "ordens-servico", element: <ServiceOrders /> },
       { path: "clientes", element: <Clients /> },
-      ///{ path: "estoque", element: <Stock /> },
+      { path: "estoque", element: <Stock /> },
+      { path: "estoque/novo", element: <NewStockItem /> },
       //{ path: "veiculos", element: <Vehicles /> },
     ],
   },
