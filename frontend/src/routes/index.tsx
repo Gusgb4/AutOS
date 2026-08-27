@@ -3,6 +3,7 @@ import Layout from "../components/layout/Layout";
 import Dashboard from "../pages/Dashboard";
 import Login from "../pages/Login";
 import Clients from "../pages/Clients";
+import ClientProfile from "../pages/ClientProfile";
 import NotFound from "../pages/NotFound";
 
 /* 
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Dashboard /> },
       ///{ path: "ordens-servico", element: <ServiceOrders /> },
       { path: "clientes", element: <Clients /> },
+      { path: "clientes/:id", element: <ClientProfile /> },
       ///{ path: "estoque", element: <Stock /> },
       //{ path: "veiculos", element: <Vehicles /> },
     ],
