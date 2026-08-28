@@ -30,6 +30,20 @@ export function errorMiddleware(
     if (err.code === "P2025") {
       return res.status(404).json({ erro: "Registro não encontrado." });
     }
+   if (err.code === "P2003") {
+      const modelName = String(err.meta?.modelName ?? "");
+
+      const mensagens: Record<string, string> = {
+        Vehicle: "O cliente informado não existe.",
+        ServiceOrder: "Cliente, veículo ou mecânico informado não existe.",
+        ServiceOrderPart: "O item de estoque informado não existe.",
+        ServiceOrderService: "A ordem de serviço informada não existe.",
+      };
+
+      return res.status(400).json({
+        erro: mensagens[modelName] ?? "Referência inválida — o registro relacionado não existe.",
+      });
+    }
   }
 
   console.error(err);
