@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Lock,
   UserPlus,
@@ -9,20 +10,56 @@ import {
   ShieldCheck,
   BadgeCheck,
   FileCheck,
+  Loader2,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 type Mode = "login" | "register";
 
 export default function Login() {
+  const navigate = useNavigate();
+  const { signIn, signUp } = useAuth();
+
   const [mode, setMode] = useState<Mode>("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   const isLogin = mode === "login";
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    // TODO: integrar com services/auth.ts
+    setError(null);
+
+    if (!isLogin && senha !== confirmarSenha) {
+      setError("As senhas não coincidem");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      if (isLogin) {
+        await signIn({ email, senha });
+      } else {
+        await signUp({ nome, email, senha });
+      }
+      navigate("/", { replace: true });
+    } catch (err: any) {
+      const apiMessage =
+        err?.response?.data?.error ||
+        err?.response?.data?.errors?.[0]?.message ||
+        "Não foi possível concluir. Tente novamente.";
+      setError(apiMessage);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
