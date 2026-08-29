@@ -5,6 +5,8 @@ import Login from "../pages/Login";
 import Clients from "../pages/Clients";
 import ClientProfile from "../pages/ClientProfile";
 import NotFound from "../pages/NotFound";
+import Stock from "../pages/Stock";
+import NewStockItem from "../pages/NewStockItem";
 import ServiceOrders from "../pages/ServiceOrders";
 
 /* 
@@ -12,7 +14,6 @@ import ServiceOrders from "../pages/ServiceOrders";
 
 import Clients from "../pages/Clients";
 import Vehicles from "../pages/Vehicles";
-import Stock from "../pages/Stock";
 */
 
 export const router = createBrowserRouter([
@@ -27,8 +28,9 @@ export const router = createBrowserRouter([
       { index: true, element: <Dashboard /> },
       { path: "ordens-servico", element: <ServiceOrders /> },
       { path: "clientes", element: <Clients /> },
+      { path: "estoque", element: <Stock /> },
+      { path: "estoque/novo", element: <NewStockItem /> },
       { path: "clientes/:id", element: <ClientProfile /> },
-      ///{ path: "estoque", element: <Stock /> },
       //{ path: "veiculos", element: <Vehicles /> },
     ],
   },
