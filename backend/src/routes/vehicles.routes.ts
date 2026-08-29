@@ -7,10 +7,11 @@ import {
   removeController,
 } from "../controllers/vehicles.controller";
 import { asyncHandler } from "../utils/asyncHandler";
+import { ensureAuthenticated } from "../middlewares/auth.middleware";
 
 const router = Router();
 
-// TODO: quando auth.middleware.ts existir, adicionar router.use(authMiddleware) aqui
+router.use(ensureAuthenticated);
 
 router.get("/", asyncHandler(listController));
 router.get("/:id", asyncHandler(getByIdController));
