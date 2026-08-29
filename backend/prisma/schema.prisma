@@ -7,7 +7,132 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum Perfil {
+  PROPRIETARIO
+  FUNCIONARIO
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  nome       String
+  email      String   @unique
+  senha      String
+  perfil     Perfil   @default(FUNCIONARIO)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  ordens_como_mecanico ServiceOrder[] @relation("MecanicoResponsavel")
+
+  @@map("users")
+}
+
+model Client {
+  id         Int      @id @default(autoincrement())
+  nome       String
+  telefone   String
+  documento  String   @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  veiculos       Vehicle[]
+  ordens_servico ServiceOrder[]
+
+  @@index([nome])
+  @@map("clients")
+}
+
+model Vehicle {
+  id         Int      @id @default(autoincrement())
+  cliente_id Int
+  placa      String   @unique
+  marca      String
+  modelo     String
+  ano        Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  cliente        Client         @relation(fields: [cliente_id], references: [id])
+  ordens_servico ServiceOrder[]
+
+  @@index([placa])
+  @@index([cliente_id])
+  @@map("vehicles")
+}
+
+model StockItem {
+  id                Int      @id @default(autoincrement())
+  nome              String
+  quantidade        Int      @default(0)
+  quantidade_minima Int      @default(0)
+  valor_unitario    Decimal  @db.Decimal(10, 2)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  usos_em_ordens ServiceOrderPart[]
+
+  @@index([nome])
+  @@map("stock_items")
+}
+
+enum StatusOrdemServico {
+  ABERTA
+  EM_ANDAMENTO
+  FINALIZADA
+  CANCELADA
+}
+
+model ServiceOrder {
+  id          Int                @id @default(autoincrement())
+  cliente_id  Int
+  veiculo_id  Int
+  mecanico_id Int
+  status      StatusOrdemServico @default(ABERTA)
+  valor_total Decimal            @default(0) @db.Decimal(10, 2)
+  created_at  DateTime           @default(now())
+  updated_at  DateTime           @updatedAt
+
+  cliente  Client  @relation(fields: [cliente_id], references: [id])
+  veiculo  Vehicle @relation(fields: [veiculo_id], references: [id])
+  mecanico User    @relation("MecanicoResponsavel", fields: [mecanico_id], references: [id])
+
+  servicos ServiceOrderService[]
+  pecas    ServiceOrderPart[]
+
+  @@index([cliente_id])
+  @@index([veiculo_id])
+  @@index([mecanico_id])
+  @@index([status])
+  @@map("service_orders")
+}
+
+model ServiceOrderService {
+  id        Int     @id @default(autoincrement())
+  ordem_id  Int
+  descricao String
+  valor     Decimal @db.Decimal(10, 2)
+
+  ordem ServiceOrder @relation(fields: [ordem_id], references: [id], onDelete: Cascade)
+
+  @@index([ordem_id])
+  @@map("service_order_services")
+}
+
+model ServiceOrderPart {
+  id              Int @id @default(autoincrement())
+  ordem_id        Int
+  item_estoque_id Int
+  quantidade      Int
+
+  ordem        ServiceOrder @relation(fields: [ordem_id], references: [id], onDelete: Cascade)
+  item_estoque StockItem    @relation(fields: [item_estoque_id], references: [id])
+
+  @@index([ordem_id])
+  @@index([item_estoque_id])
+  @@map("service_order_parts")
 }

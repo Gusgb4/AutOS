@@ -1,17 +1,19 @@
-import express from "express";
-import cors from "cors";
+import { app } from "./app";
+import { env } from "./config/env";
+import { prisma } from "./config/prisma";
 
-const app = express();
+async function start() {
+  try {
+    await prisma.$connect();
+    console.log("✅ Conectado ao banco de dados PostgreSQL");
+  } catch (error) {
+    console.error("❌ Falha ao conectar ao banco de dados:", error);
+    process.exit(1);
+  }
 
-app.use(cors());
-app.use(express.json());
+  app.listen(env.port, () => {
+    console.log(`🚀 Servidor rodando em http://localhost:${env.port}`);
+  });
+}
 
-app.get("/", (_req, res) => {
-  res.json({ message: "API AutOS funcionando!" });
-});
-
-const PORT = 3000;
-
-app.listen(PORT, () => {
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
-});
+start();
