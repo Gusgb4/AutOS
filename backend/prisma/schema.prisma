@@ -124,14 +124,16 @@ model ServiceOrderService {
 }
 
 model ServiceOrderPart {
-  id              Int @id @default(autoincrement())
+  id              Int     @id @default(autoincrement())
   ordem_id        Int
   item_estoque_id Int
   quantidade      Int
+  valor_unitario  Decimal @db.Decimal(10, 2)
 
   ordem        ServiceOrder @relation(fields: [ordem_id], references: [id], onDelete: Cascade)
   item_estoque StockItem    @relation(fields: [item_estoque_id], references: [id])
 
+  @@unique([ordem_id, item_estoque_id])
   @@index([ordem_id])
   @@index([item_estoque_id])
   @@map("service_order_parts")
