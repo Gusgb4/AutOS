@@ -2,6 +2,7 @@ type Status =
   | "pendente"
   | "em_andamento"
   | "concluido"
+  | "fechada"
   | "cancelado"
   | "atrasado";
 
@@ -11,16 +12,20 @@ const statusConfig: Record<Status, { label: string; className: string }> = {
     className: "bg-amber-100 text-amber-700",
   },
   em_andamento: {
-    label: "Em andamento",
-    className: "bg-blue-100 text-blue-700",
+    label: "Em Andamento",
+    className: "bg-amber-100 text-amber-700",
   },
   concluido: {
     label: "Concluído",
     className: "bg-emerald-100 text-emerald-700",
   },
+  fechada: {
+    label: "Fechada",
+    className: "bg-emerald-100 text-emerald-700",
+  },
   cancelado: {
-    label: "Cancelado",
-    className: "bg-gray-100 text-gray-600",
+    label: "Cancelada",
+    className: "bg-red-100 text-red-700",
   },
   atrasado: {
     label: "Atrasado",
@@ -37,8 +42,9 @@ export default function StatusBadge({ status }: StatusBadgeProps) {
 
   return (
     <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${config.className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${config.className}`}
     >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {config.label}
     </span>
   );
