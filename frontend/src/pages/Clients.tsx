@@ -16,6 +16,10 @@ import {
   ChevronRight,
 } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
+import ClientFormModal, {
+  type ClientFormData,
+  type NewVehicleData,
+} from "../components/clients/ClientFormModal";
 
 interface Client {
   id: string;
@@ -141,6 +145,14 @@ export default function Clients() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  const [modalOpen, setModalOpen] = useState(false);
+
+  function handleSaveNewClient(data: ClientFormData, vehicle?: NewVehicleData) {
+    console.log("Criar cliente:", data, vehicle);
+    // TODO: chamar services/clients.ts -> createClient(data, vehicle)
+    setModalOpen(false);
+  }
+
   return (
     <div className="space-y-6 p-8">
       {/* Header */}
@@ -213,13 +225,14 @@ export default function Clients() {
           </button>
         </div>
 
-        <button
+      <button
           type="button"
+          onClick={() => setModalOpen(true)}
           className="flex items-center justify-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f]"
         >
           <Plus size={16} />
           Add Client
-        </button>
+      </button>
       </div>
 
       {/* Table card */}
@@ -329,6 +342,13 @@ export default function Clients() {
             </tbody>
           </table>
         </div>
+        
+        <ClientFormModal
+          mode="add"
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onSave={handleSaveNewClient}
+        />
 
         {/* Pagination */}
         <div className="flex items-center justify-between border-t border-gray-100 p-4">
