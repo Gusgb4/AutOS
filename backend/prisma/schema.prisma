@@ -36,7 +36,7 @@ model Client {
   id         Int      @id @default(autoincrement())
   nome       String
   telefone   String
-  documento  String   @unique
+  documento  String?   @unique
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 

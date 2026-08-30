@@ -199,7 +199,7 @@ export default function Clients() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nome..."
+              placeholder="Buscar por nome/placa..."
               className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#FF7518]"
             />
           </div>
@@ -274,9 +274,10 @@ export default function Clients() {
               </thead>
               <tbody>
                 {clients.map((client) => (
-                  <tr onClick={() => navigate(`/clientes/${client.id}`)}
+                  <tr
+                    onClick={() => navigate(`/clientes/${client.id}`)}
                     key={client.id}
-                    className="border-b border-gray-50 last:border-0 hover:bg-gray-100/80"
+                    className="border-b border-gray-50 last:border-0 hover:bg-gray-100/60"
                   >
                     <td className="px-5 py-4 font-medium text-[#1F1F1F]">
                       {client.nome}
@@ -304,7 +305,10 @@ export default function Clients() {
                         </Link>
                         <button
                           type="button"
-                          onClick={() => openEditModal(client)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(client);
+                          }}
                           aria-label="Editar"
                           className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
                         >
@@ -312,7 +316,10 @@ export default function Clients() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteDirect(client)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteDirect(client);
+                          }}
                           aria-label="Excluir"
                           className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
                         >
@@ -337,7 +344,6 @@ export default function Clients() {
             ? {
                 nome: editingClient.nome,
                 telefone: editingClient.telefone,
-                documento: editingClient.documento,
               }
             : undefined
         }

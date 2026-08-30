@@ -11,7 +11,6 @@ import {
   Trash2,
   History,
   Loader2,
-  IdCard,
 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
 import DisabledBadge from "../components/ui/DisabledBadge";
@@ -179,7 +178,6 @@ export default function ClientProfile() {
             Perfil do Cliente:{" "}
             <span className="text-[#FF7518]">{client.nome}</span>
           </h1>
-          <p className="text-sm text-gray-500">Documento: {client.documento}</p>
         </div>
 
         <Link
@@ -267,15 +265,6 @@ export default function ClientProfile() {
                 <div className="mt-1">
                   <DisabledBadge />
                 </div>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-400">
-                  Documento
-                </p>
-                <p className="mt-1 flex items-center gap-2 text-sm text-[#1F1F1F]">
-                  <IdCard size={14} className="text-gray-400" />
-                  {client.documento}
-                </p>
               </div>
             </div>
           </div>
@@ -423,7 +412,6 @@ export default function ClientProfile() {
         initialData={{
           nome: client.nome,
           telefone: client.telefone,
-          documento: client.documento,
         }}
         submitting={savingClient}
         onClose={() => setEditClientOpen(false)}
