@@ -3,86 +3,78 @@ import {
   X,
   User,
   Phone,
+  IdCard,
   Mail,
   MapPin,
   Calendar,
+  Lock,
   Car,
+  Tag,
+  Hash,
   Trash2,
   Check,
-  Plus,
 } from "lucide-react";
 
-export interface ClientVehicleSummary {
-  id: string;
-  modelo: string;
-  placa: string;
-}
-
 export interface ClientFormData {
-  id?: string;
   nome: string;
   telefone: string;
-  email: string;
-  endereco: string;
-  status: "ativo" | "inativo";
-  clienteDesde?: string; // só leitura no modo edit
+  documento: string;
 }
 
 export interface NewVehicleData {
+  marca: string;
   modelo: string;
-  ano: string;
   placa: string;
-  cor: string;
+  ano: number;
 }
 
 interface ClientFormModalProps {
   mode: "add" | "edit";
   open: boolean;
-  client?: ClientFormData;
-  vehicles?: ClientVehicleSummary[];
+  clientName?: string;
+  initialData?: ClientFormData;
+  submitting?: boolean;
   onClose: () => void;
   onSave: (data: ClientFormData, vehicle?: NewVehicleData) => void;
   onDelete?: () => void;
-  onAddVehicle?: () => void;
 }
 
-const emptyClient: ClientFormData = {
+const emptyForm: ClientFormData = {
   nome: "",
   telefone: "",
-  email: "",
-  endereco: "",
-  status: "ativo",
+  documento: "",
+};
+
+const emptyVehicle = {
+  marca: "",
+  modelo: "",
+  placa: "",
+  ano: "",
 };
 
 export default function ClientFormModal({
   mode,
   open,
-  client,
-  vehicles = [],
+  clientName,
+  initialData,
+  submitting = false,
   onClose,
   onSave,
   onDelete,
-  onAddVehicle,
 }: ClientFormModalProps) {
   const isEdit = mode === "edit";
+  const [form, setForm] = useState<ClientFormData>(initialData ?? emptyForm);
 
-  const [form, setForm] = useState<ClientFormData>(client ?? emptyClient);
   const [wantsVehicle, setWantsVehicle] = useState(false);
-  const [vehicle, setVehicle] = useState<NewVehicleData>({
-    modelo: "",
-    ano: "",
-    placa: "",
-    cor: "",
-  });
+  const [vehicle, setVehicle] = useState(emptyVehicle);
 
-  // Sincroniza o form quando abre/troca de cliente
   useEffect(() => {
     if (open) {
-      setForm(client ?? emptyClient);
+      setForm(initialData ?? emptyForm);
       setWantsVehicle(false);
-      setVehicle({ modelo: "", ano: "", placa: "", cor: "" });
+      setVehicle(emptyVehicle);
     }
-  }, [open, client]);
+  }, [open, initialData]);
 
   if (!open) return null;
 
@@ -93,12 +85,28 @@ export default function ClientFormModal({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function handleVehicleChange(key: keyof typeof emptyVehicle, value: string) {
+    setVehicle((prev) => ({ ...prev, [key]: value }));
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const vehiclePayload =
-      !isEdit && wantsVehicle && vehicle.modelo && vehicle.placa
-        ? vehicle
-        : undefined;
+
+    let vehiclePayload: NewVehicleData | undefined;
+
+    if (!isEdit && wantsVehicle) {
+      if (!vehicle.marca || !vehicle.modelo || !vehicle.placa || !vehicle.ano) {
+        alert("Preencha todos os campos do veículo ou desative a opção de adicionar veículo.");
+        return;
+      }
+      vehiclePayload = {
+        marca: vehicle.marca,
+        modelo: vehicle.modelo,
+        placa: vehicle.placa,
+        ano: Number(vehicle.ano),
+      };
+    }
+
     onSave(form, vehiclePayload);
   }
 
@@ -115,7 +123,7 @@ export default function ClientFormModal({
               {isEdit ? (
                 <>
                   Editar Cliente:{" "}
-                  <span className="text-[#FF7518]">{client?.nome}</span>
+                  <span className="text-[#FF7518]">{clientName}</span>
                 </>
               ) : (
                 "Novo Cliente"
@@ -145,7 +153,7 @@ export default function ClientFormModal({
         >
           <SectionLabel>Dados pessoais</SectionLabel>
 
-          <div className="mb-3.5 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <div className="mb-1 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <Field label="Nome completo" full>
               <InputWithIcon icon={User}>
                 <input
@@ -172,68 +180,81 @@ export default function ClientFormModal({
               </InputWithIcon>
             </Field>
 
-            <Field label="Email" optional>
-              <InputWithIcon icon={Mail}>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
-                  placeholder="nome@email.com"
-                  className="input-field"
-                />
-              </InputWithIcon>
-            </Field>
-
-            <Field label="Endereço" optional full>
-              <InputWithIcon icon={MapPin}>
+            <Field label="Documento (CPF/CNPJ)">
+              <InputWithIcon icon={IdCard}>
                 <input
                   type="text"
-                  value={form.endereco}
-                  onChange={(e) => handleChange("endereco", e.target.value)}
-                  placeholder="Rua, número - Bairro"
+                  value={form.documento}
+                  onChange={(e) => handleChange("documento", e.target.value)}
+                  placeholder="000.000.000-00"
+                  required
                   className="input-field"
                 />
               </InputWithIcon>
             </Field>
 
-            <Field label="Status">
-              <div className="flex gap-2">
-                <StatusPill
-                  label="Ativo"
-                  color="green"
-                  active={form.status === "ativo"}
-                  onClick={() => handleChange("status", "ativo")}
+            {/* -------- Campos desativados (ainda não suportados pelo backend) -------- */}
+
+            <Field label="Email" optional disabled>
+              <InputWithIcon icon={Mail} disabled>
+                <input
+                  type="email"
+                  value=""
+                  disabled
+                  placeholder="Desativado"
+                  className="input-field input-field-disabled"
                 />
-                <StatusPill
-                  label="Inativo"
-                  color="gray"
-                  active={form.status === "inativo"}
-                  onClick={() => handleChange("status", "inativo")}
+              </InputWithIcon>
+            </Field>
+
+            <Field label="Endereço" optional disabled full>
+              <InputWithIcon icon={MapPin} disabled>
+                <input
+                  type="text"
+                  value=""
+                  disabled
+                  placeholder="Desativado"
+                  className="input-field input-field-disabled"
                 />
+              </InputWithIcon>
+            </Field>
+
+            <Field label="Status" disabled>
+              <div className="flex gap-2 opacity-50">
+                <button
+                  type="button"
+                  disabled
+                  className="flex flex-1 cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border-[1.5px] border-gray-200 bg-gray-50 px-2.5 py-2 text-xs font-bold text-gray-400"
+                >
+                  <Lock size={11} />
+                  Desativado
+                </button>
               </div>
             </Field>
 
-            <Field label="Cliente desde">
+            <Field label="Cliente desde" disabled>
               <div className="relative">
                 <Calendar
                   size={15}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-300"
                 />
                 <input
                   type="text"
                   disabled
-                  value={
-                    isEdit
-                      ? client?.clienteDesde ?? ""
-                      : "Definido automaticamente ao salvar"
-                  }
-                  className="w-full rounded-lg border border-dashed border-gray-200 bg-gray-100 py-2.5 pl-9 pr-3 text-sm text-gray-500 outline-none"
+                  value="Desativado"
+                  className="w-full rounded-lg border border-dashed border-gray-200 bg-gray-100 py-2.5 pl-9 pr-3 text-sm text-gray-400 outline-none"
                 />
               </div>
             </Field>
           </div>
 
-          {/* Modo ADD — toggle de veículo */}
+          <p className="mb-4 mt-2 flex items-center gap-1.5 text-xs text-gray-400">
+            <Lock size={12} />
+            Os campos acima ainda não são suportados pelo sistema e não serão
+            salvos.
+          </p>
+
+          {/* -------- Veículo (só no modo "add") -------- */}
           {!isEdit && (
             <>
               <button
@@ -268,87 +289,69 @@ export default function ClientFormModal({
               </button>
 
               {wantsVehicle && (
-                <div className="mb-3.5 rounded-xl border border-gray-200 p-3.5">
+                <div className="mb-2 rounded-xl border border-gray-200 p-3.5">
                   <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                    <Field label="Modelo">
-                      <input
-                        type="text"
-                        value={vehicle.modelo}
-                        onChange={(e) =>
-                          setVehicle((v) => ({ ...v, modelo: e.target.value }))
-                        }
-                        placeholder="Ex: Toyota Camry"
-                        className="input-field-plain"
-                      />
+                    <Field label="Marca">
+                      <InputWithIcon icon={Tag}>
+                        <input
+                          type="text"
+                          value={vehicle.marca}
+                          onChange={(e) =>
+                            handleVehicleChange("marca", e.target.value)
+                          }
+                          placeholder="Ex: Toyota"
+                          className="input-field"
+                        />
+                      </InputWithIcon>
                     </Field>
-                    <Field label="Ano">
-                      <input
-                        type="text"
-                        value={vehicle.ano}
-                        onChange={(e) =>
-                          setVehicle((v) => ({ ...v, ano: e.target.value }))
-                        }
-                        placeholder="Ex: 2019"
-                        className="input-field-plain"
-                      />
+                    <Field label="Modelo">
+                      <InputWithIcon icon={Car}>
+                        <input
+                          type="text"
+                          value={vehicle.modelo}
+                          onChange={(e) =>
+                            handleVehicleChange("modelo", e.target.value)
+                          }
+                          placeholder="Ex: Camry"
+                          className="input-field"
+                        />
+                      </InputWithIcon>
                     </Field>
                     <Field label="Placa">
-                      <input
-                        type="text"
-                        value={vehicle.placa}
-                        onChange={(e) =>
-                          setVehicle((v) => ({ ...v, placa: e.target.value }))
-                        }
-                        placeholder="ABC-1234"
-                        className="input-field-plain"
-                      />
+                      <InputWithIcon icon={Hash}>
+                        <input
+                          type="text"
+                          value={vehicle.placa}
+                          onChange={(e) =>
+                            handleVehicleChange(
+                              "placa",
+                              e.target.value.toUpperCase(),
+                            )
+                          }
+                          placeholder="ABC-1234"
+                          className="input-field uppercase"
+                        />
+                      </InputWithIcon>
                     </Field>
-                    <Field label="Cor">
-                      <input
-                        type="text"
-                        value={vehicle.cor}
-                        onChange={(e) =>
-                          setVehicle((v) => ({ ...v, cor: e.target.value }))
-                        }
-                        placeholder="Ex: Azul Marinho"
-                        className="input-field-plain"
-                      />
+                    <Field label="Ano">
+                      <InputWithIcon icon={Calendar}>
+                        <input
+                          type="number"
+                          value={vehicle.ano}
+                          onChange={(e) =>
+                            handleVehicleChange("ano", e.target.value)
+                          }
+                          placeholder="Ex: 2019"
+                          min={1900}
+                          max={new Date().getFullYear() + 1}
+                          className="input-field"
+                        />
+                      </InputWithIcon>
                     </Field>
                   </div>
                 </div>
               )}
             </>
-          )}
-
-          {/* Modo EDIT — veículos matriculados */}
-          {isEdit && (
-            <div>
-              <SectionLabel>Veículos matriculados</SectionLabel>
-              <div className="flex flex-wrap gap-2">
-                {vehicles.map((v) => (
-                  <span
-                    key={v.id}
-                    className="flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 py-1.5 pl-2 pr-3.5 text-xs font-semibold"
-                  >
-                    <span className="flex h-5.5 w-5.5 items-center justify-center rounded-full bg-purple-50 text-purple-600">
-                      <Car size={12} />
-                    </span>
-                    {v.modelo}
-                    <span className="font-medium text-gray-400">
-                      {v.placa}
-                    </span>
-                  </span>
-                ))}
-                <button
-                  type="button"
-                  onClick={onAddVehicle}
-                  className="flex items-center gap-1.5 rounded-full border border-dashed border-[#FF7518]/40 bg-white px-3.5 py-1.5 text-xs font-semibold text-[#FF7518] hover:bg-[#FF7518]/5"
-                >
-                  <Plus size={12} />
-                  Adicionar veículo
-                </button>
-              </div>
-            </div>
           )}
         </form>
 
@@ -376,16 +379,20 @@ export default function ClientFormModal({
             <button
               type="submit"
               form="client-form"
-              className="flex items-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#FF7518]/30 hover:bg-[#e6690f]"
+              disabled={submitting}
+              className="flex items-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#FF7518]/30 hover:bg-[#e6690f] disabled:opacity-60"
             >
               <Check size={15} />
-              {isEdit ? "Salvar Alterações" : "Salvar Cliente"}
+              {submitting
+                ? "Salvando..."
+                : isEdit
+                  ? "Salvar Alterações"
+                  : "Salvar Cliente"}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Estilos utilitários para os inputs com ícone */}
       <style>{`
         .input-field {
           width: 100%;
@@ -403,28 +410,19 @@ export default function ClientFormModal({
           background: #fff;
           box-shadow: 0 0 0 3px #FDE7DA;
         }
-        .input-field-plain {
-          width: 100%;
-          font-size: 13.5px;
-          color: #1B2130;
-          border: 1.5px solid #E7E9EE;
-          border-radius: 7px;
-          padding: 10px 12px;
-          background: #FBFBFC;
-          outline: none;
-          transition: 0.13s;
+        .input-field-disabled {
+          background: #F3F4F6 !important;
+          color: #9AA4B8 !important;
+          border-style: dashed !important;
+          cursor: not-allowed;
         }
-        .input-field-plain:focus {
-          border-color: #FF7518;
-          background: #fff;
-          box-shadow: 0 0 0 3px #FDE7DA;
+        .input-field-disabled::placeholder {
+          color: #B4BAC6;
         }
       `}</style>
     </div>
   );
 }
-
-/* ---------- Subcomponentes internos ---------- */
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -441,13 +439,18 @@ interface FieldProps {
   label: string;
   optional?: boolean;
   full?: boolean;
+  disabled?: boolean;
   children: React.ReactNode;
 }
 
-function Field({ label, optional, full, children }: FieldProps) {
+function Field({ label, optional, full, disabled, children }: FieldProps) {
   return (
     <div className={`flex flex-col gap-1.5 ${full ? "sm:col-span-2" : ""}`}>
-      <label className="text-xs font-semibold text-[#1B2130]">
+      <label
+        className={`text-xs font-semibold ${
+          disabled ? "text-gray-400" : "text-[#1B2130]"
+        }`}
+      >
         {label}{" "}
         {optional && (
           <span className="font-medium text-gray-400">(opcional)</span>
@@ -460,50 +463,22 @@ function Field({ label, optional, full, children }: FieldProps) {
 
 function InputWithIcon({
   icon: Icon,
+  disabled,
   children,
 }: {
   icon: typeof User;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="relative">
       <Icon
         size={15}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+        className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${
+          disabled ? "text-gray-300" : "text-gray-400"
+        }`}
       />
       {children}
     </div>
-  );
-}
-
-function StatusPill({
-  label,
-  color,
-  active,
-  onClick,
-}: {
-  label: string;
-  color: "green" | "gray";
-  active: boolean;
-  onClick: () => void;
-}) {
-  const activeClasses =
-    color === "green"
-      ? "border-emerald-500 text-emerald-600 bg-emerald-50"
-      : "border-gray-300 text-gray-600 bg-gray-100";
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border-[1.5px] px-2.5 py-2 text-xs font-bold transition ${
-        active
-          ? activeClasses
-          : "border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100"
-      }`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {label}
-    </button>
   );
 }
