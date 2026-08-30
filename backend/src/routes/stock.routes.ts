@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { StockController } from '../controllers/StockController';
+import { StockController } from '../controllers/stock.controller';
 import { ensureAuthenticated } from '../middlewares/auth.middleware';
 
 const stockRoutes = Router();
