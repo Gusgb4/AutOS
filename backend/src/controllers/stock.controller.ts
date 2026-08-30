@@ -6,6 +6,8 @@ const prisma = new PrismaClient();
 
 const stockItemSchema = z.object({
   nome: z.string().min(1, 'Nome do item é obrigatório'),
+  categoria: z.string().trim().min(1).optional(),
+  fornecedor: z.string().trim().min(1).optional(),
   quantidade: z.number().int().nonnegative('Quantidade não pode ser negativa'),
   quantidade_minima: z.number().int().nonnegative('Quantidade mínima não pode ser negativa'),
   valor_unitario: z.number().positive('Valor unitário deve ser maior que zero'),
@@ -122,6 +124,16 @@ export class StockController {
 
       if (!itemExists) {
         return res.status(404).json({ error: 'Item de estoque não encontrado' });
+      }
+
+      const emUso = await prisma.serviceOrderPart.count({
+        where: { item_estoque_id: Number(id) },
+      });
+
+      if (emUso > 0) {
+        return res.status(409).json({
+          error: 'Este item já foi usado em ordens de serviço e não pode ser excluído.',
+        });
       }
 
       await prisma.stockItem.delete({
