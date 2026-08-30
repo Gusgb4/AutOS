@@ -226,7 +226,7 @@ export default function Clients() {
           className="flex items-center justify-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f]"
         >
           <Plus size={16} />
-          Add Client
+          Adicionar Cliente
         </button>
       </div>
 
