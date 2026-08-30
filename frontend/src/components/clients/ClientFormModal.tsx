@@ -3,7 +3,6 @@ import {
   X,
   User,
   Phone,
-  IdCard,
   Mail,
   MapPin,
   Calendar,
@@ -18,7 +17,6 @@ import {
 export interface ClientFormData {
   nome: string;
   telefone: string;
-  documento: string;
 }
 
 export interface NewVehicleData {
@@ -42,7 +40,6 @@ interface ClientFormModalProps {
 const emptyForm: ClientFormData = {
   nome: "",
   telefone: "",
-  documento: "",
 };
 
 const emptyVehicle = {
@@ -96,7 +93,9 @@ export default function ClientFormModal({
 
     if (!isEdit && wantsVehicle) {
       if (!vehicle.marca || !vehicle.modelo || !vehicle.placa || !vehicle.ano) {
-        alert("Preencha todos os campos do veículo ou desative a opção de adicionar veículo.");
+        alert(
+          "Preencha todos os campos do veículo ou desative a opção de adicionar veículo.",
+        );
         return;
       }
       vehiclePayload = {
@@ -180,19 +179,6 @@ export default function ClientFormModal({
               </InputWithIcon>
             </Field>
 
-            <Field label="Documento (CPF/CNPJ)">
-              <InputWithIcon icon={IdCard}>
-                <input
-                  type="text"
-                  value={form.documento}
-                  onChange={(e) => handleChange("documento", e.target.value)}
-                  placeholder="000.000.000-00"
-                  required
-                  className="input-field"
-                />
-              </InputWithIcon>
-            </Field>
-
             {/* -------- Campos desativados (ainda não suportados pelo backend) -------- */}
 
             <Field label="Email" optional disabled>
@@ -217,34 +203,6 @@ export default function ClientFormModal({
                   className="input-field input-field-disabled"
                 />
               </InputWithIcon>
-            </Field>
-
-            <Field label="Status" disabled>
-              <div className="flex gap-2 opacity-50">
-                <button
-                  type="button"
-                  disabled
-                  className="flex flex-1 cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border-[1.5px] border-gray-200 bg-gray-50 px-2.5 py-2 text-xs font-bold text-gray-400"
-                >
-                  <Lock size={11} />
-                  Desativado
-                </button>
-              </div>
-            </Field>
-
-            <Field label="Cliente desde" disabled>
-              <div className="relative">
-                <Calendar
-                  size={15}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-300"
-                />
-                <input
-                  type="text"
-                  disabled
-                  value="Desativado"
-                  className="w-full rounded-lg border border-dashed border-gray-200 bg-gray-100 py-2.5 pl-9 pr-3 text-sm text-gray-400 outline-none"
-                />
-              </div>
             </Field>
           </div>
 

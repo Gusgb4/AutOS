@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Users,
   Car,
@@ -28,6 +28,7 @@ import {
 } from "../services/clients";
 
 export default function Clients() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +117,7 @@ export default function Clients() {
     } finally {
       setSubmitting(false);
     }
-  } 
+  }
 
   async function handleDelete() {
     if (!editingClient) return;
@@ -146,10 +147,7 @@ export default function Clients() {
     }
   }
 
-  const totalVeiculos = clients.reduce(
-    (acc, c) => acc + c.veiculos.length,
-    0,
-  );
+  const totalVeiculos = clients.reduce((acc, c) => acc + c.veiculos.length, 0);
 
   return (
     <div className="space-y-6 p-8">
@@ -175,8 +173,18 @@ export default function Clients() {
           icon={Car}
           accentColor="#A855F7"
         />
-        <StatCard label="NOVOS NESTE MÊS" value="—" icon={Users} accentColor="#10B981" />
-        <StatCard label="ORDENS ATIVAS" value="—" icon={Users} accentColor="#2563EB" />
+        <StatCard
+          label="NOVOS NESTE MÊS"
+          value="—"
+          icon={Users}
+          accentColor="#10B981"
+        />
+        <StatCard
+          label="ORDENS ATIVAS"
+          value="—"
+          icon={Users}
+          accentColor="#2563EB"
+        />
       </div>
 
       {/* Search + actions bar */}
@@ -191,7 +199,7 @@ export default function Clients() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nome..."
+              placeholder="Buscar por nome/placa..."
               className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#FF7518]"
             />
           </div>
@@ -219,7 +227,7 @@ export default function Clients() {
           className="flex items-center justify-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f]"
         >
           <Plus size={16} />
-          Add Client
+          Adicionar Cliente
         </button>
       </div>
 
@@ -232,7 +240,7 @@ export default function Clients() {
               <Users size={18} />
             </div>
             <div>
-              <p className="font-semibold text-[#1F1F1F]">Clientes Totais</p>
+              <p className="font-semibold text-[#1F1F1F]">Clientes</p>
               <p className="text-xs text-gray-500">
                 Mostrando {clients.length} clientes
               </p>
@@ -259,7 +267,6 @@ export default function Clients() {
                 <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-5 py-3 font-medium">Cliente</th>
                   <th className="px-5 py-3 font-medium">Telefone</th>
-                  <th className="px-5 py-3 font-medium">Documento</th>
                   <th className="px-5 py-3 font-medium">Email</th>
                   <th className="px-5 py-3 font-medium">Veículos</th>
                   <th className="px-5 py-3 text-right font-medium">Ações</th>
@@ -268,17 +275,15 @@ export default function Clients() {
               <tbody>
                 {clients.map((client) => (
                   <tr
+                    onClick={() => navigate(`/clientes/${client.id}`)}
                     key={client.id}
-                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
+                    className="border-b border-gray-50 last:border-0 hover:bg-gray-100/60"
                   >
                     <td className="px-5 py-4 font-medium text-[#1F1F1F]">
                       {client.nome}
                     </td>
                     <td className="px-5 py-4 text-gray-600">
                       {client.telefone}
-                    </td>
-                    <td className="px-5 py-4 text-gray-600">
-                      {client.documento}
                     </td>
                     <td className="px-5 py-4">
                       <DisabledBadge />
@@ -300,7 +305,10 @@ export default function Clients() {
                         </Link>
                         <button
                           type="button"
-                          onClick={() => openEditModal(client)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(client);
+                          }}
                           aria-label="Editar"
                           className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
                         >
@@ -308,7 +316,10 @@ export default function Clients() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteDirect(client)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteDirect(client);
+                          }}
                           aria-label="Excluir"
                           className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
                         >
@@ -333,7 +344,6 @@ export default function Clients() {
             ? {
                 nome: editingClient.nome,
                 telefone: editingClient.telefone,
-                documento: editingClient.documento,
               }
             : undefined
         }

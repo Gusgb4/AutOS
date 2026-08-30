@@ -5,20 +5,18 @@ export interface Client {
   id: number;
   nome: string;
   telefone: string;
-  documento: string;
+  documento?: string;
   veiculos: Vehicle[];
 }
 
 export interface CreateClientPayload {
   nome: string;
   telefone: string;
-  documento: string;
 }
 
 export interface UpdateClientPayload {
   nome?: string;
   telefone?: string;
-  documento?: string;
 }
 
 export async function listClients(busca?: string): Promise<Client[]> {

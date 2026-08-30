@@ -11,7 +11,6 @@ import {
   Trash2,
   History,
   Loader2,
-  IdCard,
 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
 import DisabledBadge from "../components/ui/DisabledBadge";
@@ -21,11 +20,7 @@ import ClientFormModal, {
 import VehicleFormModal, {
   type VehicleFormData,
 } from "../components/clients/VehicleFormModal";
-import {
-  getClientById,
-  updateClient,
-  type Client,
-} from "../services/clients";
+import { getClientById, updateClient, type Client } from "../services/clients";
 import {
   createVehicle,
   updateVehicle,
@@ -183,9 +178,6 @@ export default function ClientProfile() {
             Perfil do Cliente:{" "}
             <span className="text-[#FF7518]">{client.nome}</span>
           </h1>
-          <p className="text-sm text-gray-500">
-            Documento: {client.documento}
-          </p>
         </div>
 
         <Link
@@ -274,15 +266,6 @@ export default function ClientProfile() {
                   <DisabledBadge />
                 </div>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-400">
-                  Documento
-                </p>
-                <p className="mt-1 flex items-center gap-2 text-sm text-[#1F1F1F]">
-                  <IdCard size={14} className="text-gray-400" />
-                  {client.documento}
-                </p>
-              </div>
             </div>
           </div>
 
@@ -318,9 +301,7 @@ export default function ClientProfile() {
               <Car size={18} />
             </div>
             <div>
-              <p className="font-semibold text-[#1F1F1F]">
-                Veículos matriculados
-              </p>
+              <p className="font-semibold text-[#1F1F1F]">Veículos</p>
               <p className="text-xs text-gray-500">
                 {client.veiculos.length} veículo(s) registrado(s)
               </p>
@@ -418,8 +399,8 @@ export default function ClientProfile() {
         </div>
 
         <div className="p-10 text-center text-sm text-gray-400">
-          Esta seção será conectada quando o módulo de Ordens de Serviço
-          estiver disponível no backend.
+          Esta seção será conectada quando o módulo de Ordens de Serviço estiver
+          disponível no backend.
         </div>
       </div>
 
@@ -431,7 +412,6 @@ export default function ClientProfile() {
         initialData={{
           nome: client.nome,
           telefone: client.telefone,
-          documento: client.documento,
         }}
         submitting={savingClient}
         onClose={() => setEditClientOpen(false)}

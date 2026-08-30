@@ -4,7 +4,16 @@ import { prisma } from "../config/prisma";
 export async function search(termo?: string) {
   return prisma.client.findMany({
     where: termo
-      ? { nome: { contains: termo, mode: "insensitive" } }
+      ? {
+          OR: [
+            { nome: { contains: termo, mode: "insensitive" } },
+            {
+              veiculos: {
+                some: { placa: { contains: termo, mode: "insensitive" } },
+              },
+            },
+          ],
+        }
       : undefined,
     include: { veiculos: true },
     orderBy: { nome: "asc" },
@@ -15,7 +24,7 @@ export async function search(termo?: string) {
 interface CreateClientInput {
   nome: string;
   telefone: string;
-  documento: string;
+  documento?: string;
 }
 
 export async function create(dados: CreateClientInput) {
