@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Users,
   Car,
@@ -28,6 +28,7 @@ import {
 } from "../services/clients";
 
 export default function Clients() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -266,7 +267,6 @@ export default function Clients() {
                 <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-5 py-3 font-medium">Cliente</th>
                   <th className="px-5 py-3 font-medium">Telefone</th>
-                  <th className="px-5 py-3 font-medium">Documento</th>
                   <th className="px-5 py-3 font-medium">Email</th>
                   <th className="px-5 py-3 font-medium">Veículos</th>
                   <th className="px-5 py-3 text-right font-medium">Ações</th>
@@ -274,18 +274,15 @@ export default function Clients() {
               </thead>
               <tbody>
                 {clients.map((client) => (
-                  <tr
+                  <tr onClick={() => navigate(`/clientes/${client.id}`)}
                     key={client.id}
-                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
+                    className="border-b border-gray-50 last:border-0 hover:bg-gray-100/80"
                   >
                     <td className="px-5 py-4 font-medium text-[#1F1F1F]">
                       {client.nome}
                     </td>
                     <td className="px-5 py-4 text-gray-600">
                       {client.telefone}
-                    </td>
-                    <td className="px-5 py-4 text-gray-600">
-                      {client.documento}
                     </td>
                     <td className="px-5 py-4">
                       <DisabledBadge />
