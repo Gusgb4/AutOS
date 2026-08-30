@@ -57,7 +57,7 @@ model Vehicle {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  cliente        Client         @relation(fields: [cliente_id], references: [id])
+  cliente        Client         @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
   ordens_servico ServiceOrder[]
 
   @@index([placa])
@@ -97,9 +97,9 @@ model ServiceOrder {
   created_at  DateTime           @default(now())
   updated_at  DateTime           @updatedAt
 
-  cliente  Client  @relation(fields: [cliente_id], references: [id])
-  veiculo  Vehicle @relation(fields: [veiculo_id], references: [id])
-  mecanico User    @relation("MecanicoResponsavel", fields: [mecanico_id], references: [id])
+  cliente Client  @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+  veiculo Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Cascade)
+  mecanico User   @relation("MecanicoResponsavel", fields: [mecanico_id], references: [id])
 
   servicos ServiceOrderService[]
   pecas    ServiceOrderPart[]
