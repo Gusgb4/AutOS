@@ -29,6 +29,7 @@ export const router = createBrowserRouter([
           { path: "clientes/:id", element: <ClientProfile /> },
           { path: "estoque", element: <Stock /> },
           { path: "estoque/novo", element: <NewStockItem /> },
+          { path: "estoque/:id/editar", element: <NewStockItem /> },
           /// { path: "veiculos", element: <Vehicles /> },
         ],
       },

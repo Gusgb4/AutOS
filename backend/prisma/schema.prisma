@@ -68,6 +68,8 @@ model Vehicle {
 model StockItem {
   id                Int      @id @default(autoincrement())
   nome              String
+  categoria         String?
+  fornecedor        String?
   quantidade        Int      @default(0)
   quantidade_minima Int      @default(0)
   valor_unitario    Decimal  @db.Decimal(10, 2)
