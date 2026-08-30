@@ -116,7 +116,7 @@ export default function Clients() {
     } finally {
       setSubmitting(false);
     }
-  } 
+  }
 
   async function handleDelete() {
     if (!editingClient) return;
@@ -146,10 +146,7 @@ export default function Clients() {
     }
   }
 
-  const totalVeiculos = clients.reduce(
-    (acc, c) => acc + c.veiculos.length,
-    0,
-  );
+  const totalVeiculos = clients.reduce((acc, c) => acc + c.veiculos.length, 0);
 
   return (
     <div className="space-y-6 p-8">
@@ -175,8 +172,18 @@ export default function Clients() {
           icon={Car}
           accentColor="#A855F7"
         />
-        <StatCard label="NOVOS NESTE MÊS" value="—" icon={Users} accentColor="#10B981" />
-        <StatCard label="ORDENS ATIVAS" value="—" icon={Users} accentColor="#2563EB" />
+        <StatCard
+          label="NOVOS NESTE MÊS"
+          value="—"
+          icon={Users}
+          accentColor="#10B981"
+        />
+        <StatCard
+          label="ORDENS ATIVAS"
+          value="—"
+          icon={Users}
+          accentColor="#2563EB"
+        />
       </div>
 
       {/* Search + actions bar */}
@@ -232,7 +239,7 @@ export default function Clients() {
               <Users size={18} />
             </div>
             <div>
-              <p className="font-semibold text-[#1F1F1F]">Clientes Totais</p>
+              <p className="font-semibold text-[#1F1F1F]">Clientes</p>
               <p className="text-xs text-gray-500">
                 Mostrando {clients.length} clientes
               </p>
