@@ -62,6 +62,15 @@ export default function Login() {
     }
   }
 
+  function toggleMode(next: Mode) {
+    setMode(next);
+    setError(null);
+    setNome("");
+    setEmail("");
+    setSenha("");
+    setConfirmarSenha("");
+  }
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#151515] px-4 py-10">
       {/* Glow decorativo no topo */}
@@ -99,6 +108,13 @@ export default function Login() {
 
         {/* Card */}
         <div className="rounded-2xl border border-white/5 bg-[#1C1C1C] p-6 shadow-xl">
+          {/* Mensagem de erro da API */}
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
           {/* Google */}
           <button
             type="button"
@@ -128,7 +144,11 @@ export default function Login() {
                   />
                   <input
                     type="text"
+                    value={nome}
+                    onChange={(e) => setNome(e.target.value)}
                     placeholder="William Squena"
+                    required
+                    minLength={2}
                     className="w-full rounded-xl border border-white/10 bg-[#242424] py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-gray-500 outline-none focus:border-[#FF7518]"
                   />
                 </div>
@@ -143,7 +163,10 @@ export default function Login() {
                 />
                 <input
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="você@email.com"
+                  required
                   className="w-full rounded-xl border border-white/10 bg-[#242424] py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-gray-500 outline-none focus:border-[#FF7518]"
                 />
               </div>
@@ -169,9 +192,13 @@ export default function Login() {
                 />
                 <input
                   type={showPassword ? "text" : "password"}
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
                   placeholder={
                     isLogin ? "Coloque sua senha" : "Crie uma senha forte"
                   }
+                  required
+                  minLength={6}
                   className="w-full rounded-xl border border-white/10 bg-[#242424] py-2.5 pl-9 pr-9 text-sm text-white placeholder:text-gray-500 outline-none focus:border-[#FF7518]"
                 />
                 <button
@@ -194,7 +221,10 @@ export default function Login() {
                   />
                   <input
                     type={showConfirmPassword ? "text" : "password"}
+                    value={confirmarSenha}
+                    onChange={(e) => setConfirmarSenha(e.target.value)}
                     placeholder="Reescreva sua senha"
+                    required
                     className="w-full rounded-xl border border-white/10 bg-[#242424] py-2.5 pl-9 pr-9 text-sm text-white placeholder:text-gray-500 outline-none focus:border-[#FF7518]"
                   />
                   <button
@@ -216,14 +246,21 @@ export default function Login() {
             )}
 
             {/* Checkbox */}
-            <label className="flex items-start gap-2 text-xs text-gray-400">
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#242424] accent-[#FF7518]"
-              />
-              {isLogin ? (
+            {isLogin ? (
+              <label className="flex items-start gap-2 text-xs text-gray-400">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#242424] accent-[#FF7518]"
+                />
                 <span>Lembre-me por 30 dias</span>
-              ) : (
+              </label>
+            ) : (
+              <label className="flex items-start gap-2 text-xs text-gray-400">
+                <input
+                  type="checkbox"
+                  required
+                  className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#242424] accent-[#FF7518]"
+                />
                 <span>
                   Eu concordo com os{" "}
                   <a href="#" className="text-[#FF7518] hover:underline">
@@ -234,16 +271,23 @@ export default function Login() {
                     Política de Privacidade
                   </a>
                 </span>
-              )}
-            </label>
+              </label>
+            )}
 
             {/* Submit */}
             <button
               type="submit"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF7518] py-3 text-sm font-semibold text-white transition hover:bg-[#e6690f]"
+              disabled={submitting}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#FF7518] py-3 text-sm font-semibold text-white transition hover:bg-[#e6690f] disabled:opacity-60"
             >
-              {isLogin ? "Continue para o Menu" : "Crie sua conta"}
-              <ArrowRight size={16} />
+              {submitting ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <>
+                  {isLogin ? "Continue para o Menu" : "Crie sua conta"}
+                  <ArrowRight size={16} />
+                </>
+              )}
             </button>
           </form>
 
@@ -254,7 +298,7 @@ export default function Login() {
                 Não tem conta?{" "}
                 <button
                   type="button"
-                  onClick={() => setMode("register")}
+                  onClick={() => toggleMode("register")}
                   className="font-medium text-[#FF7518] hover:underline"
                 >
                   Crie uma agora já!
@@ -265,7 +309,7 @@ export default function Login() {
                 Já tenho uma conta?{" "}
                 <button
                   type="button"
-                  onClick={() => setMode("login")}
+                  onClick={() => toggleMode("login")}
                   className="font-medium text-[#FF7518] hover:underline"
                 >
                   Entre!
