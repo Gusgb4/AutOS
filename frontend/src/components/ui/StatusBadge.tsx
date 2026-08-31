@@ -1,34 +1,20 @@
-type Status =
-  | "pendente"
-  | "em_andamento"
-  | "concluido"
-  | "fechada"
-  | "cancelado"
-  | "atrasado";
+type Status = "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA";
 
 const statusConfig: Record<Status, { label: string; className: string }> = {
-  pendente: {
-    label: "Pendente",
-    className: "bg-amber-100 text-amber-700",
+  ABERTA: {
+    label: "Aberta",
+    className: "bg-blue-100 text-blue-700",
   },
-  em_andamento: {
+  EM_ANDAMENTO: {
     label: "Em Andamento",
     className: "bg-amber-100 text-amber-700",
   },
-  concluido: {
-    label: "Concluído",
+  FINALIZADA: {
+    label: "Finalizada",
     className: "bg-emerald-100 text-emerald-700",
   },
-  fechada: {
-    label: "Fechada",
-    className: "bg-emerald-100 text-emerald-700",
-  },
-  cancelado: {
+  CANCELADA: {
     label: "Cancelada",
-    className: "bg-red-100 text-red-700",
-  },
-  atrasado: {
-    label: "Atrasado",
     className: "bg-red-100 text-red-700",
   },
 };

@@ -9,6 +9,8 @@ import NewStockItem from "../pages/NewStockItem";
 /// import Vehicles from "../pages/Vehicles";
 import Stock from "../pages/Stock";
 import ServiceOrders from "../pages/ServiceOrders";
+import NewServiceOrder from "../pages/NewServiceOrder";
+import ServiceOrderDetails from "../pages/ServiceOrderDetails";
 import NotFound from "../pages/NotFound";
 
 export const router = createBrowserRouter([
@@ -25,11 +27,14 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <Dashboard /> },
           { path: "ordens-servico", element: <ServiceOrders /> },
+          { path: "ordens-servico/:id", element: <ServiceOrderDetails /> },
           { path: "clientes", element: <Clients /> },
           { path: "clientes/:id", element: <ClientProfile /> },
           { path: "estoque", element: <Stock /> },
           { path: "estoque/novo", element: <NewStockItem /> },
           { path: "estoque/:id/editar", element: <NewStockItem /> },
+          { path: "ordens-servico/novo", element: <NewServiceOrder /> },
+
           /// { path: "veiculos", element: <Vehicles /> },
         ],
       },

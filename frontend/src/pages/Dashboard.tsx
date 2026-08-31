@@ -1,12 +1,12 @@
-import { ClipboardList, DollarSign, Users, Wrench } from "lucide-react";
+import { ClipboardList, Users, Wrench } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
 import StatusBadge from "../components/ui/StatusBadge";
 
 const recentOrders = [
-  { id: "OS-1023", cliente: "João Silva", status: "em_andamento" as const },
-  { id: "OS-1022", cliente: "Maria Souza", status: "concluido" as const },
-  { id: "OS-1021", cliente: "Pedro Lima", status: "atrasado" as const },
-  { id: "OS-1020", cliente: "Ana Costa", status: "pendente" as const },
+  { id: "OS-1023", cliente: "João Silva", status: "EM_ANDAMENTO" as const },
+  { id: "OS-1022", cliente: "Maria Souza", status: "FINALIZADA" as const },
+  { id: "OS-1021", cliente: "Pedro Lima", status: "CANCELADA" as const },
+  { id: "OS-1020", cliente: "Ana Costa", status: "ABERTA" as const },
 ];
 
 export default function Dashboard() {
@@ -24,23 +24,12 @@ export default function Dashboard() {
           icon={ClipboardList}
           trend={{ value: "+3 esta semana", positive: true }}
         />
-        <StatCard
-          label="Clientes ativos"
-          value={87}
-          icon={Users}
-        />
+        <StatCard label="Clientes ativos" value={87} icon={Users} />
         <StatCard
           label="Veículos em oficina"
           value={5}
           icon={Wrench}
           accentColor="#2563EB"
-        />
-        <StatCard
-          label="Faturamento (mês)"
-          value="R$ 24.350"
-          icon={DollarSign}
-          trend={{ value: "-2% vs mês anterior", positive: false }}
-          accentColor="#10B981"
         />
       </div>
 
