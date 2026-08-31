@@ -115,7 +115,7 @@ export default function Login() {
             </div>
           )}
 
-          {/* Google */}
+          {/* BOTÃO GOOGLE
           <button
             type="button"
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#242424] py-3 text-sm font-medium text-white transition hover:bg-[#2c2c2c]"
@@ -124,14 +124,14 @@ export default function Login() {
             Continue com Google
           </button>
 
-          {/* Divisor */}
+          Divisor 
           <div className="my-5 flex items-center gap-3">
             <div className="h-px flex-1 bg-white/10" />
             <span className="text-xs text-gray-500">
               {isLogin ? "ou logue com email" : "ou registre seu email"}
             </span>
             <div className="h-px flex-1 bg-white/10" />
-          </div>
+          </div>*/}
 
           {/* Formulário */}
           <form className="space-y-4" onSubmit={handleSubmit}>
@@ -146,7 +146,7 @@ export default function Login() {
                     type="text"
                     value={nome}
                     onChange={(e) => setNome(e.target.value)}
-                    placeholder="William Squena"
+                    placeholder="Digite seu nome"
                     required
                     minLength={2}
                     className="w-full rounded-xl border border-white/10 bg-[#242424] py-2.5 pl-9 pr-3 text-sm text-white placeholder:text-gray-500 outline-none focus:border-[#FF7518]"
@@ -357,6 +357,8 @@ function Field({ label, action, children }: FieldProps) {
   );
 }
 
+/* FUNÇÃO GOOGLEICON DESATIVADA
+
 function GoogleIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24">
@@ -378,4 +380,4 @@ function GoogleIcon() {
       />
     </svg>
   );
-}
+}*/
