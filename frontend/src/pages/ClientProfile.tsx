@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   Phone,
@@ -12,7 +12,6 @@ import {
   History,
   Loader2,
 } from "lucide-react";
-import StatusBadge from "../components/ui/StatusBadge";
 import DisabledBadge from "../components/ui/DisabledBadge";
 import ClientFormModal, {
   type ClientFormData,
@@ -30,7 +29,6 @@ import {
 
 export default function ClientProfile() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const clientId = Number(id);
 
   const [client, setClient] = useState<Client | null>(null);

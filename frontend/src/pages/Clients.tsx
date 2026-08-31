@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Users,
+  UserPlus,
   Car,
   Search,
   SlidersHorizontal,
@@ -11,6 +12,7 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  ClipboardList,
 } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
 import DisabledBadge from "../components/ui/DisabledBadge";
@@ -26,6 +28,7 @@ import {
   deleteClient,
   type Client,
 } from "../services/clients";
+import { listServiceOrders } from "../services/serviceOrders";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -33,6 +36,7 @@ export default function Clients() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [ordensAtivas, setOrdensAtivas] = useState(0);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
@@ -77,6 +81,18 @@ export default function Clients() {
     setEditingClient(client);
     setModalOpen(true);
   }
+
+  useEffect(() => {
+    listServiceOrders()
+      .then((ordens) => {
+        setOrdensAtivas(
+          ordens.filter(
+            (o) => o.status === "ABERTA" || o.status === "EM_ANDAMENTO",
+          ).length,
+        );
+      })
+      .catch((err) => console.error(err));
+  }, []);
 
   async function handleSave(data: ClientFormData, vehicle?: NewVehicleData) {
     setSubmitting(true);
@@ -148,6 +164,14 @@ export default function Clients() {
   }
 
   const totalVeiculos = clients.reduce((acc, c) => acc + c.veiculos.length, 0);
+  const agora = new Date();
+  const novosNesteMes = clients.filter((c) => {
+    const data = new Date(c.created_at);
+    return (
+      data.getMonth() === agora.getMonth() &&
+      data.getFullYear() === agora.getFullYear()
+    );
+  }).length;
 
   return (
     <div className="space-y-6 p-8">
@@ -162,27 +186,27 @@ export default function Clients() {
       {/* Stat cards (reais, derivados da lista carregada) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="TODOS CLIENTES"
+          label="TOTAL DE CLIENTES"
           value={clients.length}
           icon={Users}
           accentColor="#FF7518"
         />
         <StatCard
-          label="TODOS VEÍCULOS"
+          label="TOTAL DE VEÍCULOS"
           value={totalVeiculos}
           icon={Car}
           accentColor="#A855F7"
         />
         <StatCard
           label="NOVOS NESTE MÊS"
-          value="—"
-          icon={Users}
+          value={novosNesteMes}
+          icon={UserPlus}
           accentColor="#10B981"
         />
         <StatCard
           label="ORDENS ATIVAS"
-          value="—"
-          icon={Users}
+          value={ordensAtivas}
+          icon={ClipboardList}
           accentColor="#2563EB"
         />
       </div>

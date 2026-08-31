@@ -17,7 +17,9 @@ const statusSchema = z.enum(StatusOrdemServico);
 // GET /api/service-orders?status=ABERTA
 export async function listController(req: Request, res: Response) {
   const status =
-    typeof req.query.status === "string" ? statusSchema.parse(req.query.status) : undefined;
+    typeof req.query.status === "string"
+      ? statusSchema.parse(req.query.status)
+      : undefined;
   const ordens = await search(status);
   return res.status(200).json(ordens);
 }
@@ -38,6 +40,11 @@ const createServiceOrderSchema = z.object({
   cliente_id: z.number().int().positive(),
   veiculo_id: z.number().int().positive(),
   mecanico_id: z.number().int().positive(),
+  observacoes: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v === "" ? undefined : v)),
 });
 
 // POST /api/service-orders
@@ -56,7 +63,11 @@ const addPartSchema = z.object({
 export async function addPartController(req: Request, res: Response) {
   const ordemId = Number(req.params.id);
   const dados = addPartSchema.parse(req.body);
-  const resultado = await addPart(ordemId, dados.item_estoque_id, dados.quantidade);
+  const resultado = await addPart(
+    ordemId,
+    dados.item_estoque_id,
+    dados.quantidade,
+  );
   return res.status(201).json(resultado);
 }
 
@@ -98,5 +109,23 @@ export async function changeStatusController(req: Request, res: Response) {
   const ordemId = Number(req.params.id);
   const { status } = changeStatusSchema.parse(req.body);
   const ordem = await changeStatus(ordemId, status);
+  return res.status(200).json(ordem);
+}
+
+import { updateObservacoes } from "../services/serviceOrders.service";
+
+const updateObservacoesSchema = z.object({
+  observacoes: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v === "" ? undefined : v)),
+});
+
+// PATCH /api/service-orders/:id/observacoes
+export async function updateObservacoesController(req: Request, res: Response) {
+  const ordemId = Number(req.params.id);
+  const { observacoes } = updateObservacoesSchema.parse(req.body);
+  const ordem = await updateObservacoes(ordemId, observacoes);
   return res.status(200).json(ordem);
 }

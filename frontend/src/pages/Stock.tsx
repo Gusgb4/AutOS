@@ -1,13 +1,24 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { listStock, deleteStockItem, type StockItem } from '../services/stock';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  Package,
+  AlertTriangle,
+  Tags,
+  DollarSign,
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  Loader2,
+} from "lucide-react";
+import StatCard from "../components/ui/StatCard";
+import { listStock, deleteStockItem, type StockItem } from "../services/stock";
 
 export default function Stock() {
-
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [busca, setBusca] = useState('');
+  const [busca, setBusca] = useState("");
   const [excluindo, setExcluindo] = useState<number | null>(null);
 
   useEffect(() => {
@@ -18,7 +29,9 @@ export default function Stock() {
         const data = await listStock();
         setItems(data);
       } catch (e: any) {
-        setErro(e.response?.data?.error ?? 'Não foi possível carregar o estoque.');
+        setErro(
+          e.response?.data?.error ?? "Não foi possível carregar o estoque.",
+        );
       } finally {
         setLoading(false);
       }
@@ -40,10 +53,10 @@ export default function Stock() {
   const termo = busca.trim().toLowerCase();
   const itensFiltrados = termo
     ? items.filter((item) =>
-      [item.nome, item.categoria, item.fornecedor].some((campo) =>
-        (campo ?? '').toLowerCase().includes(termo),
-      ),
-    )
+        [item.nome, item.categoria, item.fornecedor].some((campo) =>
+          (campo ?? "").toLowerCase().includes(termo),
+        ),
+      )
     : items;
 
   async function handleExcluir(item: StockItem) {
@@ -58,223 +71,205 @@ export default function Stock() {
       await deleteStockItem(item.id);
       setItems((atuais) => atuais.filter((i) => i.id !== item.id));
     } catch (e: any) {
-      setErro(e.response?.data?.error ?? 'Não foi possível excluir o item.');
+      setErro(e.response?.data?.error ?? "Não foi possível excluir o item.");
     } finally {
       setExcluindo(null);
     }
   }
 
   return (
-    <div className="p-8 min-h-screen bg-[#F8F9FA] font-sans">
-
-      {/* Cabeçalho */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Estoque</h1>
-        <p className="text-gray-500 mt-1">Gerenciar o estoque de peças, suprimentos e materiais</p>
+    <div className="space-y-6 p-8">
+      <div>
+        <h1 className="text-2xl font-semibold text-[#1F1F1F]">Estoque</h1>
+        <p className="text-sm text-gray-500">
+          Gerencie o estoque de peças, suprimentos e materiais.
+        </p>
       </div>
 
-      {/* Cards de Resumo */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
-        {/* Card 1 */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-500 flex justify-center items-center">
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" /></svg>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Total de itens</p>
-            <h3 className="text-2xl font-bold text-gray-800">{totalItens}</h3>
-          </div>
-        </div>
-
-        {/* Card 2 */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-500 flex justify-center items-center">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Estoque Baixo</p>
-            <h3 className="text-2xl font-bold text-orange-500">{estoqueBaixo}</h3>
-          </div>
-        </div>
-
-        {/* Card 3 */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-500 flex justify-center items-center">
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" /></svg>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Categorias</p>
-            <h3 className="text-2xl font-bold text-gray-800">{totalCategorias}</h3>
-          </div>
-        </div>
-
-        {/* Card 4 */}
-        <div className="bg-white p-5 rounded-2xl shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-green-50 text-green-500 flex justify-center items-center">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Valor Total</p>
-            <h3 className="text-2xl font-bold text-gray-800">{valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</h3>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="TOTAL DE ITENS"
+          value={totalItens}
+          icon={Package}
+          accentColor="#FF7518"
+        />
+        <StatCard
+          label="ESTOQUE BAIXO"
+          value={estoqueBaixo}
+          icon={AlertTriangle}
+          accentColor="#F59E0B"
+          valueColor
+        />
+        <StatCard
+          label="CATEGORIAS"
+          value={totalCategorias}
+          icon={Tags}
+          accentColor="#A855F7"
+        />
+        <StatCard
+          label="VALOR TOTAL"
+          value={valorTotal.toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+          })}
+          icon={DollarSign}
+          accentColor="#10B981"
+        />
       </div>
 
-      {/* Tabela Branca */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-
-        {/* Barra de Ferramentas da Tabela */}
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-gray-100 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-orange-50 p-2 rounded-lg text-orange-500">
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M3 4h18v2H3V4zm0 7h18v2H3v-2zm0 7h18v2H3v-2z" /></svg>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FF75181A] text-[#FF7518]">
+              <Package size={18} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-800">Lista de itens</h2>
-              <p className="text-xs text-gray-400">Todos os itens de estoque registrados</p>
+              <p className="font-semibold text-[#1F1F1F]">Lista de itens</p>
+              <p className="text-xs text-gray-500">
+                Todos os itens de estoque registrados
+              </p>
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
             <div className="relative">
-              <svg className="w-4 h-4 absolute left-3 top-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
               <input
                 type="text"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Procurar itens"
-                className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                placeholder="Buscar por nome, categoria ou fornecedor..."
+                className="w-64 rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#FF7518]"
               />
             </div>
-            <Link to="/estoque/novo" className="px-4 py-2 bg-[#F97316] text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-orange-600 transition">
-              + Novo item
+            <Link
+              to="/estoque/novo"
+              className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f]"
+            >
+              <Plus size={16} />
+              Adicionar Item
             </Link>
           </div>
         </div>
 
-        {/* Corpo da Tabela */}
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-              <th className="px-6 py-4">Nome do Item</th>
-              <th className="px-6 py-4">Categoria</th>
-              <th className="px-6 py-4">Quantidade Atual</th>
-              <th className="px-6 py-4">Quantidade Mínima</th>
-              <th className="px-6 py-4">Preço Unitário</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-center">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {loading && (
-              <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">
-                  Carregando itens...
-                </td>
-              </tr>
-            )}
-
-            {!loading && erro && (
-              <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-sm text-red-500">
-                  {erro}
-                </td>
-              </tr>
-            )}
-
-            {!loading && !erro && itensFiltrados.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">
-                  {termo
-                    ? `Nenhum item encontrado para "${busca}".`
-                    : 'Nenhum item cadastrado ainda.'}
-                </td>
-              </tr>
-            )}
-
-            {!loading && !erro && itensFiltrados.map((item) => (
-              <tr key={item.id} className="hover:bg-gray-50/50 transition">
-                <td className="px-6 py-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg flex justify-center items-center font-bold bg-gray-100 text-gray-600">
-                    {item.nome.charAt(0)}
-                  </div>
-                  <p className="font-bold text-gray-800 text-sm">{item.nome}</p>
-                </td>
-
-                <td className="px-6 py-4">
-                  {item.categoria ? (
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 w-max flex items-center gap-1">
-                      {item.categoria}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-gray-300">—</span>
-                  )}
-                </td>
-
-                <td className="px-6 py-4 text-sm font-bold text-gray-700">
-                  <span className={item.alerta_minimo ? 'text-orange-500' : ''}>
-                    {item.quantidade}
-                  </span>{' '}
-                  <span className="text-gray-400 font-normal">unidades</span>
-                </td>
-
-                <td className="px-6 py-4 text-sm font-bold text-gray-700">
-                  {item.quantidade_minima}
-                </td>
-
-                <td className="px-6 py-4 text-sm font-bold text-gray-800">
-                  {Number(item.valor_unitario).toLocaleString('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  })}
-                </td>
-
-                <td className="px-6 py-4">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold flex items-center w-max gap-1 ${item.alerta_minimo
-                      ? 'text-orange-600 bg-orange-50'
-                      : 'text-green-600 bg-green-50'
-                      }`}
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 p-10 text-sm text-gray-500">
+            <Loader2 size={16} className="animate-spin" />
+            Carregando itens...
+          </div>
+        ) : erro ? (
+          <div className="p-10 text-center text-sm text-red-500">{erro}</div>
+        ) : itensFiltrados.length === 0 ? (
+          <div className="p-10 text-center text-sm text-gray-500">
+            {termo
+              ? `Nenhum item encontrado para "${busca}".`
+              : "Nenhum item cadastrado ainda."}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                  <th className="px-5 py-3 font-medium">Nome do item</th>
+                  <th className="px-5 py-3 font-medium">Categoria</th>
+                  <th className="px-5 py-3 font-medium">Quantidade</th>
+                  <th className="px-5 py-3 font-medium">Mínimo</th>
+                  <th className="px-5 py-3 font-medium">Preço unitário</th>
+                  <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 text-right font-medium">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itensFiltrados.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
                   >
-                    {item.alerta_minimo ? 'Pouco Estoque' : 'Em Estoque'}
-                  </span>
-                </td>
+                    <td className="px-5 py-4 font-medium text-[#1F1F1F]">
+                      {item.nome}
+                    </td>
 
-                <td className="px-6 py-4">
-                  <div className="flex justify-center gap-2">
-                    <td className="px-6 py-4">
-                      <div className="flex justify-center gap-2">
+                    <td className="px-5 py-4">
+                      {item.categoria ? (
+                        <span className="w-max rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                          {item.categoria}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4 text-gray-700">
+                      <span
+                        className={
+                          item.alerta_minimo ? "font-medium text-amber-600" : ""
+                        }
+                      >
+                        {item.quantidade}
+                      </span>{" "}
+                      <span className="text-gray-400">un.</span>
+                    </td>
+
+                    <td className="px-5 py-4 text-gray-600">
+                      {item.quantidade_minima}
+                    </td>
+
+                    <td className="px-5 py-4 font-medium text-[#1F1F1F]">
+                      {Number(item.valor_unitario).toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex w-max items-center rounded-full px-3 py-1 text-xs font-medium ${
+                          item.alerta_minimo
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}
+                      >
+                        {item.alerta_minimo ? "Estoque baixo" : "Em estoque"}
+                      </span>
+                    </td>
+
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-2">
                         <Link
                           to={`/estoque/${item.id}/editar`}
-                          title="Editar"
-                          className="w-8 h-8 flex justify-center items-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition"
+                          aria-label="Editar"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                          <Pencil size={14} />
                         </Link>
-
                         <button
+                          type="button"
                           onClick={() => handleExcluir(item)}
                           disabled={excluindo === item.id}
-                          title="Excluir"
-                          className="w-8 h-8 flex justify-center items-center rounded-lg border border-gray-200 text-red-500 hover:bg-red-50 transition disabled:opacity-50"
+                          aria-label="Excluir"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          {excluindo === item.id ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={14} />
+                          )}
                         </button>
                       </div>
                     </td>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        {/* Rodapé da Tabela */}
-        {/* Rodapé da Tabela */}
-        <div className="px-6 py-4 border-t border-gray-100 text-xs text-gray-400">
-          <span>Mostrando {itensFiltrados.length} de {totalItens} itens</span>
+        <div className="border-t border-gray-100 px-5 py-4 text-xs text-gray-400">
+          Mostrando {itensFiltrados.length} de {totalItens} itens
         </div>
-
       </div>
     </div>
   );

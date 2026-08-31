@@ -8,6 +8,7 @@ import {
   addServiceController,
   removeServiceController,
   changeStatusController,
+  updateObservacoesController,
 } from "../controllers/serviceOrders.controller";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ensureAuthenticated } from "../middlewares/auth.middleware";
@@ -30,6 +31,10 @@ router.delete("/:id/parts/:partId", asyncHandler(removePartController));
 
 //Serviços do mecanico feitos
 router.post("/:id/services", asyncHandler(addServiceController));
-router.delete("/:id/services/:serviceId", asyncHandler(removeServiceController));
+router.delete(
+  "/:id/services/:serviceId",
+  asyncHandler(removeServiceController),
+);
+router.patch("/:id/observacoes", asyncHandler(updateObservacoesController));
 
 export default router;

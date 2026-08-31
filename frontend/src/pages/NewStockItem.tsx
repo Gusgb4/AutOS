@@ -1,19 +1,39 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { createStockItem, getStockItem, updateStockItem } from '../services/stock';
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Package, Check, AlertTriangle } from "lucide-react";
+import {
+  createStockItem,
+  getStockItem,
+  updateStockItem,
+} from "../services/stock";
+
+const CATEGORIAS = [
+  "Freios",
+  "Lubrificantes",
+  "Filtros",
+  "Elétrica",
+  "Suspensão",
+  "Motor",
+  "Outros",
+];
+
+const inputClass =
+  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3.5 py-3 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
+
+const labelClass =
+  "mb-2 block text-xs font-bold uppercase tracking-wide text-gray-500";
 
 export default function NewStockItem() {
-
   const navigate = useNavigate();
-
   const { id } = useParams();
   const editando = Boolean(id);
-  const [nome, setNome] = useState('');
-  const [categoria, setCategoria] = useState('');
-  const [fornecedor, setFornecedor] = useState('');
-  const [quantidade, setQuantidade] = useState('');
-  const [quantidadeMinima, setQuantidadeMinima] = useState('');
-  const [valorUnitario, setValorUnitario] = useState('');
+
+  const [nome, setNome] = useState("");
+  const [categoria, setCategoria] = useState("");
+  const [fornecedor, setFornecedor] = useState("");
+  const [quantidade, setQuantidade] = useState("");
+  const [quantidadeMinima, setQuantidadeMinima] = useState("");
+  const [valorUnitario, setValorUnitario] = useState("");
 
   const [salvando, setSalvando] = useState(false);
   const [carregando, setCarregando] = useState(editando);
@@ -28,13 +48,13 @@ export default function NewStockItem() {
         setErro(null);
         const item = await getStockItem(Number(id));
         setNome(item.nome);
-        setCategoria(item.categoria ?? '');
-        setFornecedor(item.fornecedor ?? '');
+        setCategoria(item.categoria ?? "");
+        setFornecedor(item.fornecedor ?? "");
         setQuantidade(String(item.quantidade));
         setQuantidadeMinima(String(item.quantidade_minima));
         setValorUnitario(String(item.valor_unitario));
       } catch (e: any) {
-        setErro(e.response?.data?.error ?? 'Não foi possível carregar o item.');
+        setErro(e.response?.data?.error ?? "Não foi possível carregar o item.");
       } finally {
         setCarregando(false);
       }
@@ -47,12 +67,11 @@ export default function NewStockItem() {
     setErro(null);
 
     if (!nome.trim()) {
-      setErro('Informe o nome do item.');
+      setErro("Informe o nome do item.");
       return;
     }
-
     if (Number(valorUnitario) <= 0) {
-      setErro('O valor unitário deve ser maior que zero.');
+      setErro("O valor unitário deve ser maior que zero.");
       return;
     }
 
@@ -74,14 +93,13 @@ export default function NewStockItem() {
         await createStockItem(payload);
       }
 
-      navigate('/estoque');
-
+      navigate("/estoque");
     } catch (e: any) {
       const data = e.response?.data;
       setErro(
         data?.errors?.[0]?.message ??
-        data?.error ??
-        'Não foi possível salvar o item.',
+          data?.error ??
+          "Não foi possível salvar o item.",
       );
     } finally {
       setSalvando(false);
@@ -90,198 +108,187 @@ export default function NewStockItem() {
 
   if (carregando) {
     return (
-      <div className="p-8 min-h-screen bg-[#F8F9FA] font-sans flex justify-center">
-        <p className="text-gray-400 text-sm mt-12">Carregando item...</p>
+      <div className="flex min-h-[60vh] items-center justify-center text-sm text-gray-500">
+        Carregando item...
       </div>
     );
   }
 
   return (
-    <div className="p-8 min-h-screen bg-[#F8F9FA] font-sans flex justify-center">
+    <div className="mx-auto max-w-4xl space-y-6 p-8">
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-[#1F1F1F]">
+            {editando ? "Editar item" : "Adicionar novo item"}
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {editando
+              ? "Altere os dados do item de estoque."
+              : "Preencha os detalhes para cadastrar um novo item."}
+          </p>
+        </div>
+        <Link
+          to="/estoque"
+          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+        >
+          <ArrowLeft size={15} />
+          Voltar
+        </Link>
+      </div>
 
-      {/* Container limitador para centralizar tudo */}
-      <div className="w-full max-w-4xl">
-
-        {/* Cabeçalho da Página */}
-        <div className="flex justify-between items-start mb-6">
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+        <div className="flex items-center gap-4 border-b border-gray-100 p-6">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#FF75181A] text-[#FF7518]">
+            <Package size={22} />
+          </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {editando ? 'Editar item' : 'Adicionar novo item'}
-            </h1>
-            <p className="text-gray-500 mt-1">
-              {editando
-                ? 'Altere os dados do item de estoque.'
-                : 'Preencha os detalhes para cadastrar um novo item de estoque.'}
+            <p className="font-semibold text-[#1F1F1F]">Informações do item</p>
+            <p className="mt-0.5 text-xs text-gray-400">
+              Campos com <span className="text-red-500">*</span> são
+              obrigatórios
             </p>
           </div>
-          <Link to="/estoque" className="px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-gray-50 shadow-sm transition">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-            Voltar para o inventário
-          </Link>
         </div>
 
-        {/* Container Principal Branco */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 w-full">
-
-          {/* Título da Seção */}
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-500 flex justify-center items-center">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" /></svg>
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-800">Informação do item</h2>
-              <p className="text-xs text-gray-400 mt-1">Todos os campos marcados com <span className="text-red-500">*</span> são obrigatórios</p>
-            </div>
+        <div className="grid grid-cols-1 gap-x-6 gap-y-6 p-6 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className={labelClass}>
+              Nome do item <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              placeholder="Ex: Carburador"
+              className={inputClass}
+            />
+            <p className="mt-1.5 text-xs text-gray-400">
+              Insira um nome de item claro e descritivo.
+            </p>
           </div>
 
-          {/* Formulário Grid */}
-          <form className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+          <div>
+            <label className={labelClass}>Categoria</label>
+            <select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Nenhuma categoria</option>
+              {CATEGORIAS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-xs text-gray-400">
+              Escolha a categoria mais relevante.
+            </p>
+          </div>
 
-            {/* Campo: Nome do Item */}
+          <div>
+            <label className={labelClass}>Fornecedor</label>
+            <input
+              type="text"
+              value={fornecedor}
+              onChange={(e) => setFornecedor(e.target.value)}
+              placeholder="Nome do fornecedor"
+              className={inputClass}
+            />
+            <p className="mt-1.5 text-xs text-gray-400">
+              Nome do fornecedor ou vendedor.
+            </p>
+          </div>
+
+          <div>
+            <label className={labelClass}>
+              Quantidade atual <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              value={quantidade}
+              onChange={(e) => setQuantidade(e.target.value)}
+              placeholder="0"
+              className={inputClass}
+            />
+            <p className="mt-1.5 text-xs text-gray-400">
+              Quantas unidades estão em estoque agora.
+            </p>
+          </div>
+
+          <div>
+            <label className={labelClass}>
+              Quantidade mínima <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              value={quantidadeMinima}
+              onChange={(e) => setQuantidadeMinima(e.target.value)}
+              placeholder="0"
+              className={inputClass}
+            />
+            <p className="mt-1.5 text-xs text-gray-400">
+              O alerta é acionado abaixo desse valor.
+            </p>
+          </div>
+
+          <div>
+            <label className={labelClass}>
+              Preço unitário (R$) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              value={valorUnitario}
+              onChange={(e) => setValorUnitario(e.target.value)}
+              placeholder="0,00"
+              className={inputClass}
+            />
+            <p className="mt-1.5 text-xs text-gray-400">
+              Custo por unidade individual.
+            </p>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-xl bg-amber-50 p-4 sm:col-span-2">
+            <AlertTriangle
+              size={18}
+              className="mt-0.5 shrink-0 text-amber-500"
+            />
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Nome do item</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z" /></svg>
-                </div>
-                <input
-                  type="text"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
-                  placeholder="Ex: carburador"
-                />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Insira um nome de item claro e descritivo.</p>
+              <p className="text-sm font-bold text-amber-800">
+                Alerta de estoque baixo
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                Quando a quantidade cair para o mínimo ou abaixo dele, o item é
+                sinalizado automaticamente na lista de Estoque.
+              </p>
             </div>
+          </div>
+        </div>
 
-            {/* Campo: Categoria */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Categoria <span className="text-orange-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z" /></svg>
-                </div>
-                <select
-                  value={categoria}
-                  onChange={(e) => setCategoria(e.target.value)}
-                  className="w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-800 appearance-none focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
-                >
-                  <option value="" disabled>Selecione uma categoria</option>
-                  <option value="Freios">Freios</option>
-                  <option value="Lubrificantes">Lubrificantes</option>
-                  <option value="Filtros">Filtros</option>
-                </select>
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Escolha a categoria mais relevante.</p>
-            </div>
-
-            {/* Campo: Quantidade Atual */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Quantidade Atual <span className="text-orange-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" /></svg>
-                </div>
-                <input type="number" value={quantidade}
-                  onChange={(e) => setQuantidade(e.target.value)}
-                  className="w-full pl-10 pr-16 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition" placeholder="0" />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400 text-xs font-semibold">
-                  units
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Quantas unidades estão atualmente em estoque?</p>
-            </div>
-
-            {/* Campo: Quantidade Mínima */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Quantidade Mínima <span className="text-orange-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                </div>
-                <input type="number" value={quantidadeMinima}
-                  onChange={(e) => setQuantidadeMinima(e.target.value)}
-                  className="w-full pl-10 pr-20 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition" placeholder="0" />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400 text-xs font-semibold">
-                  unidades
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 mt-2">O alerta será acionado quando o estoque cair abaixo desse valor.</p>
-            </div>
-
-            {/* Campo: Preço Unitário */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Preço Unitário <span className="text-orange-500">*</span></label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 font-bold">
-                  R$
-                </div>
-                <input type="number" step="0.01" value={valorUnitario}
-                  onChange={(e) => setValorUnitario(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition" placeholder="0.00" />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Cost price per individual unit</p>
-            </div>
-
-            {/* Campo: Fornecedor */}
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Fornecedor</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zm-8.5 1.5l1.96 2.36L11 14.5V9.5h2v4.5l-1.5-1.5zM6 18c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm13.5-8.5l1.96 2.36L19 14.5V9.5h2v4.5l-1.5-1.5zM18 18c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" /></svg>
-                </div>
-                <input
-                  type="text"
-                  value={fornecedor}
-                  onChange={(e) => setFornecedor(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
-                  placeholder="Ex: ..."
-                />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">Nome do fornecedor ou vendedor.</p>
-            </div>
-
-            {/* Banner de Alerta */}
-            <div className="col-span-1 md:col-span-2 mt-2">
-              <div className="bg-orange-50 border border-orange-100 rounded-lg p-4 flex gap-4 items-start">
-                <div className="text-orange-500 mt-0.5">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" /></svg>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-orange-700">Alerta de estoque baixo</h4>
-                  <p className="text-xs text-orange-600 mt-1">Quando a quantidade atual cair para o nível mínimo ou abaixo dele, o sistema sinalizará automaticamente o item e notificará o gerente da loja.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Botões de Ação */}
-            <div className="col-span-1 md:col-span-2 flex justify-end gap-4 mt-6 pt-6 border-t border-gray-100">
-              {erro && (
-                <p className="text-sm text-red-500 font-semibold mr-auto self-center">
-                  {erro}
-                </p>
-              )}
-              <Link to="/estoque" className="px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-50 transition shadow-sm">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                Cancelar
-              </Link>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={salvando}
-                className="px-6 py-2.5 bg-[#F97316] text-white rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-orange-600 transition shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {salvando ? 'Salvando...' : editando ? 'Salvar alterações' : 'Salvar item'}
-              </button>
-            </div>
-          </form>
+        <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50/60 p-5">
+          {erro && <p className="mr-auto text-sm text-red-500">{erro}</p>}
+          <Link
+            to="/estoque"
+            className="rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-[#1B2130] hover:bg-gray-50"
+          >
+            Cancelar
+          </Link>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={salvando}
+            className="flex items-center gap-2 rounded-lg bg-[#FF7518] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
+          >
+            <Check size={15} />
+            {salvando
+              ? "Salvando..."
+              : editando
+                ? "Salvar alterações"
+                : "Salvar item"}
+          </button>
         </div>
       </div>
     </div>
   );
-
 }

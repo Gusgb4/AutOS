@@ -49,3 +49,12 @@ export async function updateClient(
 export async function deleteClient(id: number): Promise<void> {
   await api.delete(`/clients/${id}`);
 }
+
+export interface Client {
+  id: number;
+  nome: string;
+  telefone: string;
+  documento?: string;
+  created_at: string;
+  veiculos: Vehicle[];
+}

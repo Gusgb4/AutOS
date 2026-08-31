@@ -17,7 +17,7 @@ const STATUS_EDITAVEIS: StatusOrdemServico[] = ["ABERTA", "EM_ANDAMENTO"];
 const TRANSICOES: Record<StatusOrdemServico, StatusOrdemServico[]> = {
   ABERTA: ["EM_ANDAMENTO", "CANCELADA"],
   EM_ANDAMENTO: ["FINALIZADA", "CANCELADA"],
-  FINALIZADA: [],
+  FINALIZADA: ["EM_ANDAMENTO"],
   CANCELADA: [],
 };
 
@@ -54,7 +54,7 @@ async function buscarOrdemEditavel(tx: Tx, ordemId: number) {
   if (!STATUS_EDITAVEIS.includes(ordem.status)) {
     throw new AppError(
       "Ordem de serviço finalizada ou cancelada não pode ser alterada.",
-      409
+      409,
     );
   }
 
@@ -88,7 +88,10 @@ export async function create(dados: CreateServiceOrderInput) {
   });
 
   if (veiculo && veiculo.cliente_id !== dados.cliente_id) {
-    throw new AppError("O veículo informado não pertence ao cliente informado.", 400);
+    throw new AppError(
+      "O veículo informado não pertence ao cliente informado.",
+      400,
+    );
   }
 
   return prisma.serviceOrder.create({
@@ -97,7 +100,11 @@ export async function create(dados: CreateServiceOrderInput) {
   });
 }
 
-export async function addPart(ordemId: number, itemId: number, quantidade: number) {
+export async function addPart(
+  ordemId: number,
+  itemId: number,
+  quantidade: number,
+) {
   return prisma.$transaction(async (tx) => {
     await buscarOrdemEditavel(tx, ordemId);
 
@@ -107,22 +114,29 @@ export async function addPart(ordemId: number, itemId: number, quantidade: numbe
     });
 
     if (count === 0) {
-      const indisponivel = await tx.stockItem.findUnique({ where: { id: itemId } });
+      const indisponivel = await tx.stockItem.findUnique({
+        where: { id: itemId },
+      });
 
       if (!indisponivel) {
         throw new AppError("Item de estoque não encontrado.", 404);
       }
       throw new AppError(
         `Estoque insuficiente de "${indisponivel.nome}". Disponível: ${indisponivel.quantidade}.`,
-        409
+        409,
       );
     }
 
-    const item = await tx.stockItem.findUniqueOrThrow({ where: { id: itemId } });
+    const item = await tx.stockItem.findUniqueOrThrow({
+      where: { id: itemId },
+    });
 
     await tx.serviceOrderPart.upsert({
       where: {
-        ordem_id_item_estoque_id: { ordem_id: ordemId, item_estoque_id: itemId },
+        ordem_id_item_estoque_id: {
+          ordem_id: ordemId,
+          item_estoque_id: itemId,
+        },
       },
       create: {
         ordem_id: ordemId,
@@ -147,7 +161,9 @@ export async function removePart(ordemId: number, partId: number) {
   return prisma.$transaction(async (tx) => {
     await buscarOrdemEditavel(tx, ordemId);
 
-    const peca = await tx.serviceOrderPart.findUnique({ where: { id: partId } });
+    const peca = await tx.serviceOrderPart.findUnique({
+      where: { id: partId },
+    });
 
     if (!peca || peca.ordem_id !== ordemId) {
       throw new AppError("Peça não encontrada nesta ordem de serviço.", 404);
@@ -174,7 +190,11 @@ export async function addService(ordemId: number, dados: AddServiceInput) {
     await buscarOrdemEditavel(tx, ordemId);
 
     await tx.serviceOrderService.create({
-      data: { ordem_id: ordemId, descricao: dados.descricao, valor: dados.valor },
+      data: {
+        ordem_id: ordemId,
+        descricao: dados.descricao,
+        valor: dados.valor,
+      },
     });
 
     return recalcularTotal(tx, ordemId);
@@ -199,7 +219,10 @@ export async function removeService(ordemId: number, serviceId: number) {
   });
 }
 
-export async function changeStatus(ordemId: number, novoStatus: StatusOrdemServico) {
+export async function changeStatus(
+  ordemId: number,
+  novoStatus: StatusOrdemServico,
+) {
   return prisma.$transaction(async (tx) => {
     const ordem = await tx.serviceOrder.findUnique({ where: { id: ordemId } });
 
@@ -209,7 +232,7 @@ export async function changeStatus(ordemId: number, novoStatus: StatusOrdemServi
     if (!TRANSICOES[ordem.status].includes(novoStatus)) {
       throw new AppError(
         `Não é possível mudar o status de ${ordem.status} para ${novoStatus}.`,
-        409
+        409,
       );
     }
 
@@ -219,11 +242,16 @@ export async function changeStatus(ordemId: number, novoStatus: StatusOrdemServi
     });
 
     if (count === 0) {
-      throw new AppError("O status da ordem foi alterado por outra requisição.", 409);
+      throw new AppError(
+        "O status da ordem foi alterado por outra requisição.",
+        409,
+      );
     }
 
     if (novoStatus === "CANCELADA") {
-      const pecas = await tx.serviceOrderPart.findMany({ where: { ordem_id: ordemId } });
+      const pecas = await tx.serviceOrderPart.findMany({
+        where: { ordem_id: ordemId },
+      });
 
       for (const peca of pecas) {
         await tx.stockItem.update({
@@ -237,5 +265,24 @@ export async function changeStatus(ordemId: number, novoStatus: StatusOrdemServi
       where: { id: ordemId },
       include: ordemCompleta,
     });
+  });
+}
+
+export async function updateObservacoes(
+  ordemId: number,
+  observacoes: string | undefined,
+) {
+  const ordem = await prisma.serviceOrder.findUnique({
+    where: { id: ordemId },
+  });
+
+  if (!ordem) {
+    throw new AppError("Ordem de serviço não encontrada.", 404);
+  }
+
+  return prisma.serviceOrder.update({
+    where: { id: ordemId },
+    data: { observacoes },
+    include: ordemCompleta,
   });
 }
