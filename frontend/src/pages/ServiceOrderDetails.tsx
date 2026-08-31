@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -13,18 +13,29 @@ import {
   Ban,
   Check,
   StickyNote,
+  Plus,
   PackageSearch,
+  AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
+import { listStock, type StockItem } from "../services/stock";
 import {
   getServiceOrderById,
   changeServiceOrderStatus,
   updateServiceOrderObservacoes,
+  addServiceToOrder,
+  addPartToOrder,
+  removeServiceFromOrder,
+  removePartFromOrder,
   type ServiceOrder,
 } from "../services/serviceOrders";
 
 const plainInputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
+
+type ServicoItem = ServiceOrder["servicos"][number];
+type PecaItem = ServiceOrder["pecas"][number];
 
 function formatCurrency(value: string | number) {
   return Number(value)
@@ -74,6 +85,249 @@ function buildWhatsAppLink(order: ServiceOrder) {
   return `https://wa.me/${comDDI}?text=${encodeURIComponent(mensagem)}`;
 }
 
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-1 flex-col gap-1.5">
+      <label className="text-xs font-semibold text-[#1B2130]">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function ServicoRow({
+  servico,
+  saving,
+  onSave,
+  onRemove,
+}: {
+  servico: ServicoItem;
+  saving: boolean;
+  onSave: (descricao: string, valor: number) => void;
+  onRemove: () => void;
+}) {
+  const [descricao, setDescricao] = useState(servico.descricao);
+  const [valorTexto, setValorTexto] = useState(String(servico.valor));
+
+  useEffect(() => {
+    setDescricao(servico.descricao);
+    setValorTexto(String(servico.valor));
+  }, [servico.id, servico.descricao, servico.valor]);
+
+  const dirty =
+    descricao.trim() !== servico.descricao ||
+    Number(valorTexto.replace(",", ".")) !== Number(servico.valor);
+
+  function handleSave() {
+    const valorNumero = Number(valorTexto.replace(",", "."));
+    if (!descricao.trim() || !valorNumero || valorNumero <= 0) {
+      alert("Descrição e valor válidos são obrigatórios.");
+      return;
+    }
+    onSave(descricao.trim(), valorNumero);
+  }
+
+  function handleCancelar() {
+    setDescricao(servico.descricao);
+    setValorTexto(String(servico.valor));
+  }
+
+  return (
+    <li className="flex flex-col bg-gray-50/50">
+      <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
+        <div className="flex flex-1 flex-col gap-1.5 sm:flex-[2]">
+          <label className="text-xs font-semibold text-[#1B2130]">
+            Descrição do serviço
+          </label>
+          <input
+            type="text"
+            value={descricao}
+            disabled={saving}
+            onChange={(e) => setDescricao(e.target.value)}
+            className={plainInputClass}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-[#1B2130]">
+            Valor (R$)
+          </label>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={valorTexto}
+            disabled={saving}
+            onChange={(e) => setValorTexto(e.target.value)}
+            className={`${plainInputClass} text-right sm:w-32`}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={saving}
+          className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
+        >
+          {saving ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : (
+            <Trash2 size={15} />
+          )}
+          Remover
+        </button>
+      </div>
+
+      {dirty && (
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 px-5 py-3 sm:flex-row">
+          <p className="text-xs text-amber-800">
+            Serviço alterado. Confirme para aplicar.
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCancelar}
+              disabled={saving}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {saving ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Check size={13} />
+              )}
+              Confirmar alteração
+            </button>
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function PecaRow({
+  peca,
+  saving,
+  onSaveQuantidade,
+  onRemove,
+}: {
+  peca: PecaItem;
+  saving: boolean;
+  onSaveQuantidade: (novaQuantidade: number) => void;
+  onRemove: () => void;
+}) {
+  const [quantidadeTexto, setQuantidadeTexto] = useState(
+    String(peca.quantidade),
+  );
+
+  useEffect(() => {
+    setQuantidadeTexto(String(peca.quantidade));
+  }, [peca.id, peca.quantidade]);
+
+  const dirty = Number(quantidadeTexto) !== peca.quantidade;
+
+  function handleSave() {
+    const novaQuantidade = Number(quantidadeTexto);
+    if (!novaQuantidade || novaQuantidade <= 0) {
+      alert("Informe uma quantidade válida maior que zero.");
+      return;
+    }
+    onSaveQuantidade(novaQuantidade);
+  }
+
+  function handleCancelar() {
+    setQuantidadeTexto(String(peca.quantidade));
+  }
+
+  return (
+    <li className="flex flex-col bg-gray-50/50">
+      <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
+        <div className="flex flex-1 flex-col gap-1.5 sm:flex-[2]">
+          <label className="text-xs font-semibold text-[#1B2130]">Peça</label>
+          <span className={`${plainInputClass} bg-white`}>
+            {peca.item_estoque.nome}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-[#1B2130]">
+            Quantidade
+          </label>
+          <input
+            type="number"
+            min={1}
+            value={quantidadeTexto}
+            disabled={saving}
+            onChange={(e) => setQuantidadeTexto(e.target.value)}
+            className={`${plainInputClass} text-right sm:w-24`}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-[#1B2130]">Valor</label>
+          <span
+            className={`${plainInputClass} bg-white text-right font-medium sm:w-32`}
+          >
+            {formatCurrency(Number(peca.valor_unitario) * peca.quantidade)}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={saving}
+          className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
+        >
+          {saving ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : (
+            <Trash2 size={15} />
+          )}
+          Remover
+        </button>
+      </div>
+
+      {dirty && (
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 px-5 py-3 sm:flex-row">
+          <p className="text-xs text-amber-800">
+            Quantidade alterada para <strong>{quantidadeTexto || 0}</strong>.
+            Confirme para aplicar.
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleCancelar}
+              disabled={saving}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {saving ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                <Check size={13} />
+              )}
+              Confirmar alteração
+            </button>
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
 export default function ServiceOrderDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -85,9 +339,23 @@ export default function ServiceOrderDetails() {
   const [processando, setProcessando] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
 
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
+
   const [observacoesTexto, setObservacoesTexto] = useState("");
   const [savingObservacoes, setSavingObservacoes] = useState(false);
   const [erroObservacoes, setErroObservacoes] = useState<string | null>(null);
+
+  const [descricaoServico, setDescricaoServico] = useState("");
+  const [valorServico, setValorServico] = useState("");
+  const [addingServico, setAddingServico] = useState(false);
+  const [erroServico, setErroServico] = useState<string | null>(null);
+  const [savingServicoId, setSavingServicoId] = useState<number | null>(null);
+
+  const [itemEstoqueId, setItemEstoqueId] = useState<number | "">("");
+  const [quantidadePeca, setQuantidadePeca] = useState("");
+  const [addingPeca, setAddingPeca] = useState(false);
+  const [erroPeca, setErroPeca] = useState<string | null>(null);
+  const [savingPecaId, setSavingPecaId] = useState<number | null>(null);
 
   const fetchOrdem = useCallback(async () => {
     setLoading(true);
@@ -105,8 +373,21 @@ export default function ServiceOrderDetails() {
   }, [orderId]);
 
   useEffect(() => {
-    if (!Number.isNaN(orderId)) fetchOrdem();
+    if (!Number.isNaN(orderId)) {
+      fetchOrdem();
+      listStock()
+        .then(setStockItems)
+        .catch((err) => {
+          console.error(err);
+          setStockItems([]);
+        });
+    }
   }, [orderId, fetchOrdem]);
+
+  const itemEstoqueSelecionado = useMemo(
+    () => stockItems.find((i) => i.id === itemEstoqueId) ?? null,
+    [stockItems, itemEstoqueId],
+  );
 
   const observacoesDirty =
     observacoesTexto.trim() !== (ordem?.observacoes || "").trim();
@@ -129,6 +410,206 @@ export default function ServiceOrderDetails() {
     }
   }
 
+  async function handleAddServico() {
+    if (!ordem) return;
+    const valorNumero = Number(valorServico.replace(",", "."));
+    if (!descricaoServico.trim() || !valorNumero || valorNumero <= 0) {
+      setErroServico("Preencha a descrição e um valor maior que zero.");
+      return;
+    }
+    setAddingServico(true);
+    setErroServico(null);
+    try {
+      const atualizada = await addServiceToOrder(ordem.id, {
+        descricao: descricaoServico.trim(),
+        valor: valorNumero,
+      });
+      setOrdem(atualizada);
+      setDescricaoServico("");
+      setValorServico("");
+    } catch (err: any) {
+      setErroServico(apiErrorMessage(err, "Erro ao adicionar serviço."));
+    } finally {
+      setAddingServico(false);
+    }
+  }
+
+  async function handleRemoveServico(servicoId: number) {
+    if (!ordem) return;
+    setSavingServicoId(servicoId);
+    try {
+      const atualizada = await removeServiceFromOrder(ordem.id, servicoId);
+      setOrdem(atualizada);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao remover serviço.");
+    } finally {
+      setSavingServicoId(null);
+    }
+  }
+
+  async function handleUpdateServico(
+    servico: ServicoItem,
+    novaDescricao: string,
+    novoValor: number,
+  ) {
+    if (!ordem) return;
+    if (
+      novaDescricao === servico.descricao &&
+      novoValor === Number(servico.valor)
+    )
+      return;
+
+    setSavingServicoId(servico.id);
+    try {
+      await removeServiceFromOrder(ordem.id, servico.id);
+    } catch (err) {
+      console.error(err);
+      alert(
+        "Não foi possível remover o serviço para editar. Nada foi alterado.",
+      );
+      setSavingServicoId(null);
+      return;
+    }
+    try {
+      const atualizada = await addServiceToOrder(ordem.id, {
+        descricao: novaDescricao,
+        valor: novoValor,
+      });
+      setOrdem(atualizada);
+    } catch (err) {
+      console.error(err);
+      try {
+        const restaurada = await addServiceToOrder(ordem.id, {
+          descricao: servico.descricao,
+          valor: Number(servico.valor),
+        });
+        setOrdem(restaurada);
+        alert(
+          "Não foi possível salvar a alteração. O serviço original foi restaurado.",
+        );
+      } catch (err2) {
+        console.error(err2);
+        alert(
+          `Erro grave: o serviço "${servico.descricao}" foi removido e não pôde ser restaurado.`,
+        );
+      }
+    } finally {
+      setSavingServicoId(null);
+    }
+  }
+
+  async function handleAddPeca() {
+    if (!ordem || !itemEstoqueId) {
+      setErroPeca("Selecione uma peça do estoque.");
+      return;
+    }
+    const quantidadeNumero = Number(quantidadePeca);
+    if (!quantidadeNumero || quantidadeNumero <= 0) {
+      setErroPeca("Informe uma quantidade maior que zero.");
+      return;
+    }
+    setAddingPeca(true);
+    setErroPeca(null);
+    try {
+      const resultado = await addPartToOrder(ordem.id, {
+        item_estoque_id: Number(itemEstoqueId),
+        quantidade: quantidadeNumero,
+      });
+      setOrdem(resultado.ordem);
+      setStockItems((prev) =>
+        prev.map((item) =>
+          item.id === Number(itemEstoqueId)
+            ? { ...item, quantidade: resultado.estoque_restante }
+            : item,
+        ),
+      );
+      setItemEstoqueId("");
+      setQuantidadePeca("");
+    } catch (err: any) {
+      setErroPeca(
+        apiErrorMessage(
+          err,
+          "Erro ao adicionar peça — verifique o estoque disponível.",
+        ),
+      );
+    } finally {
+      setAddingPeca(false);
+    }
+  }
+
+  async function handleRemovePeca(peca: PecaItem) {
+    if (!ordem) return;
+    setSavingPecaId(peca.id);
+    try {
+      const atualizada = await removePartFromOrder(ordem.id, peca.id);
+      setOrdem(atualizada);
+      setStockItems((prev) =>
+        prev.map((item) =>
+          item.id === peca.item_estoque.id
+            ? { ...item, quantidade: item.quantidade + peca.quantidade }
+            : item,
+        ),
+      );
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao remover peça.");
+    } finally {
+      setSavingPecaId(null);
+    }
+  }
+
+  async function handleUpdatePecaQuantidade(
+    peca: PecaItem,
+    novaQuantidade: number,
+  ) {
+    if (!ordem) return;
+    if (novaQuantidade === peca.quantidade) return;
+
+    setSavingPecaId(peca.id);
+    try {
+      await removePartFromOrder(ordem.id, peca.id);
+    } catch (err) {
+      console.error(err);
+      alert("Não foi possível remover a peça para editar. Nada foi alterado.");
+      setSavingPecaId(null);
+      return;
+    }
+    try {
+      const resultado = await addPartToOrder(ordem.id, {
+        item_estoque_id: peca.item_estoque.id,
+        quantidade: novaQuantidade,
+      });
+      setOrdem(resultado.ordem);
+      setStockItems((prev) =>
+        prev.map((item) =>
+          item.id === peca.item_estoque.id
+            ? { ...item, quantidade: resultado.estoque_restante }
+            : item,
+        ),
+      );
+    } catch (err) {
+      console.error(err);
+      try {
+        const restaurado = await addPartToOrder(ordem.id, {
+          item_estoque_id: peca.item_estoque.id,
+          quantidade: peca.quantidade,
+        });
+        setOrdem(restaurado.ordem);
+        alert(
+          "Estoque insuficiente para essa quantidade. A quantidade original foi restaurada.",
+        );
+      } catch (err2) {
+        console.error(err2);
+        alert(
+          `Erro grave: a peça "${peca.item_estoque.nome}" foi removida e não pôde ser restaurada.`,
+        );
+      }
+    } finally {
+      setSavingPecaId(null);
+    }
+  }
+
   async function handleEncerrar() {
     if (!ordem) return;
     if (
@@ -137,7 +618,6 @@ export default function ServiceOrderDetails() {
       )
     )
       return;
-
     setProcessando(true);
     setErroAcao(null);
     try {
@@ -162,7 +642,6 @@ export default function ServiceOrderDetails() {
       )
     )
       return;
-
     setProcessando(true);
     setErroAcao(null);
     try {
@@ -178,7 +657,6 @@ export default function ServiceOrderDetails() {
   async function handleReabrir() {
     if (!ordem) return;
     if (!confirm("Reabrir esta ordem de serviço?")) return;
-
     setProcessando(true);
     setErroAcao(null);
     try {
@@ -253,7 +731,6 @@ export default function ServiceOrderDetails() {
           </div>
           <StatusBadge status={ordem.status} />
         </div>
-
         <div className="grid grid-cols-1 gap-6 p-5 sm:grid-cols-3">
           <div>
             <p className="text-xs uppercase tracking-wide text-gray-400">
@@ -291,8 +768,61 @@ export default function ServiceOrderDetails() {
             </p>
           </div>
         </div>
+        {!podeAgir && (
+          <p className="border-t border-gray-100 bg-gray-50 px-5 py-3 text-xs text-gray-500">
+            Esta OS está{" "}
+            {ordem.status === "FINALIZADA" ? "finalizada" : "cancelada"}. Reabra
+            a ordem para editar serviços, peças ou observações.
+          </p>
+        )}
       </div>
 
+      {/* OBSERVAÇÕES */}
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-gray-100 p-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <StickyNote size={18} />
+          </div>
+          <div>
+            <p className="font-semibold text-[#1F1F1F]">Observações</p>
+            <p className="text-xs text-gray-500">
+              Anotações para o mecânico responsável
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <textarea
+              value={observacoesTexto}
+              disabled={savingObservacoes || !podeAgir}
+              onChange={(e) => setObservacoesTexto(e.target.value)}
+              placeholder="Nenhuma observação registrada..."
+              rows={2}
+              className={plainInputClass}
+            />
+          </div>
+          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center">
+            {observacoesDirty && !savingObservacoes && podeAgir && (
+              <button
+                type="button"
+                onClick={handleSaveObservacoes}
+                aria-label="Salvar observações"
+                className="flex h-full w-full items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50"
+              >
+                <Check size={16} />
+              </button>
+            )}
+            {savingObservacoes && (
+              <Loader2 size={16} className="animate-spin text-gray-400" />
+            )}
+          </div>
+        </div>
+        {erroObservacoes && (
+          <p className="px-5 pb-4 text-sm text-red-500">{erroObservacoes}</p>
+        )}
+      </div>
+
+      {/* SERVIÇOS */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <div className="flex items-center gap-3 border-b border-gray-100 p-5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -305,10 +835,65 @@ export default function ServiceOrderDetails() {
             </p>
           </div>
         </div>
+
+        {podeAgir && (
+          <>
+            <div className="flex flex-col gap-3 bg-gray-50/50 p-5 sm:flex-row sm:items-end">
+              <Field label="Descrição do serviço">
+                <input
+                  type="text"
+                  value={descricaoServico}
+                  onChange={(e) => setDescricaoServico(e.target.value)}
+                  placeholder="Ex: Troca de óleo e filtro"
+                  className={plainInputClass}
+                />
+              </Field>
+              <Field label="Valor (R$)">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={valorServico}
+                  onChange={(e) => setValorServico(e.target.value)}
+                  placeholder="0,00"
+                  className={`${plainInputClass} sm:w-32`}
+                />
+              </Field>
+              <button
+                type="button"
+                onClick={handleAddServico}
+                disabled={addingServico}
+                className="flex items-center justify-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
+              >
+                <Plus size={15} />
+                Adicionar
+              </button>
+            </div>
+            {erroServico && (
+              <p className="bg-gray-50/50 px-5 pb-4 text-sm text-red-500">
+                {erroServico}
+              </p>
+            )}
+          </>
+        )}
+
         {ordem.servicos.length === 0 ? (
           <div className="p-6 text-center text-sm text-gray-400">
             Nenhum serviço adicionado.
           </div>
+        ) : podeAgir ? (
+          <ul className="divide-y divide-gray-50 border-t border-gray-100">
+            {ordem.servicos.map((s) => (
+              <ServicoRow
+                key={s.id}
+                servico={s}
+                saving={savingServicoId === s.id}
+                onSave={(descricao, valor) =>
+                  handleUpdateServico(s, descricao, valor)
+                }
+                onRemove={() => handleRemoveServico(s.id)}
+              />
+            ))}
+          </ul>
         ) : (
           <ul className="divide-y divide-gray-50">
             {ordem.servicos.map((s) => (
@@ -326,6 +911,7 @@ export default function ServiceOrderDetails() {
         )}
       </div>
 
+      {/* PEÇAS */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <div className="flex items-center gap-3 border-b border-gray-100 p-5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-[#FF7518]">
@@ -334,14 +920,89 @@ export default function ServiceOrderDetails() {
           <div>
             <p className="font-semibold text-[#1F1F1F]">Peças utilizadas</p>
             <p className="text-xs text-gray-500">
-              Peças do estoque usadas nesta OS
+              A quantidade é descontada do estoque assim que a peça é adicionada
             </p>
           </div>
         </div>
+
+        {podeAgir && (
+          <>
+            <div className="flex flex-col gap-3 bg-gray-50/50 p-5 sm:flex-row sm:items-end">
+              <Field label="Peça">
+                <select
+                  value={itemEstoqueId}
+                  onChange={(e) =>
+                    setItemEstoqueId(
+                      e.target.value ? Number(e.target.value) : "",
+                    )
+                  }
+                  className={plainInputClass}
+                >
+                  <option value="">Selecione...</option>
+                  {stockItems.map((item) => (
+                    <option
+                      key={item.id}
+                      value={item.id}
+                      disabled={item.quantidade === 0}
+                    >
+                      {item.nome} (disponível: {item.quantidade})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Quantidade">
+                <input
+                  type="number"
+                  min={1}
+                  max={itemEstoqueSelecionado?.quantidade ?? undefined}
+                  value={quantidadePeca}
+                  onChange={(e) => setQuantidadePeca(e.target.value)}
+                  className={`${plainInputClass} sm:w-28`}
+                />
+              </Field>
+              <button
+                type="button"
+                onClick={handleAddPeca}
+                disabled={addingPeca}
+                className="flex items-center justify-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
+              >
+                <Plus size={15} />
+                Adicionar
+              </button>
+            </div>
+            {stockItems.length === 0 && (
+              <p className="flex items-center gap-1.5 bg-gray-50/50 px-5 pb-4 text-xs text-amber-600">
+                <AlertTriangle size={13} />
+                Não foi possível carregar a lista de peças do estoque.
+              </p>
+            )}
+            {erroPeca && (
+              <p className="flex items-center gap-1.5 bg-gray-50/50 px-5 pb-4 text-sm text-red-500">
+                <AlertTriangle size={14} />
+                {erroPeca}
+              </p>
+            )}
+          </>
+        )}
+
         {ordem.pecas.length === 0 ? (
           <div className="p-6 text-center text-sm text-gray-400">
             Nenhuma peça utilizada.
           </div>
+        ) : podeAgir ? (
+          <ul className="divide-y divide-gray-50 border-t border-gray-100">
+            {ordem.pecas.map((p) => (
+              <PecaRow
+                key={p.id}
+                peca={p}
+                saving={savingPecaId === p.id}
+                onSaveQuantidade={(novaQuantidade) =>
+                  handleUpdatePecaQuantidade(p, novaQuantidade)
+                }
+                onRemove={() => handleRemovePeca(p)}
+              />
+            ))}
+          </ul>
         ) : (
           <ul className="divide-y divide-gray-50">
             {ordem.pecas.map((p) => (
@@ -362,53 +1023,6 @@ export default function ServiceOrderDetails() {
         )}
       </div>
 
-      {/* -----  OBSERVAÇÕES ----- */}
-
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="flex items-center gap-3 border-b border-gray-100 p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-            <StickyNote size={18} />
-          </div>
-          <div>
-            <p className="font-semibold text-[#1F1F1F]">Observações</p>
-            <p className="text-xs text-gray-500">
-              Anotações para o mecânico responsável
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <textarea
-              value={observacoesTexto}
-              disabled={savingObservacoes}
-              onChange={(e) => setObservacoesTexto(e.target.value)}
-              placeholder="Nenhuma observação registrada..."
-              rows={2}
-              className={plainInputClass}
-            />
-          </div>
-          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center">
-            {observacoesDirty && !savingObservacoes && (
-              <button
-                type="button"
-                onClick={handleSaveObservacoes}
-                aria-label="Salvar observações"
-                className="flex h-full w-full items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50"
-              >
-                <Check size={16} />
-              </button>
-            )}
-            {savingObservacoes && (
-              <Loader2 size={16} className="animate-spin text-gray-400" />
-            )}
-          </div>
-        </div>
-        {erroObservacoes && (
-          <p className="px-5 pb-4 text-sm text-red-500">{erroObservacoes}</p>
-        )}
-      </div>
-
       {erroAcao && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-600">
           {erroAcao}
@@ -424,8 +1038,27 @@ export default function ServiceOrderDetails() {
             {formatCurrency(ordem.valor_total)}
           </p>
         </div>
-
         <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={buildWhatsAppLink(ordem)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+          >
+            <MessageCircle size={16} />
+            Enviar por WhatsApp
+          </a>
+          {podeAgir && (
+            <button
+              type="button"
+              onClick={handleCancelar}
+              disabled={processando}
+              className="flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+            >
+              <Ban size={16} />
+              Cancelar OS
+            </button>
+          )}
           {podeReabrir && (
             <button
               type="button"
@@ -441,28 +1074,6 @@ export default function ServiceOrderDetails() {
               Reabrir OS
             </button>
           )}
-          <a
-            href={buildWhatsAppLink(ordem)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
-          >
-            <MessageCircle size={16} />
-            Enviar por WhatsApp
-          </a>
-
-          {podeAgir && (
-            <button
-              type="button"
-              onClick={handleCancelar}
-              disabled={processando}
-              className="flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
-            >
-              <Ban size={16} />
-              Cancelar OS
-            </button>
-          )}
-
           {podeAgir && (
             <button
               type="button"
