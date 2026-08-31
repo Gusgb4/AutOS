@@ -11,13 +11,20 @@ import {
   MessageCircle,
   CheckCircle2,
   Ban,
+  Check,
+  StickyNote,
+  PackageSearch,
 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
 import {
   getServiceOrderById,
   changeServiceOrderStatus,
+  updateServiceOrderObservacoes,
   type ServiceOrder,
 } from "../services/serviceOrders";
+
+const plainInputClass =
+  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
 
 function formatCurrency(value: string | number) {
   return Number(value)
@@ -78,12 +85,17 @@ export default function ServiceOrderDetails() {
   const [processando, setProcessando] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
 
+  const [observacoesTexto, setObservacoesTexto] = useState("");
+  const [savingObservacoes, setSavingObservacoes] = useState(false);
+  const [erroObservacoes, setErroObservacoes] = useState<string | null>(null);
+
   const fetchOrdem = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await getServiceOrderById(orderId);
       setOrdem(data);
+      setObservacoesTexto(data.observacoes || "");
     } catch (err) {
       console.error(err);
       setError("Não foi possível carregar esta ordem de serviço.");
@@ -95,6 +107,27 @@ export default function ServiceOrderDetails() {
   useEffect(() => {
     if (!Number.isNaN(orderId)) fetchOrdem();
   }, [orderId, fetchOrdem]);
+
+  const observacoesDirty =
+    observacoesTexto.trim() !== (ordem?.observacoes || "").trim();
+
+  async function handleSaveObservacoes() {
+    if (!ordem) return;
+    setSavingObservacoes(true);
+    setErroObservacoes(null);
+    try {
+      const atualizada = await updateServiceOrderObservacoes(
+        ordem.id,
+        observacoesTexto.trim(),
+      );
+      setOrdem(atualizada);
+      setObservacoesTexto(atualizada.observacoes || "");
+    } catch (err: any) {
+      setErroObservacoes(apiErrorMessage(err, "Erro ao salvar observações."));
+    } finally {
+      setSavingObservacoes(false);
+    }
+  }
 
   async function handleEncerrar() {
     if (!ordem) return;
@@ -142,6 +175,22 @@ export default function ServiceOrderDetails() {
     }
   }
 
+  async function handleReabrir() {
+    if (!ordem) return;
+    if (!confirm("Reabrir esta ordem de serviço?")) return;
+
+    setProcessando(true);
+    setErroAcao(null);
+    try {
+      const reaberta = await changeServiceOrderStatus(ordem.id, "EM_ANDAMENTO");
+      setOrdem(reaberta);
+    } catch (err: any) {
+      setErroAcao(apiErrorMessage(err, "Erro ao reabrir a ordem de serviço."));
+    } finally {
+      setProcessando(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-gray-500">
@@ -169,6 +218,7 @@ export default function ServiceOrderDetails() {
   }
 
   const podeAgir = ordem.status === "ABERTA" || ordem.status === "EM_ANDAMENTO";
+  const podeReabrir = ordem.status === "FINALIZADA";
 
   return (
     <div className="space-y-6 p-8">
@@ -244,8 +294,16 @@ export default function ServiceOrderDetails() {
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="border-b border-gray-100 p-5">
-          <p className="font-semibold text-[#1F1F1F]">Serviços</p>
+        <div className="flex items-center gap-3 border-b border-gray-100 p-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            <Wrench size={18} />
+          </div>
+          <div>
+            <p className="font-semibold text-[#1F1F1F]">Serviços</p>
+            <p className="text-xs text-gray-500">
+              Serviços realizados nesta OS
+            </p>
+          </div>
         </div>
         {ordem.servicos.length === 0 ? (
           <div className="p-6 text-center text-sm text-gray-400">
@@ -269,8 +327,16 @@ export default function ServiceOrderDetails() {
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="border-b border-gray-100 p-5">
-          <p className="font-semibold text-[#1F1F1F]">Peças utilizadas</p>
+        <div className="flex items-center gap-3 border-b border-gray-100 p-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-[#FF7518]">
+            <PackageSearch size={18} />
+          </div>
+          <div>
+            <p className="font-semibold text-[#1F1F1F]">Peças utilizadas</p>
+            <p className="text-xs text-gray-500">
+              Peças do estoque usadas nesta OS
+            </p>
+          </div>
         </div>
         {ordem.pecas.length === 0 ? (
           <div className="p-6 text-center text-sm text-gray-400">
@@ -296,6 +362,53 @@ export default function ServiceOrderDetails() {
         )}
       </div>
 
+      {/* -----  OBSERVAÇÕES ----- */}
+
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+        <div className="flex items-center gap-3 border-b border-gray-100 p-5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+            <StickyNote size={18} />
+          </div>
+          <div>
+            <p className="font-semibold text-[#1F1F1F]">Observações</p>
+            <p className="text-xs text-gray-500">
+              Anotações para o mecânico responsável
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <textarea
+              value={observacoesTexto}
+              disabled={savingObservacoes}
+              onChange={(e) => setObservacoesTexto(e.target.value)}
+              placeholder="Nenhuma observação registrada..."
+              rows={2}
+              className={plainInputClass}
+            />
+          </div>
+          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center">
+            {observacoesDirty && !savingObservacoes && (
+              <button
+                type="button"
+                onClick={handleSaveObservacoes}
+                aria-label="Salvar observações"
+                className="flex h-full w-full items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50"
+              >
+                <Check size={16} />
+              </button>
+            )}
+            {savingObservacoes && (
+              <Loader2 size={16} className="animate-spin text-gray-400" />
+            )}
+          </div>
+        </div>
+        {erroObservacoes && (
+          <p className="px-5 pb-4 text-sm text-red-500">{erroObservacoes}</p>
+        )}
+      </div>
+
       {erroAcao && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-600">
           {erroAcao}
@@ -313,17 +426,31 @@ export default function ServiceOrderDetails() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {podeReabrir && (
+            <button
+              type="button"
+              onClick={handleReabrir}
+              disabled={processando}
+              className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+            >
+              {processando ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Wrench size={16} />
+              )}
+              Reabrir OS
+            </button>
+          )}
           <a
             href={buildWhatsAppLink(ordem)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center
-          gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5
-          text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
           >
             <MessageCircle size={16} />
             Enviar por WhatsApp
           </a>
+
           {podeAgir && (
             <button
               type="button"
@@ -335,6 +462,7 @@ export default function ServiceOrderDetails() {
               Cancelar OS
             </button>
           )}
+
           {podeAgir && (
             <button
               type="button"

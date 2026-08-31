@@ -17,7 +17,7 @@ const STATUS_EDITAVEIS: StatusOrdemServico[] = ["ABERTA", "EM_ANDAMENTO"];
 const TRANSICOES: Record<StatusOrdemServico, StatusOrdemServico[]> = {
   ABERTA: ["EM_ANDAMENTO", "CANCELADA"],
   EM_ANDAMENTO: ["FINALIZADA", "CANCELADA"],
-  FINALIZADA: [],
+  FINALIZADA: ["EM_ANDAMENTO"],
   CANCELADA: [],
 };
 

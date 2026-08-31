@@ -108,3 +108,16 @@ export async function removePartFromOrder(ordemId: number, partId: number) {
   );
   return data;
 }
+
+export async function updateServiceOrderObservacoes(
+  ordemId: number,
+  observacoes: string,
+) {
+  const { data } = await api.patch<ServiceOrder>(
+    `/service-orders/${ordemId}/observacoes`,
+    {
+      observacoes,
+    },
+  );
+  return data;
+}

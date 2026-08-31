@@ -9,6 +9,7 @@ interface StatCardProps {
     positive?: boolean;
   };
   accentColor?: string;
+  valueColor?: boolean;
 }
 
 export default function StatCard({
@@ -17,6 +18,7 @@ export default function StatCard({
   icon: Icon,
   trend,
   accentColor = "#FF7518",
+  valueColor = false,
 }: StatCardProps) {
   return (
     <div className="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm">
@@ -29,13 +31,16 @@ export default function StatCard({
 
       <div className="flex flex-col">
         <span className="text-sm text-gray-500">{label}</span>
-        <span className="text-2xl font-semibold text-[#1F1F1F]">{value}</span>
+        <span
+          className="text-2xl font-semibold"
+          style={{ color: valueColor ? accentColor : "#1F1F1F" }}
+        >
+          {value}
+        </span>
 
         {trend && (
           <span
-            className={`text-xs font-medium ${
-              trend.positive ? "text-emerald-600" : "text-red-500"
-            }`}
+            className={`text-xs font-medium ${trend.positive ? "text-emerald-600" : "text-red-500"}`}
           >
             {trend.value}
           </span>
