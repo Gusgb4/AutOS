@@ -33,35 +33,41 @@ model User {
 }
 
 model Client {
-  id         Int      @id @default(autoincrement())
-  nome       String
-  telefone   String
-  documento  String?   @unique
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  id           Int       @id @default(autoincrement())
+  nome         String
+  telefone     String
+  documento    String?   @unique
+  ativo        Boolean   @default(true)
+  arquivado_em DateTime?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
 
   veiculos       Vehicle[]
   ordens_servico ServiceOrder[]
 
   @@index([nome])
+  @@index([ativo])
   @@map("clients")
 }
 
 model Vehicle {
-  id         Int      @id @default(autoincrement())
-  cliente_id Int
-  placa      String   @unique
-  marca      String
-  modelo     String
-  ano        Int
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  id           Int       @id @default(autoincrement())
+  cliente_id   Int
+  placa        String    @unique
+  marca        String
+  modelo       String
+  ano          Int
+  ativo        Boolean   @default(true)
+  arquivado_em DateTime?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
 
   cliente        Client         @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
   ordens_servico ServiceOrder[]
 
   @@index([placa])
   @@index([cliente_id])
+  @@index([ativo])
   @@map("vehicles")
 }
 
