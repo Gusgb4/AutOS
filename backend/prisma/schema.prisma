@@ -65,6 +65,7 @@ model Vehicle {
 
   cliente        Client         @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
   ordens_servico ServiceOrder[]
+  lembrete_manutencao MaintenanceReminder?
 
   @@index([placa])
   @@index([cliente_id])
@@ -148,4 +149,19 @@ model ServiceOrderPart {
   @@index([ordem_id])
   @@index([item_estoque_id])
   @@map("service_order_parts")
+}
+
+model MaintenanceReminder {
+  id             Int      @id @default(autoincrement())
+  veiculo_id     Int      @unique
+  intervalo_dias Int
+  intervalo_km   Int
+  proxima_data   DateTime
+  proximo_km     Int
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  veiculo Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Cascade)
+
+  @@map("maintenance_reminders")
 }
