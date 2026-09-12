@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { search, findById, create, update, remove } from "../services/vehicles.service";
+import { search, findById, create, update, archive } from "../services/vehicles.service";
 
 // GET /api/vehicles?placa=termo
 export async function listController(req: Request, res: Response) {
@@ -52,9 +52,9 @@ export async function updateController(req: Request, res: Response) {
   return res.status(200).json(veiculo);
 }
 
-// DELETE /api/vehicles/:id
-export async function removeController(req: Request, res: Response) {
+// PATCH /api/vehicles/:id/archive
+export async function archiveController(req: Request, res: Response) {
   const id = Number(req.params.id);
-  await remove(id);
-  return res.status(204).send();
+  const veiculo = await archive(id);
+  return res.status(200).json(veiculo);
 }
