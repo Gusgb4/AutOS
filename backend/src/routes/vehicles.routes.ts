@@ -5,6 +5,7 @@ import {
   createController,
   updateController,
   archiveController,
+  unarchiveController,
 } from "../controllers/vehicles.controller";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ensureAuthenticated } from "../middlewares/auth.middleware";
@@ -18,5 +19,6 @@ router.get("/:id", asyncHandler(getByIdController));
 router.post("/", asyncHandler(createController));
 router.put("/:id", asyncHandler(updateController));
 router.patch("/:id/archive", asyncHandler(archiveController));
+router.patch("/:id/unarchive", asyncHandler(unarchiveController));
 
 export default router;

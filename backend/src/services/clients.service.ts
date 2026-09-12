@@ -57,3 +57,11 @@ export async function archive(id: number) {
     data: { ativo: false, arquivado_em: new Date() },
   });
 }
+
+//---------- desarquivar cliente --------------
+export async function unarchive(id: number) {
+  return prisma.client.update({
+    where: { id },
+    data: { ativo: true, arquivado_em: null },
+  });
+}

@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import {
   archive,
+  unarchive,
   create,
   findById,
   search,
@@ -59,5 +60,12 @@ export async function updateController(req: Request, res: Response) {
 export async function archiveController(req: Request, res: Response) {
   const id = Number(req.params.id);
   const cliente = await archive(id);
+  return res.status(200).json(cliente);
+}
+
+// PATCH /api/clients/:id/unarchive
+export async function unarchiveController(req: Request, res: Response) {
+  const id = Number(req.params.id);
+  const cliente = await unarchive(id);
   return res.status(200).json(cliente);
 }

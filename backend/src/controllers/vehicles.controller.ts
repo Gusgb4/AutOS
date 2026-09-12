@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { search, findById, create, update, archive } from "../services/vehicles.service";
+import { search, findById, create, update, archive, unarchive } from "../services/vehicles.service";
 
 // GET /api/vehicles?placa=termo
 export async function listController(req: Request, res: Response) {
@@ -56,5 +56,12 @@ export async function updateController(req: Request, res: Response) {
 export async function archiveController(req: Request, res: Response) {
   const id = Number(req.params.id);
   const veiculo = await archive(id);
+  return res.status(200).json(veiculo);
+}
+
+// PATCH /api/vehicles/:id/unarchive
+export async function unarchiveController(req: Request, res: Response) {
+  const id = Number(req.params.id);
+  const veiculo = await unarchive(id);
   return res.status(200).json(veiculo);
 }

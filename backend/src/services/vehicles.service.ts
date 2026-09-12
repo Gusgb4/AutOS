@@ -52,3 +52,11 @@ export async function archive(id: number) {
     data: { ativo: false, arquivado_em: new Date() },
   });
 }
+
+//---------- desarquivar veículo --------------
+export async function unarchive(id: number) {
+  return prisma.vehicle.update({
+    where: { id },
+    data: { ativo: true, arquivado_em: null },
+  });
+}
