@@ -50,7 +50,10 @@ export async function update(id: number, dados: UpdateClientInput) {
   return prisma.client.update({ where: { id }, data: dados });
 }
 
-//---------- remover cliente --------------
-export async function remove(id: number) {
-  return prisma.client.delete({ where: { id } });
+//---------- arquivar cliente --------------
+export async function archive(id: number) {
+  return prisma.client.update({
+    where: { id },
+    data: { ativo: false, arquivado_em: new Date() },
+  });
 }

@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
 import { z } from "zod";
 import {
+  archive,
   create,
   findById,
-  remove,
   search,
   update,
 } from "../services/clients.service";
@@ -55,9 +55,9 @@ export async function updateController(req: Request, res: Response) {
   return res.status(200).json(cliente);
 }
 
-// DELETE /api/clients/:id
-export async function removeController(req: Request, res: Response) {
+// PATCH /api/clients/:id/archive
+export async function archiveController(req: Request, res: Response) {
   const id = Number(req.params.id);
-  await remove(id);
-  return res.status(204).send();
+  const cliente = await archive(id);
+  return res.status(200).json(cliente);
 }
