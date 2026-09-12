@@ -51,16 +51,17 @@ model Client {
 }
 
 model Vehicle {
-  id           Int       @id @default(autoincrement())
-  cliente_id   Int
-  placa        String    @unique
-  marca        String
-  modelo       String
-  ano          Int
-  ativo        Boolean   @default(true)
-  arquivado_em DateTime?
-  created_at   DateTime  @default(now())
-  updated_at   DateTime  @updatedAt
+  id                  Int       @id @default(autoincrement())
+  cliente_id          Int
+  placa               String    @unique
+  marca               String
+  modelo              String
+  ano                 Int
+  quilometragem_atual Int       @default(0)
+  ativo               Boolean   @default(true)
+  arquivado_em        DateTime?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
 
   cliente        Client         @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
   ordens_servico ServiceOrder[]
@@ -96,15 +97,16 @@ enum StatusOrdemServico {
 }
 
 model ServiceOrder {
-  id          Int                @id @default(autoincrement())
-  cliente_id  Int
-  veiculo_id  Int
-  mecanico_id Int
-  status      StatusOrdemServico @default(ABERTA)
-  valor_total Decimal            @default(0) @db.Decimal(10, 2)
-  observacoes String?
-  created_at  DateTime           @default(now())
-  updated_at  DateTime           @updatedAt
+  id                       Int                @id @default(autoincrement())
+  cliente_id               Int
+  veiculo_id               Int
+  mecanico_id              Int
+  status                   StatusOrdemServico @default(ABERTA)
+  valor_total              Decimal            @default(0) @db.Decimal(10, 2)
+  observacoes              String?
+  quilometragem_registrada Int?
+  created_at               DateTime           @default(now())
+  updated_at               DateTime           @updatedAt
 
   cliente Client  @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
   veiculo Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Restrict)
