@@ -45,6 +45,35 @@ async function recalcularTotal(tx: Tx, ordemId: number) {
   });
 }
 
+function somarDias(data: Date, dias: number): Date {
+  const resultado = new Date(data);
+  resultado.setDate(resultado.getDate() + dias);
+  return resultado;
+}
+
+async function recalcularLembreteManutencao(tx: Tx, veiculoId: number) {
+  const lembrete = await tx.maintenanceReminder.findUnique({
+    where: { veiculo_id: veiculoId },
+  });
+
+  // Sem lembrete configurado pra este veículo ainda (RF20 pendente) — nada a recalcular.
+  if (!lembrete) {
+    return;
+  }
+
+  const veiculo = await tx.vehicle.findUniqueOrThrow({
+    where: { id: veiculoId },
+  });
+
+  await tx.maintenanceReminder.update({
+    where: { veiculo_id: veiculoId },
+    data: {
+      proxima_data: somarDias(new Date(), lembrete.intervalo_dias),
+      proximo_km: veiculo.quilometragem_atual + lembrete.intervalo_km,
+    },
+  });
+}
+
 async function buscarOrdemEditavel(tx: Tx, ordemId: number) {
   const ordem = await tx.serviceOrder.findUnique({ where: { id: ordemId } });
 
@@ -80,6 +109,8 @@ interface CreateServiceOrderInput {
   cliente_id: number;
   veiculo_id: number;
   mecanico_id: number;
+  quilometragem_registrada: number;
+  observacoes?: string;
 }
 
 export async function create(dados: CreateServiceOrderInput) {
@@ -94,9 +125,25 @@ export async function create(dados: CreateServiceOrderInput) {
     );
   }
 
-  return prisma.serviceOrder.create({
-    data: dados,
-    include: ordemCompleta,
+  if (veiculo && dados.quilometragem_registrada < veiculo.quilometragem_atual) {
+    throw new AppError(
+      `A quilometragem informada (${dados.quilometragem_registrada} km) não pode ser menor que a quilometragem atual do veículo (${veiculo.quilometragem_atual} km).`,
+      400,
+    );
+  }
+
+  return prisma.$transaction(async (tx) => {
+    if (veiculo) {
+      await tx.vehicle.update({
+        where: { id: dados.veiculo_id },
+        data: { quilometragem_atual: dados.quilometragem_registrada },
+      });
+    }
+
+    return tx.serviceOrder.create({
+      data: dados,
+      include: ordemCompleta,
+    });
   });
 }
 
@@ -246,6 +293,10 @@ export async function changeStatus(
         "O status da ordem foi alterado por outra requisição.",
         409,
       );
+    }
+
+    if (novoStatus === "FINALIZADA") {
+      await recalcularLembreteManutencao(tx, ordem.veiculo_id);
     }
 
     if (novoStatus === "CANCELADA") {

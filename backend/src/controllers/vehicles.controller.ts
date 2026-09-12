@@ -27,6 +27,7 @@ const createVehicleSchema = z.object({
   marca: z.string().min(1, "Marca é obrigatória."),
   modelo: z.string().min(1, "Modelo é obrigatório."),
   ano: z.number().int().min(1900).max(new Date().getFullYear() + 1),
+  quilometragem_atual: z.number().int().nonnegative().optional(),
 });
 
 // POST /api/vehicles
@@ -42,6 +43,7 @@ const updateVehicleSchema = z.object({
   marca: z.string().min(1).optional(),
   modelo: z.string().min(1).optional(),
   ano: z.number().int().min(1900).max(new Date().getFullYear() + 1).optional(),
+  quilometragem_atual: z.number().int().nonnegative().optional(),
 });
 
 // PUT /api/vehicles/:id

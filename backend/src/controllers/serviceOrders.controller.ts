@@ -40,6 +40,10 @@ const createServiceOrderSchema = z.object({
   cliente_id: z.number().int().positive(),
   veiculo_id: z.number().int().positive(),
   mecanico_id: z.number().int().positive(),
+  quilometragem_registrada: z
+    .number()
+    .int()
+    .nonnegative("Quilometragem não pode ser negativa."),
   observacoes: z
     .string()
     .trim()

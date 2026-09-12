@@ -26,6 +26,7 @@ interface CreateVehicleInput {
   marca: string;
   modelo: string;
   ano: number;
+  quilometragem_atual?: number;
 }
 
 export async function create(dados: CreateVehicleInput) {
@@ -39,6 +40,7 @@ interface UpdateVehicleInput {
   marca?: string;
   modelo?: string;
   ano?: number;
+  quilometragem_atual?: number;
 }
 
 export async function update(id: number, dados: UpdateVehicleInput) {
