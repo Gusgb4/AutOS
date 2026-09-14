@@ -115,6 +115,7 @@ model ServiceOrder {
 
   servicos ServiceOrderService[]
   pecas    ServiceOrderPart[]
+  financialEntries FinancialEntry[]
 
   @@index([cliente_id])
   @@index([veiculo_id])
