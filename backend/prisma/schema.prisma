@@ -165,3 +165,21 @@ model MaintenanceReminder {
 
   @@map("maintenance_reminders")
 }
+
+model FinancialEntry {
+  id           String        @id @default(uuid())
+  tipo         String        // Ex: "RECEITA", "DESPESA"
+  descricao    String
+  valor        Decimal       @db.Decimal(10, 2)
+  data         DateTime      @default(now())
+  estornado    Boolean       @default(false)
+  
+  ordemId      Int?          // Alterado de String? para Int? para bater com o ID de ServiceOrder
+  ordemServico ServiceOrder? @relation(fields: [ordemId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([ordemId])
+  @@map("financial_entries")
+}
