@@ -56,7 +56,6 @@ async function recalcularLembreteManutencao(tx: Tx, veiculoId: number) {
     where: { veiculo_id: veiculoId },
   });
 
-  // Sem lembrete configurado pra este veículo ainda (RF20 pendente) — nada a recalcular.
   if (!lembrete) {
     return;
   }
@@ -295,11 +294,47 @@ export async function changeStatus(
       );
     }
 
+    // Se a OS foi finalizada, geramos a receita automaticamente
     if (novoStatus === "FINALIZADA") {
       await recalcularLembreteManutencao(tx, ordem.veiculo_id);
+
+      const lancamentoExistente = await tx.financialEntry.findFirst({
+        where: { ordemId: ordemId },
+      });
+
+      if (lancamentoExistente) {
+        await tx.financialEntry.update({
+          where: { id: lancamentoExistente.id },
+          data: { estornado: false, valor: ordem.valor_total },
+        });
+      } else {
+        await tx.financialEntry.create({
+          data: {
+            tipo: "RECEITA",
+            descricao: `Receita referente à Ordem de Serviço #${ordem.id}`,
+            valor: ordem.valor_total,
+            ordemId: ordem.id,
+            estornado: false,
+          },
+        });
+      }
     }
 
+    // Se uma OS finalizada foi REABERTA
+    if (ordem.status === "FINALIZADA" && novoStatus === "EM_ANDAMENTO") {
+      await tx.financialEntry.updateMany({
+        where: { ordemId: ordemId },
+        data: { estornado: true },
+      });
+    }
+
+    // Se a OS foi cancelada, estorna o financeiro também
     if (novoStatus === "CANCELADA") {
+      await tx.financialEntry.updateMany({
+        where: { ordemId: ordemId },
+        data: { estornado: true },
+      });
+
       const pecas = await tx.serviceOrderPart.findMany({
         where: { ordem_id: ordemId },
       });
