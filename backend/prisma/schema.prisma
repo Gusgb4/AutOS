@@ -63,8 +63,8 @@ model Vehicle {
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
 
-  cliente        Client         @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
-  ordens_servico ServiceOrder[]
+  cliente             Client               @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
+  ordens_servico      ServiceOrder[]
   lembrete_manutencao MaintenanceReminder?
 
   @@index([placa])
@@ -90,6 +90,11 @@ model StockItem {
   @@map("stock_items")
 }
 
+enum TipoLancamento {
+  ENTRADA
+  SAIDA
+}
+
 enum StatusOrdemServico {
   ABERTA
   EM_ANDAMENTO
@@ -109,12 +114,13 @@ model ServiceOrder {
   created_at               DateTime           @default(now())
   updated_at               DateTime           @updatedAt
 
-  cliente Client  @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
-  veiculo Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Restrict)
-  mecanico User   @relation("MecanicoResponsavel", fields: [mecanico_id], references: [id])
+  cliente  Client  @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
+  veiculo  Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Restrict)
+  mecanico User    @relation("MecanicoResponsavel", fields: [mecanico_id], references: [id])
 
-  servicos ServiceOrderService[]
-  pecas    ServiceOrderPart[]
+  servicos    ServiceOrderService[]
+  pecas       ServiceOrderPart[]
+  lancamentos FinancialEntry[]
 
   @@index([cliente_id])
   @@index([veiculo_id])
@@ -164,4 +170,24 @@ model MaintenanceReminder {
   veiculo Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Cascade)
 
   @@map("maintenance_reminders")
+}
+
+model FinancialEntry {
+  id         Int            @id @default(autoincrement())
+  tipo       TipoLancamento
+  descricao  String
+  valor      Decimal        @db.Decimal(10, 2)
+  data       DateTime
+  ordem_id   Int?
+  estornado  Boolean        @default(false)
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+
+  ordem ServiceOrder? @relation(fields: [ordem_id], references: [id], onDelete: Restrict)
+
+  @@index([data])
+  @@index([tipo])
+  @@index([ordem_id])
+  @@index([estornado])
+  @@map("financial_entries")
 }
