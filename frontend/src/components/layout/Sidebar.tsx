@@ -11,6 +11,7 @@ import {
 import { NavLink, useNavigate } from "react-router-dom";
 import { getUserRole } from "../../lib/auth";
 
+
 const menuItems = [
   { label: "Início", path: "/", icon: Home, restrito: false },
   {
@@ -26,6 +27,13 @@ const menuItems = [
     path: "/financeiro",
     icon: DollarSign,
     restrito: true,
+  },
+  // 👇 ADICIONA APENAS ESTE BLOCO AQUI 👇
+  {
+    label: "Produtividade",
+    path: "/produtividade",
+    icon: Wrench,
+    restrito: true, 
   },
 ];
 

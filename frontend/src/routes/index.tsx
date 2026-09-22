@@ -13,6 +13,7 @@ import ServiceOrders from "../pages/ServiceOrders";
 import NewServiceOrder from "../pages/NewServiceOrder";
 import ServiceOrderDetails from "../pages/ServiceOrderDetails";
 import NotFound from "../pages/NotFound";
+import Productivity from "../pages/Productivity";
 
 export const router = createBrowserRouter([
   {
@@ -36,6 +37,8 @@ export const router = createBrowserRouter([
           { path: "estoque/:id/editar", element: <NewStockItem /> },
           { path: "ordens-servico/novo", element: <NewServiceOrder /> },
           { path: "financeiro", element: <Financial /> },
+          { path: "/produtividade", element: <Productivity />
+},
 
           /// { path: "veiculos", element: <Vehicles /> },
         ],
