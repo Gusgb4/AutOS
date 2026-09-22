@@ -42,3 +42,20 @@ export async function createManualEntry(dados: CreateManualEntryInput) {
     },
   });
 }
+
+export async function getTicketMedio() {
+  const resultado = await prisma.serviceOrder.aggregate({
+    where: { status: "FINALIZADA" },
+    _avg: {
+      valor_total: true,
+    },
+    _count: {
+      id: true,
+    },
+  });
+
+  return {
+    ticket_medio: resultado._avg.valor_total ? Number(resultado._avg.valor_total) : 0,
+    total_ordens_finalizadas: resultado._count.id,
+  };
+}

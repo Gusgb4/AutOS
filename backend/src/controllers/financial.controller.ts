@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { listEntries, createManualEntry } from "../services/financial.service";
+import { listEntries, createManualEntry, getTicketMedio } from "../services/financial.service";
 
 const tipoSchema = z.enum(["RECEITA", "DESPESA"]);
 
@@ -36,4 +36,9 @@ export async function createFinancialEntryController(
   const dados = createEntrySchema.parse(req.body);
   const lancamento = await createManualEntry(dados);
   return res.status(201).json(lancamento);
+}
+
+export async function getTicketMedioController(req: Request, res: Response) {
+  const dadosTicket = await getTicketMedio();
+  return res.status(200).json(dadosTicket);
 }
