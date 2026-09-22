@@ -7,6 +7,8 @@ import {
   Plus,
   Receipt,
   Wallet,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
 import FinancialEntryModal from "../components/financial/FinancialEntryModal";
@@ -30,6 +32,8 @@ const moeda = (valor: number) =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Financial() {
+  const [showValues, setShowValues] = useState(true);
+  
   const [lancamentos, setLancamentos] = useState<FinancialEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -107,31 +111,40 @@ export default function Financial() {
 
   return (
     <div className="space-y-6 p-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-[#1F1F1F]">Financeiro</h1>
-        <p className="text-sm text-gray-500">
-          Acompanhe as receitas e despesas da oficina.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-[#1F1F1F]">Financeiro</h1>
+          <p className="text-sm text-gray-500">
+            Acompanhe as receitas e despesas da oficina.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowValues(!showValues)}
+          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+        >
+          {showValues ? <EyeOff size={18} /> : <Eye size={18} />}
+          {showValues ? "Ocultar Valores" : "Mostrar Valores"}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="RECEITAS"
-          value={moeda(totalReceitas)}
+          value={showValues ? moeda(totalReceitas) : "R$ •••••"}
           icon={ArrowUpCircle}
           accentColor="#10B981"
           valueColor
         />
         <StatCard
           label="DESPESAS"
-          value={moeda(totalDespesas)}
+          value={showValues ? moeda(totalDespesas) : "R$ •••••"}
           icon={ArrowDownCircle}
           accentColor="#EF4444"
           valueColor
         />
         <StatCard
           label="SALDO"
-          value={moeda(saldo)}
+          value={showValues ? moeda(saldo) : "R$ •••••"}
           icon={Wallet}
           accentColor={saldo >= 0 ? "#10B981" : "#EF4444"}
           valueColor
