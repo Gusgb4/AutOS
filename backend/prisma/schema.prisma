@@ -90,11 +90,6 @@ model StockItem {
   @@map("stock_items")
 }
 
-enum TipoLancamento {
-  ENTRADA
-  SAIDA
-}
-
 enum StatusOrdemServico {
   ABERTA
   EM_ANDAMENTO
