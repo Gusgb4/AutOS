@@ -63,8 +63,8 @@ model Vehicle {
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
 
-  cliente        Client         @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
-  ordens_servico ServiceOrder[]
+  cliente             Client               @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
+  ordens_servico      ServiceOrder[]
   lembrete_manutencao MaintenanceReminder?
 
   @@index([placa])
@@ -90,6 +90,11 @@ model StockItem {
   @@map("stock_items")
 }
 
+enum TipoLancamento {
+  ENTRADA
+  SAIDA
+}
+
 enum StatusOrdemServico {
   ABERTA
   EM_ANDAMENTO
@@ -109,9 +114,9 @@ model ServiceOrder {
   created_at               DateTime           @default(now())
   updated_at               DateTime           @updatedAt
 
-  cliente Client  @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
-  veiculo Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Restrict)
-  mecanico User   @relation("MecanicoResponsavel", fields: [mecanico_id], references: [id])
+  cliente  Client  @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
+  veiculo  Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Restrict)
+  mecanico User    @relation("MecanicoResponsavel", fields: [mecanico_id], references: [id])
 
   servicos ServiceOrderService[]
   pecas    ServiceOrderPart[]
