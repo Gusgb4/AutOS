@@ -8,6 +8,15 @@ Centro Universitário Católica de Santa Catarina.
 
 🔗 **Aplicação:** https://autos-project.vercel.app
 
+ 
+### Conta de demonstração
+
+Para testar o sistema com acesso completo, use a conta do proprietário da oficina enviada no PDF pelo Gustavo Franz na atividade do teams.
+
+Contas criadas pelo cadastro do site entram automaticamente com o perfil de
+**funcionário**, que não tem acesso ao módulo 
+
+
 ## Funcionalidades (MVP1)
 
 - Autenticação com dois perfis (proprietário e funcionário), com permissões distintas
