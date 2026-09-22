@@ -118,9 +118,9 @@ model ServiceOrder {
   veiculo  Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Restrict)
   mecanico User    @relation("MecanicoResponsavel", fields: [mecanico_id], references: [id])
 
-  servicos    ServiceOrderService[]
-  pecas       ServiceOrderPart[]
-  lancamentos FinancialEntry[]
+  servicos ServiceOrderService[]
+  pecas    ServiceOrderPart[]
+  financialEntries FinancialEntry[]
 
   @@index([cliente_id])
   @@index([veiculo_id])
@@ -173,21 +173,19 @@ model MaintenanceReminder {
 }
 
 model FinancialEntry {
-  id         Int            @id @default(autoincrement())
-  tipo       TipoLancamento
-  descricao  String
-  valor      Decimal        @db.Decimal(10, 2)
-  data       DateTime
-  ordem_id   Int?
-  estornado  Boolean        @default(false)
-  created_at DateTime       @default(now())
-  updated_at DateTime       @updatedAt
+  id           String        @id @default(uuid())
+  tipo         String        // Ex: "RECEITA", "DESPESA"
+  descricao    String
+  valor        Decimal       @db.Decimal(10, 2)
+  data         DateTime      @default(now())
+  estornado    Boolean       @default(false)
+  
+  ordemId      Int?          // Alterado de String? para Int? para bater com o ID de ServiceOrder
+  ordemServico ServiceOrder? @relation(fields: [ordemId], references: [id], onDelete: SetNull)
 
-  ordem ServiceOrder? @relation(fields: [ordem_id], references: [id], onDelete: Restrict)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
-  @@index([data])
-  @@index([tipo])
-  @@index([ordem_id])
-  @@index([estornado])
+  @@index([ordemId])
   @@map("financial_entries")
 }

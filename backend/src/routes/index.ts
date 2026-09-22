@@ -5,7 +5,7 @@ import { stockRoutes } from "./stock.routes";
 import vehiclesRoutes from "./vehicles.routes";
 import serviceOrdersRoutes from "./serviceOrders.routes";
 import usersRoutes from "./users.routes";
-import financeRoutes from "./finance.routes";
+import financialRoutes from "./financial.routes";
 
 const router = Router();
 
@@ -15,6 +15,6 @@ router.use("/auth", authRoutes);
 router.use("/stock", stockRoutes);
 router.use("/service-orders", serviceOrdersRoutes);
 router.use("/users", usersRoutes);
-router.use("/finance", financeRoutes);
+router.use("/financial", financialRoutes);
 
 export default router;
