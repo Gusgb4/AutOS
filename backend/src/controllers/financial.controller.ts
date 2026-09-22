@@ -1,41 +1,39 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import { listEntries, createManualEntry } from "../services/financial.service";
 
-const prisma = new PrismaClient();
+const tipoSchema = z.enum(["RECEITA", "DESPESA"]);
 
-const financialSchema = z.object({
-  tipo: z.enum(["RECEITA", "DESPESA"]),
-  descricao: z.string().min(3, "Descrição deve ter pelo menos 3 caracteres"),
-  valor: z.number().positive("O valor deve ser maior que zero"),
-  data: z.string().optional().transform((val) => (val ? new Date(val) : new Date())),
-  ordemId: z.number().int().optional().nullable(),
+const listQuerySchema = z.object({
+  tipo: tipoSchema.optional(),
+  inicio: z.coerce.date().optional(),
+  fim: z.coerce.date().optional(),
 });
 
-export async function listFinancialEntriesController(_req: Request, res: Response) {
-  const entries = await prisma.financialEntry.findMany({
-    include: {
-      ordemServico: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-  return res.status(200).json(entries);
+export async function listFinancialEntriesController(
+  req: Request,
+  res: Response,
+) {
+  const filtros = listQuerySchema.parse(req.query);
+  const lancamentos = await listEntries(filtros);
+  return res.status(200).json(lancamentos);
 }
 
-export async function createFinancialEntryController(req: Request, res: Response) {
-  const data = financialSchema.parse(req.body);
+const createEntrySchema = z.object({
+  tipo: tipoSchema,
+  descricao: z
+    .string()
+    .trim()
+    .min(3, "Descrição deve ter pelo menos 3 caracteres."),
+  valor: z.number().positive("O valor deve ser maior que zero."),
+  data: z.coerce.date().optional(),
+});
 
-  const entry = await prisma.financialEntry.create({
-    data: {
-      tipo: data.tipo,
-      descricao: data.descricao,
-      valor: data.valor,
-      data: data.data,
-      ordemId: data.ordemId,
-    },
-  });
-
-  return res.status(201).json(entry);
+export async function createFinancialEntryController(
+  req: Request,
+  res: Response,
+) {
+  const dados = createEntrySchema.parse(req.body);
+  const lancamento = await createManualEntry(dados);
+  return res.status(201).json(lancamento);
 }

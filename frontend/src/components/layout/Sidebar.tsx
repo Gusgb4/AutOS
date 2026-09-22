@@ -21,12 +21,15 @@ const menuItems = [
   },
   { label: "Clientes", path: "/clientes", icon: Users, restrito: false },
   { label: "Estoque", path: "/estoque", icon: Package, restrito: true },
+  {
+    label: "Financeiro",
+    path: "/financeiro",
+    icon: DollarSign,
+    restrito: true,
+  },
 ];
 
-const menuItemsFuturos = [
-  { label: "Financeiro", icon: DollarSign },
-  { label: "Relatórios", icon: BarChart3 },
-];
+const menuItemsFuturos = [{ label: "Relatórios", icon: BarChart3 }];
 
 export default function Sidebar() {
   const navigate = useNavigate();
