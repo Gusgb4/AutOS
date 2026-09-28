@@ -37,6 +37,8 @@ model Client {
   nome         String
   telefone     String
   documento    String?   @unique
+  email        String?
+  endereco     String?
   ativo        Boolean   @default(true)
   arquivado_em DateTime?
   created_at   DateTime  @default(now())
