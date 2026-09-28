@@ -25,6 +25,8 @@ interface CreateClientInput {
   nome: string;
   telefone: string;
   documento?: string;
+  email?: string;
+  endereco?: string;
 }
 
 export async function create(dados: CreateClientInput) {
@@ -44,6 +46,8 @@ interface UpdateClientInput {
   nome?: string;
   telefone?: string;
   documento?: string;
+  email?: string;
+  endereco?: string;
 }
 
 export async function update(id: number, dados: UpdateClientInput) {

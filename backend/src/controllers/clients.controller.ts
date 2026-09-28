@@ -21,6 +21,18 @@ const createClientSchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório."),
   telefone: z.string().min(1, "Telefone é obrigatório."),
   documento: z.string().min(1, "Documento é obrigatório.").optional(),
+  email: z
+    .string()
+    .trim()
+    .email("E-mail inválido.")
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v)),
+  endereco: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v === "" ? undefined : v)),
 });
 
 // POST /api/clients
@@ -46,6 +58,18 @@ const updateClientSchema = z.object({
   nome: z.string().min(1).optional(),
   telefone: z.string().min(1).optional(),
   documento: z.string().min(1).optional(),
+  email: z
+    .string()
+    .trim()
+    .email("E-mail inválido.")
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v)),
+  endereco: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v === "" ? undefined : v)),
 });
 
 // PUT /api/clients/:id
