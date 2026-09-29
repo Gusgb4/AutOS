@@ -24,11 +24,13 @@ model User {
   email      String   @unique
   senha      String
   perfil     Perfil   @default(FUNCIONARIO)
+  ativo      Boolean  @default(true)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   ordens_como_mecanico ServiceOrder[] @relation("MecanicoResponsavel")
 
+  @@index([ativo])
   @@map("users")
 }
 

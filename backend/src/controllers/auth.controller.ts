@@ -71,6 +71,10 @@ export class AuthController {
         return res.status(400).json({ error: 'E-mail ou senha incorretos' });
       }
 
+      if (!user.ativo) {
+        return res.status(400).json({ error: 'E-mail ou senha incorretos' });
+      }
+
       const secret = process.env.JWT_SECRET || 'chave_secreta_padrao_oficina_123';
 
       const token = jwt.sign(
