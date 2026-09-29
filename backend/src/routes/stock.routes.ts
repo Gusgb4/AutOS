@@ -8,14 +8,16 @@ import {
 const stockRoutes = Router();
 const stockController = new StockController();
 
-//Rotas de estoque protegidas por autenticação
+// Todas as rotas de estoque exigem autenticação
 stockRoutes.use(ensureAuthenticated);
-stockRoutes.use(requireRole(["PROPRIETARIO"]));
 
-stockRoutes.post("/", stockController.create);
+// Leitura: qualquer perfil autenticado (PROPRIETARIO ou FUNCIONARIO)
 stockRoutes.get("/", stockController.list);
 stockRoutes.get("/:id", stockController.getById);
-stockRoutes.put("/:id", stockController.update);
-stockRoutes.delete("/:id", stockController.delete);
+
+// Escrita: somente PROPRIETARIO
+stockRoutes.post("/", requireRole(["PROPRIETARIO"]), stockController.create);
+stockRoutes.put("/:id", requireRole(["PROPRIETARIO"]), stockController.update);
+stockRoutes.delete("/:id", requireRole(["PROPRIETARIO"]), stockController.delete);
 
 export { stockRoutes };
