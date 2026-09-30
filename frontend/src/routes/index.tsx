@@ -14,12 +14,13 @@ import NewServiceOrder from "../pages/NewServiceOrder";
 import ServiceOrderDetails from "../pages/ServiceOrderDetails";
 import NotFound from "../pages/NotFound";
 import Productivity from "../pages/Productivity";
+import TermsOfUse from "../pages/TermsOfSerivce";
+import PrivacyPolicy from "../pages/PrivacyPolicy";
 
 export const router = createBrowserRouter([
-  {
-    path: "/login",
-    element: <Login />,
-  },
+  { path: "/login", element: <Login />},
+  { path: "/termos-de-uso", element: <TermsOfUse />},
+  { path: "/politica-de-privacidade", element: <PrivacyPolicy />},
   {
     element: <ProtectedRoute />,
     children: [
@@ -37,9 +38,7 @@ export const router = createBrowserRouter([
           { path: "estoque/:id/editar", element: <NewStockItem /> },
           { path: "ordens-servico/novo", element: <NewServiceOrder /> },
           { path: "financeiro", element: <Financial /> },
-          { path: "/produtividade", element: <Productivity />
-},
-
+          { path: "/produtividade", element: <Productivity />},
           /// { path: "veiculos", element: <Vehicles /> },
         ],
       },

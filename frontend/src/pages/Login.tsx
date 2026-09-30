@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   Lock,
   UserPlus,
@@ -263,13 +263,13 @@ export default function Login() {
                 />
                 <span>
                   Eu concordo com os{" "}
-                  <a href="#" className="text-[#FF7518] hover:underline">
+                  <Link to="/termos-de-uso" className="text-[#FF7518] hover:underline">
                     Termos de Serviço
-                  </a>{" "}
+                  </Link>{" "}
                   e{" "}
-                  <a href="#" className="text-[#FF7518] hover:underline">
+                  <Link to="/politica-de-privacidade" className="text-[#FF7518] hover:underline">
                     Política de Privacidade
-                  </a>
+                  </Link>
                 </span>
               </label>
             )}
