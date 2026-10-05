@@ -108,7 +108,7 @@ interface CreateServiceOrderInput {
   cliente_id: number;
   veiculo_id: number;
   mecanico_id: number;
-  quilometragem_registrada: number;
+  quilometragem_registrada?: number;
   observacoes?: string;
 }
 
@@ -124,7 +124,12 @@ export async function create(dados: CreateServiceOrderInput) {
     );
   }
 
-  if (veiculo && dados.quilometragem_registrada < veiculo.quilometragem_atual) {
+  // Valida inconsistência de hodômetro apenas se aferido na abertura da OS
+  if (
+    veiculo &&
+    dados.quilometragem_registrada !== undefined &&
+    dados.quilometragem_registrada < veiculo.quilometragem_atual
+  ) {
     throw new AppError(
       `A quilometragem informada (${dados.quilometragem_registrada} km) não pode ser menor que a quilometragem atual do veículo (${veiculo.quilometragem_atual} km).`,
       400,
@@ -132,7 +137,8 @@ export async function create(dados: CreateServiceOrderInput) {
   }
 
   return prisma.$transaction(async (tx) => {
-    if (veiculo) {
+    // Sincroniza a quilometragem atual do veículo com a OS
+    if (veiculo && dados.quilometragem_registrada !== undefined) {
       await tx.vehicle.update({
         where: { id: dados.veiculo_id },
         data: { quilometragem_atual: dados.quilometragem_registrada },
