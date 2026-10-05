@@ -1,12 +1,24 @@
 import { Router } from "express";
-import { salesController } from "../controllers/reports.controller";
 import { asyncHandler } from "../utils/asyncHandler";
-import { ensureAuthenticated } from "../middlewares/auth.middleware";
+import {
+  ensureAuthenticated,
+  requireRole,
+} from "../middlewares/auth.middleware";
+import {
+  vendasController,
+  inventarioController,
+  resumoController,
+  atividadeController,
+} from "../controllers/reports.controller";
 
 const router = Router();
 
 router.use(ensureAuthenticated);
+router.use(requireRole(["PROPRIETARIO"]));
 
-router.get("/sales", asyncHandler(salesController));
+router.get("/sales", asyncHandler(vendasController));
+router.get("/inventory", asyncHandler(inventarioController));
+router.get("/financial-summary", asyncHandler(resumoController));
+router.get("/client-activity", asyncHandler(atividadeController));
 
 export default router;
