@@ -259,7 +259,16 @@ export default function NewServiceOrder() {
           listUsers(),
           listStock(),
         ]);
-        setClientes(clientesData);
+
+        // Filtra clientes ativos E veículos ativos dentro de cada cliente
+        const clientesAtivos = clientesData
+          .filter((c: any) => c.ativo === true)
+          .map((c: any) => ({
+            ...c,
+            veiculos: c.veiculos.filter((v: any) => v.ativo === true),
+          }));
+
+        setClientes(clientesAtivos);
         setMecanicos(Array.isArray(mecanicosData) ? mecanicosData : []);
         setStockItems(stockData);
       } catch (err) {

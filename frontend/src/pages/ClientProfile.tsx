@@ -50,6 +50,12 @@ export default function ClientProfile() {
     setError(null);
     try {
       const data = await getClientById(clientId);
+
+      // Filtra apenas os veículos ativos do cliente
+      if (data && data.veiculos) {
+        data.veiculos = data.veiculos.filter((v: any) => v.ativo !== false);
+      }
+
       setClient(data);
     } catch (err) {
       console.error(err);

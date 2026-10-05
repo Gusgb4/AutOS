@@ -10,6 +10,7 @@ import {
   Plus,
   Eye,
   Pencil,
+  Archive,
   Trash2,
   Loader2,
   ClipboardList,
@@ -48,7 +49,18 @@ export default function Clients() {
     setError(null);
     try {
       const data = await listClients(termo);
-      setClients(data);
+
+      // Filtra clientes ativos e garante que apenas veículos ativos sejam contados
+      const clientesAtivos = data
+        .filter((c: any) => c.ativo !== false)
+        .map((c: any) => ({
+          ...c,
+          veiculos: c.veiculos
+            ? c.veiculos.filter((v: any) => v.ativo !== false)
+            : [],
+        }));
+
+      setClients(clientesAtivos);
     } catch (err) {
       console.error(err);
       setError("Não foi possível carregar os clientes.");
@@ -56,11 +68,6 @@ export default function Clients() {
       setLoading(false);
     }
   }, []);
-
-  // Carga inicial
-  useEffect(() => {
-    fetchClients();
-  }, [fetchClients]);
 
   // Busca com debounce
   useEffect(() => {

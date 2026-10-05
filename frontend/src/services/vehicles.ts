@@ -53,5 +53,7 @@ export async function updateVehicle(
 }
 
 export async function deleteVehicle(id: number): Promise<void> {
-  await api.delete(`/vehicles/${id}`);
+  //alterado para PATCH apontando para a nova rota de arquivamento do backend
+  const response = await api.patch(`/vehicles/${id}/archive`);
+  return response.data;
 }

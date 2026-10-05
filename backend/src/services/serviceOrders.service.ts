@@ -304,40 +304,36 @@ export async function changeStatus(
     if (novoStatus === "FINALIZADA") {
       await recalcularLembreteManutencao(tx, ordem.veiculo_id);
 
-      const lancamentoExistente = await tx.financialEntry.findFirst({
-        where: { ordemId: ordemId },
+      // Marca todos os lançamentos ativos anteriores desta OS como estornados (regra de reabertura/ciclo)
+      await tx.financialEntry.updateMany({
+        where: { ordemId: ordemId, estornado: false },
+        data: { estornado: true },
       });
 
-      if (lancamentoExistente) {
-        await tx.financialEntry.update({
-          where: { id: lancamentoExistente.id },
-          data: { estornado: false, valor: ordem.valor_total },
-        });
-      } else {
-        await tx.financialEntry.create({
-          data: {
-            tipo: "RECEITA",
-            descricao: `Receita referente à Ordem de Serviço #${ordem.id}`,
-            valor: ordem.valor_total,
-            ordemId: ordem.id,
-            estornado: false,
-          },
-        });
-      }
+      // Cria sempre um lançamento NOVO para o encerramento atual
+      await tx.financialEntry.create({
+        data: {
+          tipo: "RECEITA",
+          descricao: `Receita referente à Ordem de Serviço #${ordem.id}`,
+          valor: ordem.valor_total,
+          ordemId: ordem.id,
+          estornado: false,
+        },
+      });
     }
 
     // Se uma OS finalizada foi REABERTA
     if (ordem.status === "FINALIZADA" && novoStatus === "EM_ANDAMENTO") {
       await tx.financialEntry.updateMany({
-        where: { ordemId: ordemId },
+        where: { ordemId: ordemId, estornado: false },
         data: { estornado: true },
       });
     }
 
-    // Se a OS foi cancelada, estorna o financeiro também
+    // Se a OS foi cancelada, estorna o financeiro e devolve as peças
     if (novoStatus === "CANCELADA") {
       await tx.financialEntry.updateMany({
-        where: { ordemId: ordemId },
+        where: { ordemId: ordemId, estornado: false },
         data: { estornado: true },
       });
 
