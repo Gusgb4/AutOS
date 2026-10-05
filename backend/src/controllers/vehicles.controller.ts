@@ -1,10 +1,18 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { search, findById, create, update, archive, unarchive } from "../services/vehicles.service";
+import {
+  search,
+  findById,
+  create,
+  update,
+  archive,
+  unarchive,
+} from "../services/vehicles.service";
 
 // GET /api/vehicles?placa=termo
 export async function listController(req: Request, res: Response) {
-  const termo = typeof req.query.placa === "string" ? req.query.placa : undefined;
+  const termo =
+    typeof req.query.placa === "string" ? req.query.placa : undefined;
   const veiculos = await search(termo);
   return res.status(200).json(veiculos);
 }
@@ -21,14 +29,52 @@ export async function getByIdController(req: Request, res: Response) {
   return res.status(200).json(veiculo);
 }
 
-const createVehicleSchema = z.object({
-  cliente_id: z.number().int().positive(),
-  placa: z.string().min(1, "Placa é obrigatória."),
-  marca: z.string().min(1, "Marca é obrigatória."),
-  modelo: z.string().min(1, "Modelo é obrigatório."),
-  ano: z.number().int().min(1900).max(new Date().getFullYear() + 1),
-  quilometragem_atual: z.number().int().nonnegative().optional(),
-});
+function intervalosCompletosOuVazios(d: {
+  intervalo_dias?: number | null;
+  intervalo_km?: number | null;
+}) {
+  return (d.intervalo_dias == null) === (d.intervalo_km == null);
+}
+
+const mensagemIntervalos = {
+  message: "Informe os dois intervalos (dias e km) ou deixe os dois em branco.",
+  path: ["intervalo_dias"],
+};
+
+const createVehicleSchema = z
+  .object({
+    cliente_id: z.number().int().positive(),
+    placa: z.string().min(1, "Placa é obrigatória."),
+    marca: z.string().min(1, "Marca é obrigatória."),
+    modelo: z.string().min(1, "Modelo é obrigatório."),
+    ano: z
+      .number()
+      .int()
+      .min(1900)
+      .max(new Date().getFullYear() + 1),
+    quilometragem_atual: z.number().int().nonnegative().optional(),
+    intervalo_dias: z.number().int().positive().nullable().optional(),
+    intervalo_km: z.number().int().positive().nullable().optional(),
+  })
+  .refine(intervalosCompletosOuVazios, mensagemIntervalos);
+
+const updateVehicleSchema = z
+  .object({
+    cliente_id: z.number().int().positive().optional(),
+    placa: z.string().min(1).optional(),
+    marca: z.string().min(1).optional(),
+    modelo: z.string().min(1).optional(),
+    ano: z
+      .number()
+      .int()
+      .min(1900)
+      .max(new Date().getFullYear() + 1)
+      .optional(),
+    quilometragem_atual: z.number().int().nonnegative().optional(),
+    intervalo_dias: z.number().int().positive().nullable().optional(),
+    intervalo_km: z.number().int().positive().nullable().optional(),
+  })
+  .refine(intervalosCompletosOuVazios, mensagemIntervalos);
 
 // POST /api/vehicles
 export async function createController(req: Request, res: Response) {
@@ -36,15 +82,6 @@ export async function createController(req: Request, res: Response) {
   const veiculo = await create(dados);
   return res.status(201).json(veiculo);
 }
-
-const updateVehicleSchema = z.object({
-  cliente_id: z.number().int().positive().optional(),
-  placa: z.string().min(1).optional(),
-  marca: z.string().min(1).optional(),
-  modelo: z.string().min(1).optional(),
-  ano: z.number().int().min(1900).max(new Date().getFullYear() + 1).optional(),
-  quilometragem_atual: z.number().int().nonnegative().optional(),
-});
 
 // PUT /api/vehicles/:id
 export async function updateController(req: Request, res: Response) {

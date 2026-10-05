@@ -10,6 +10,7 @@ import {
   Car,
   Tag,
   Hash,
+  Gauge, // <-- Importado para o ícone de KM
   Trash2,
   Check,
 } from "lucide-react";
@@ -24,6 +25,7 @@ export interface NewVehicleData {
   modelo: string;
   placa: string;
   ano: number;
+  quilometragem_atual: number; // <-- Adicionado aqui
 }
 
 interface ClientFormModalProps {
@@ -47,6 +49,7 @@ const emptyVehicle = {
   modelo: "",
   placa: "",
   ano: "",
+  quilometragem_atual: "", // <-- Adicionado aqui
 };
 
 export default function ClientFormModal({
@@ -92,9 +95,15 @@ export default function ClientFormModal({
     let vehiclePayload: NewVehicleData | undefined;
 
     if (!isEdit && wantsVehicle) {
-      if (!vehicle.marca || !vehicle.modelo || !vehicle.placa || !vehicle.ano) {
+      if (
+        !vehicle.marca ||
+        !vehicle.modelo ||
+        !vehicle.placa ||
+        !vehicle.ano ||
+        !vehicle.quilometragem_atual
+      ) {
         alert(
-          "Preencha todos os campos do veículo ou desative a opção de adicionar veículo.",
+          "Preencha todos os campos do veículo (incluindo a quilometragem) ou desative a opção de adicionar veículo.",
         );
         return;
       }
@@ -103,6 +112,7 @@ export default function ClientFormModal({
         modelo: vehicle.modelo,
         placa: vehicle.placa,
         ano: Number(vehicle.ano),
+        quilometragem_atual: Number(vehicle.quilometragem_atual),
       };
     }
 
@@ -302,6 +312,23 @@ export default function ClientFormModal({
                           placeholder="Ex: 2019"
                           min={1900}
                           max={new Date().getFullYear() + 1}
+                          className="input-field"
+                        />
+                      </InputWithIcon>
+                    </Field>
+                    <Field label="Quilometragem (KM)" full>
+                      <InputWithIcon icon={Gauge}>
+                        <input
+                          type="number"
+                          value={vehicle.quilometragem_atual}
+                          onChange={(e) =>
+                            handleVehicleChange(
+                              "quilometragem_atual",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Ex: 45000"
+                          min={0}
                           className="input-field"
                         />
                       </InputWithIcon>

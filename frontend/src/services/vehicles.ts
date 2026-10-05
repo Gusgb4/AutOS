@@ -1,5 +1,12 @@
 import { api } from "./api";
 
+export interface MaintenanceReminder {
+  intervalo_dias: number;
+  intervalo_km: number;
+  proxima_data: string;
+  proximo_km: number;
+}
+
 export interface Vehicle {
   id: number;
   cliente_id: number;
@@ -7,6 +14,8 @@ export interface Vehicle {
   marca: string;
   modelo: string;
   ano: number;
+  quilometragem_atual?: number;
+  lembrete_manutencao?: MaintenanceReminder | null;
 }
 
 export interface CreateVehiclePayload {
@@ -15,6 +24,9 @@ export interface CreateVehiclePayload {
   marca: string;
   modelo: string;
   ano: number;
+  quilometragem_atual?: number;
+  intervalo_dias?: number | null;
+  intervalo_km?: number | null;
 }
 
 export interface UpdateVehiclePayload {
@@ -23,6 +35,9 @@ export interface UpdateVehiclePayload {
   marca?: string;
   modelo?: string;
   ano?: number;
+  quilometragem_atual?: number;
+  intervalo_dias?: number | null;
+  intervalo_km?: number | null;
 }
 
 export async function listVehicles(placa?: string): Promise<Vehicle[]> {
@@ -53,7 +68,7 @@ export async function updateVehicle(
 }
 
 export async function deleteVehicle(id: number): Promise<void> {
-  //alterado para PATCH apontando para a nova rota de arquivamento do backend
+  // Arquiva em vez de apagar (rota PATCH do backend)
   const response = await api.patch(`/vehicles/${id}/archive`);
   return response.data;
 }

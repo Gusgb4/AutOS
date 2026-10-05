@@ -11,6 +11,7 @@ import {
   Check,
   PackageSearch,
   AlertTriangle,
+  Gauge,
 } from "lucide-react";
 import { listClients, type Client } from "../services/clients";
 import { listStock, type StockItem } from "../services/stock";
@@ -30,10 +31,9 @@ const plainInputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
 
 function formatCurrency(value: string | number) {
-  return Number(value).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  return Number(value)
+    .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    .replace(/\u00A0/g, " ");
 }
 
 function capitalizeName(nome: string) {
@@ -70,6 +70,7 @@ function ServicoRow({
 }) {
   const [descricao, setDescricao] = useState(servico.descricao);
   const [valorTexto, setValorTexto] = useState(String(servico.valor));
+
   useEffect(() => {
     setDescricao(servico.descricao);
     setValorTexto(String(servico.valor));
@@ -175,45 +176,58 @@ function PecaRow({
   }
 
   return (
-    <li className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center">
-      <span className={`${plainInputClass} bg-white sm:flex-[2]`}>
-        {peca.item_estoque.nome}
-      </span>
-      <input
-        type="number"
-        min={1}
-        value={quantidadeTexto}
-        disabled={saving}
-        onChange={(e) => setQuantidadeTexto(e.target.value)}
-        className={`${plainInputClass} text-right sm:w-24`}
-      />
-      <span
-        className={`${plainInputClass} bg-white text-right font-medium sm:w-32`}
-      >
-        {formatCurrency(Number(peca.valor_unitario) * peca.quantidade)}
-      </span>
-      {dirty && !saving && (
-        <button
-          type="button"
-          onClick={handleSave}
-          aria-label="Salvar alteração"
-          className="flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-lg text-emerald-600 hover:bg-emerald-50 sm:self-auto"
+    <li className="flex flex-col gap-3 bg-gray-50/50 p-5 sm:flex-row sm:items-end">
+      <div className="flex flex-1 flex-col gap-1.5 sm:flex-[0.75]">
+        <label className="text-xs font-semibold text-[#1B2130]">Peça</label>
+        <span className={`${plainInputClass} bg-white`}>
+          {peca.item_estoque.nome}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-semibold text-[#1B2130]">
+          Quantidade
+        </label>
+        <input
+          type="number"
+          min={1}
+          value={quantidadeTexto}
+          disabled={saving}
+          onChange={(e) => setQuantidadeTexto(e.target.value)}
+          className={`${plainInputClass} text-right sm:w-24 sm:flex-none`}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-semibold text-[#1B2130]">Valor</label>
+        <span
+          className={`${plainInputClass} bg-white text-right font-medium sm:w-32 sm:flex-none`}
         >
-          <Check size={16} />
-        </button>
-      )}
+          {formatCurrency(Number(peca.valor_unitario) * peca.quantidade)}
+        </span>
+      </div>
+      <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center">
+        {dirty && !saving && (
+          <button
+            type="button"
+            onClick={handleSave}
+            aria-label="Salvar alteração"
+            className="flex h-full w-full items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50"
+          >
+            <Check size={16} />
+          </button>
+        )}
+      </div>
       <button
         type="button"
         onClick={onRemove}
         disabled={saving}
-        aria-label="Remover"
-        className="flex h-9 w-9 shrink-0 items-center justify-center self-end rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40 sm:self-auto"
+        className="ml-auto flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
       >
         {saving ? (
-          <Loader2 size={14} className="animate-spin" />
+          <Loader2 size={15} className="animate-spin" />
         ) : (
-          <Trash2 size={14} />
+          <Trash2 size={15} />
         )}
+        Remover
       </button>
     </li>
   );
@@ -231,9 +245,10 @@ export default function NewServiceOrder() {
   const [clienteId, setClienteId] = useState<number | "">("");
   const [veiculoId, setVeiculoId] = useState<number | "">("");
   const [mecanicoId, setMecanicoId] = useState<number | "">("");
+  const [quilometragem, setQuilometragem] = useState("");
+  const [observacoes, setObservacoes] = useState("");
   const [criando, setCriando] = useState(false);
   const [erroCriacao, setErroCriacao] = useState<string | null>(null);
-  const [observacoes, setObservacoes] = useState("");
 
   const [ordem, setOrdem] = useState<ServiceOrder | null>(null);
 
@@ -259,16 +274,17 @@ export default function NewServiceOrder() {
           listUsers(),
           listStock(),
         ]);
-
-        // Filtra clientes ativos E veículos ativos dentro de cada cliente
-        const clientesAtivos = clientesData
-          .filter((c: any) => c.ativo === true)
-          .map((c: any) => ({
-            ...c,
-            veiculos: c.veiculos.filter((v: any) => v.ativo === true),
-          }));
-
-        setClientes(clientesAtivos);
+        // Cliente ou veículo arquivado não aparece pra abrir OS nova
+        setClientes(
+          clientesData
+            .filter((c: any) => c.ativo !== false)
+            .map((c: any) => ({
+              ...c,
+              veiculos: (c.veiculos ?? []).filter(
+                (v: any) => v.ativo !== false,
+              ),
+            })),
+        );
         setMecanicos(Array.isArray(mecanicosData) ? mecanicosData : []);
         setStockItems(stockData);
       } catch (err) {
@@ -296,6 +312,17 @@ export default function NewServiceOrder() {
   function handleClienteChange(id: number | "") {
     setClienteId(id);
     setVeiculoId("");
+    setQuilometragem("");
+  }
+
+  function handleVeiculoChange(id: number | "") {
+    setVeiculoId(id);
+    const veiculo = veiculosDoCliente.find((v) => v.id === id);
+    setQuilometragem(
+      veiculo?.quilometragem_atual != null
+        ? String(veiculo.quilometragem_atual)
+        : "",
+    );
   }
 
   async function handleCriarOrdem() {
@@ -313,6 +340,8 @@ export default function NewServiceOrder() {
         veiculo_id: Number(veiculoId),
         mecanico_id: Number(mecanicoId),
         observacoes: observacoes.trim() || undefined,
+        quilometragem_registrada:
+          quilometragem !== "" ? Number(quilometragem) : undefined,
       });
       setOrdem(nova);
     } catch (err: any) {
@@ -625,7 +654,9 @@ export default function NewServiceOrder() {
               <select
                 value={veiculoId}
                 onChange={(e) =>
-                  setVeiculoId(e.target.value ? Number(e.target.value) : "")
+                  handleVeiculoChange(
+                    e.target.value ? Number(e.target.value) : "",
+                  )
                 }
                 disabled={!!ordem || !clienteId}
                 className={inputClass}
@@ -667,8 +698,33 @@ export default function NewServiceOrder() {
           </Field>
         </div>
 
+        <div className="grid grid-cols-1 gap-3.5 px-5 pb-5 sm:grid-cols-3">
+          <Field label="Quilometragem do veículo (km)">
+            <div className="relative">
+              <Gauge
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="number"
+                min={0}
+                value={quilometragem}
+                onChange={(e) => setQuilometragem(e.target.value)}
+                disabled={!!ordem || !veiculoId}
+                placeholder={
+                  veiculoId ? "Km marcada no painel" : "Escolha um veículo"
+                }
+                className={inputClass}
+              />
+            </div>
+            <p className="text-xs text-gray-400">
+              Vem com a km atual do veículo. Corrija se o painel marcar mais.
+            </p>
+          </Field>
+        </div>
+
         <div className="border-t border-gray-100 p-5">
-          <Field label="Observações (opcional)" full>
+          <Field label="Observações (opcional)">
             <textarea
               value={observacoes}
               onChange={(e) => setObservacoes(e.target.value)}
@@ -710,6 +766,7 @@ export default function NewServiceOrder() {
 
       {ordem && (
         <>
+          {/* SERVIÇOS — formulário fixo no topo, lista cresce abaixo */}
           <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
             <div className="flex items-center gap-3 border-b border-gray-100 p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
@@ -772,6 +829,7 @@ export default function NewServiceOrder() {
             )}
           </div>
 
+          {/* PEÇAS — mesmo padrão */}
           <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
             <div className="flex items-center gap-3 border-b border-gray-100 p-5">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-[#FF7518]">
