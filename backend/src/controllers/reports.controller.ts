@@ -1,11 +1,49 @@
 import { Request, Response } from "express";
-import { vendasPorPeriodo } from "../services/reports.service";
+import { z } from "zod";
+import {
+  parsePeriodo,
+  vendasPorPeriodo,
+  statusInventario,
+  resumoFinanceiro,
+  atividadeClientes,
+} from "../services/reports.service";
 
-// GET /api/reports/sales?inicio=YYYY-MM-DD&fim=YYYY-MM-DD
-export async function salesController(req: Request, res: Response) {
-  const inicio = typeof req.query.inicio === "string" ? req.query.inicio : undefined;
-  const fim = typeof req.query.fim === "string" ? req.query.fim : undefined;
+const dataIso = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use o formato AAAA-MM-DD.")
+  .refine(
+    (v) => !Number.isNaN(new Date(`${v}T00:00:00-03:00`).getTime()),
+    "Data inválida.",
+  );
 
-  const relatorio = await vendasPorPeriodo({ inicio, fim });
-  return res.status(200).json(relatorio);
+const periodoSchema = z
+  .object({ inicio: dataIso, fim: dataIso })
+  .refine((d) => d.inicio <= d.fim, {
+    message: "A data inicial não pode ser maior que a final.",
+    path: ["inicio"],
+  });
+
+function lerPeriodo(req: Request) {
+  const { inicio, fim } = periodoSchema.parse(req.query);
+  return parsePeriodo(inicio, fim);
+}
+
+// GET /api/reports/sales?inicio=AAAA-MM-DD&fim=AAAA-MM-DD
+export async function vendasController(req: Request, res: Response) {
+  return res.status(200).json(await vendasPorPeriodo(lerPeriodo(req)));
+}
+
+// GET /api/reports/inventory
+export async function inventarioController(_req: Request, res: Response) {
+  return res.status(200).json(await statusInventario());
+}
+
+// GET /api/reports/financial-summary?inicio=...&fim=...
+export async function resumoController(req: Request, res: Response) {
+  return res.status(200).json(await resumoFinanceiro(lerPeriodo(req)));
+}
+
+// GET /api/reports/client-activity?inicio=...&fim=...
+export async function atividadeController(req: Request, res: Response) {
+  return res.status(200).json(await atividadeClientes(lerPeriodo(req)));
 }

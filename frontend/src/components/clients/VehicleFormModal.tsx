@@ -1,11 +1,23 @@
 import { useState, useEffect, type FormEvent } from "react";
-import { X, Car, Hash, Tag, Calendar, Trash2, Check } from "lucide-react";
+import {
+  X,
+  Car,
+  Hash,
+  Tag,
+  Calendar,
+  Trash2,
+  Check,
+  Gauge,
+} from "lucide-react";
 
 export interface VehicleFormData {
   marca: string;
   modelo: string;
   placa: string;
   ano: number | "";
+  quilometragem_atual: number | "";
+  intervalo_dias: number | "";
+  intervalo_km: number | "";
 }
 
 interface VehicleFormModalProps {
@@ -23,6 +35,9 @@ const emptyForm: VehicleFormData = {
   modelo: "",
   placa: "",
   ano: "",
+  quilometragem_atual: "",
+  intervalo_dias: "",
+  intervalo_km: "",
 };
 
 export default function VehicleFormModal({
@@ -152,6 +167,79 @@ export default function VehicleFormModal({
                 />
               </InputWithIcon>
             </Field>
+
+            <div className="sm:col-span-2">
+              <Field label="Quilometragem Atual (KM)">
+                <InputWithIcon icon={Gauge}>
+                  <input
+                    type="number"
+                    value={form.quilometragem_atual}
+                    onChange={(e) =>
+                      handleChange(
+                        "quilometragem_atual",
+                        e.target.value ? Number(e.target.value) : "",
+                      )
+                    }
+                    placeholder="Ex: 45000"
+                    min={0}
+                    required
+                    className="input-field"
+                  />
+                </InputWithIcon>
+              </Field>
+            </div>
+          </div>
+
+          {/* Manutenção periódica */}
+          <div className="mt-5 border-t border-gray-100 pt-4">
+            <p className="mb-1 text-sm font-semibold text-[#1B2130]">
+              Manutenção periódica{" "}
+              <span className="font-normal text-gray-400">(opcional)</span>
+            </p>
+            <p className="mb-3 text-xs text-gray-500">
+              Defina de quanto em quanto tempo e de quantos em quantos km este
+              veículo precisa de revisão. Preencha os dois campos ou deixe os
+              dois em branco. O lembrete é recalculado quando uma ordem de
+              serviço do veículo for encerrada, e vale o que vencer primeiro.
+            </p>
+
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+              <Field label="Intervalo (dias)">
+                <InputWithIcon icon={Calendar}>
+                  <input
+                    type="number"
+                    value={form.intervalo_dias}
+                    onChange={(e) =>
+                      handleChange(
+                        "intervalo_dias",
+                        e.target.value ? Number(e.target.value) : "",
+                      )
+                    }
+                    placeholder="Ex: 180"
+                    min={1}
+                    className="input-field"
+                  />
+                </InputWithIcon>
+              </Field>
+
+              <Field label="Intervalo (km)">
+                <InputWithIcon icon={Gauge}>
+                  <input
+                    type="number"
+                    value={form.intervalo_km}
+                    onChange={(e) =>
+                      handleChange(
+                        "intervalo_km",
+                        e.target.value ? Number(e.target.value) : "",
+                      )
+                    }
+                    placeholder="Ex: 10000"
+                    min={1}
+                    className="input-field"
+                  />
+                </InputWithIcon>
+              </Field>
+            </div>
           </div>
         </form>
 
@@ -183,7 +271,11 @@ export default function VehicleFormModal({
               className="flex items-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#FF7518]/30 hover:bg-[#e6690f] disabled:opacity-60"
             >
               <Check size={15} />
-              {submitting ? "Salvando..." : isEdit ? "Salvar Alterações" : "Salvar Veículo"}
+              {submitting
+                ? "Salvando..."
+                : isEdit
+                  ? "Salvar Alterações"
+                  : "Salvar Veículo"}
             </button>
           </div>
         </div>
@@ -211,7 +303,13 @@ export default function VehicleFormModal({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-xs font-semibold text-[#1B2130]">{label}</label>

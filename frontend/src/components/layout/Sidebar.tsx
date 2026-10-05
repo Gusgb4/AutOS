@@ -11,7 +11,6 @@ import {
 import { NavLink, useNavigate } from "react-router-dom";
 import { getUserRole } from "../../lib/auth";
 
-
 const menuItems = [
   { label: "Início", path: "/", icon: Home, restrito: false },
   {
@@ -28,16 +27,15 @@ const menuItems = [
     icon: DollarSign,
     restrito: true,
   },
-  // 👇 ADICIONA APENAS ESTE BLOCO AQUI 👇
   {
-    label: "Produtividade",
-    path: "/produtividade",
-    icon: Wrench,
-    restrito: true, 
+    label: "Relatórios",
+    path: "/relatorios",
+    icon: BarChart3,
+    restrito: true,
   },
 ];
 
-const menuItemsFuturos = [{ label: "Relatórios", icon: BarChart3 }];
+const menuItemsFuturos = [{ label: "Produtividade", icon: Wrench }];
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -95,23 +93,24 @@ export default function Sidebar() {
           );
         })}
 
-        {menuItemsFuturos.map((item) => {
-          const Icon = item.icon;
-          return (
-            <div
-              key={item.label}
-              title="Disponível em uma próxima versão"
-              className="flex w-full cursor-not-allowed flex-col items-center justify-center gap-1.5 px-2 py-2.5 text-center opacity-40"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-500">
-                <Icon size={20} strokeWidth={1.8} />
+        {perfil === "PROPRIETARIO" &&
+          menuItemsFuturos.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.label}
+                title="Disponível em uma próxima versão"
+                className="flex w-full cursor-not-allowed flex-col items-center justify-center gap-1.5 px-2 py-2.5 text-center opacity-40"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-500">
+                  <Icon size={20} strokeWidth={1.8} />
+                </div>
+                <span className="text-[11px] leading-tight text-gray-500">
+                  {item.label}
+                </span>
               </div>
-              <span className="text-[11px] leading-tight text-gray-500">
-                {item.label}
-              </span>
-            </div>
-          );
-        })}
+            );
+          })}
       </nav>
 
       <div className="pb-4">

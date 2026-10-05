@@ -6,6 +6,7 @@ import Login from "../pages/Login";
 import Clients from "../pages/Clients";
 import ClientProfile from "../pages/ClientProfile";
 import NewStockItem from "../pages/NewStockItem";
+import Reports from "../pages/Reports";
 /// import Vehicles from "../pages/Vehicles";
 import Stock from "../pages/Stock";
 import Financial from "../pages/Financial";
@@ -18,9 +19,9 @@ import TermsOfUse from "../pages/TermsOfSerivce";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
 
 export const router = createBrowserRouter([
-  { path: "/login", element: <Login />},
-  { path: "/termos-de-uso", element: <TermsOfUse />},
-  { path: "/politica-de-privacidade", element: <PrivacyPolicy />},
+  { path: "/login", element: <Login /> },
+  { path: "/termos-de-uso", element: <TermsOfUse /> },
+  { path: "/politica-de-privacidade", element: <PrivacyPolicy /> },
   {
     element: <ProtectedRoute />,
     children: [
@@ -38,7 +39,9 @@ export const router = createBrowserRouter([
           { path: "estoque/:id/editar", element: <NewStockItem /> },
           { path: "ordens-servico/novo", element: <NewServiceOrder /> },
           { path: "financeiro", element: <Financial /> },
-          { path: "/produtividade", element: <Productivity />},
+          { path: "/produtividade", element: <Productivity /> },
+          { path: "relatorios", element: <Reports /> },
+
           /// { path: "veiculos", element: <Vehicles /> },
         ],
       },

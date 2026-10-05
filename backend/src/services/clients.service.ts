@@ -15,7 +15,7 @@ export async function search(termo?: string) {
           ],
         }
       : undefined,
-    include: { veiculos: true },
+    include: { veiculos: { include: { lembrete_manutencao: true } } },
     orderBy: { nome: "asc" },
   });
 }
@@ -37,7 +37,7 @@ export async function create(dados: CreateClientInput) {
 export async function findById(id: number) {
   return prisma.client.findUnique({
     where: { id },
-    include: { veiculos: true },
+    include: { veiculos: { include: { lembrete_manutencao: true } } },
   });
 }
 

@@ -50,6 +50,12 @@ export default function ClientProfile() {
     setError(null);
     try {
       const data = await getClientById(clientId);
+
+      // Filtra apenas os veículos ativos do cliente
+      if (data && data.veiculos) {
+        data.veiculos = data.veiculos.filter((v: any) => v.ativo !== false);
+      }
+
       setClient(data);
     } catch (err) {
       console.error(err);
@@ -98,6 +104,23 @@ export default function ClientProfile() {
 
   async function handleSaveVehicle(data: VehicleFormData) {
     if (data.ano === "") return;
+
+    const quilometragem_atual =
+      data.quilometragem_atual !== ""
+        ? Number(data.quilometragem_atual)
+        : undefined;
+    const intervalo_dias =
+      data.intervalo_dias !== "" ? Number(data.intervalo_dias) : null;
+    const intervalo_km =
+      data.intervalo_km !== "" ? Number(data.intervalo_km) : null;
+
+    if ((intervalo_dias === null) !== (intervalo_km === null)) {
+      alert(
+        "Informe os dois intervalos (dias e km) ou deixe os dois em branco.",
+      );
+      return;
+    }
+
     setSavingVehicle(true);
     try {
       if (vehicleModalMode === "edit" && editingVehicle) {
@@ -106,6 +129,9 @@ export default function ClientProfile() {
           modelo: data.modelo,
           placa: data.placa,
           ano: data.ano,
+          quilometragem_atual,
+          intervalo_dias,
+          intervalo_km,
         });
       } else {
         await createVehicle({
@@ -114,6 +140,9 @@ export default function ClientProfile() {
           modelo: data.modelo,
           placa: data.placa,
           ano: data.ano,
+          quilometragem_atual,
+          intervalo_dias,
+          intervalo_km,
         });
       }
       setVehicleModalOpen(false);
@@ -328,11 +357,13 @@ export default function ClientProfile() {
                   <th className="px-5 py-3 font-medium">Marca / Modelo</th>
                   <th className="px-5 py-3 font-medium">Ano</th>
                   <th className="px-5 py-3 font-medium">Placa</th>
+                  <th className="px-5 py-3 font-medium">Quilometragem</th>
+                  {""}
                   <th className="px-5 py-3 text-right font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {client.veiculos.map((vehicle) => (
+                {client.veiculos.map((vehicle: any) => (
                   <tr
                     key={vehicle.id}
                     className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
@@ -342,6 +373,7 @@ export default function ClientProfile() {
                         <Car size={14} className="text-[#FF7518]" />
                         {vehicle.marca} {vehicle.modelo}
                       </span>
+                      <MaintenanceInfo vehicle={vehicle} />
                     </td>
                     <td className="px-5 py-4 text-gray-600">{vehicle.ano}</td>
                     <td className="px-5 py-4">
@@ -349,6 +381,14 @@ export default function ClientProfile() {
                         {vehicle.placa}
                       </span>
                     </td>
+
+                    {/* KM */}
+                    <td className="px-5 py-4 text-gray-600 font-medium">
+                      {vehicle.quilometragem_atual != null
+                        ? `${Number(vehicle.quilometragem_atual).toLocaleString("pt-BR")} km`
+                        : "0 km"}
+                    </td>
+
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -362,7 +402,7 @@ export default function ClientProfile() {
                         <button
                           type="button"
                           onClick={() => handleDeleteVehicle(vehicle)}
-                          aria-label="Excluir"
+                          aria-label="Arquivar"
                           className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
                         >
                           <Trash2 size={14} />
@@ -427,6 +467,11 @@ export default function ClientProfile() {
                 modelo: editingVehicle.modelo,
                 placa: editingVehicle.placa,
                 ano: editingVehicle.ano,
+                quilometragem_atual: editingVehicle.quilometragem_atual ?? "",
+                intervalo_dias:
+                  editingVehicle.lembrete_manutencao?.intervalo_dias ?? "",
+                intervalo_km:
+                  editingVehicle.lembrete_manutencao?.intervalo_km ?? "",
               }
             : undefined
         }
@@ -467,5 +512,26 @@ function MiniStat({ icon: Icon, label, value, accentColor }: MiniStatProps) {
         <div className="text-sm font-semibold text-[#1F1F1F]">{value}</div>
       </div>
     </div>
+  );
+}
+
+function MaintenanceInfo({ vehicle }: { vehicle: any }) {
+  const lembrete = vehicle.lembrete_manutencao;
+  if (!lembrete) return null;
+
+  const vencido =
+    new Date(lembrete.proxima_data) <= new Date() ||
+    (vehicle.quilometragem_atual ?? 0) >= lembrete.proximo_km;
+
+  return (
+    <span
+      className={`mt-1 block text-xs ${
+        vencido ? "font-semibold text-red-600" : "text-gray-500"
+      }`}
+    >
+      {vencido ? "Revisão vencida: " : "Próxima revisão: "}
+      {new Date(lembrete.proxima_data).toLocaleDateString("pt-BR")} ou{" "}
+      {Number(lembrete.proximo_km).toLocaleString("pt-BR")} km
+    </span>
   );
 }

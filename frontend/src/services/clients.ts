@@ -47,7 +47,9 @@ export async function updateClient(
 }
 
 export async function deleteClient(id: number): Promise<void> {
-  await api.delete(`/clients/${id}`);
+  const response = await api.patch(`/clients/${id}/archive`);
+  return response.data;
+  //await api.delete(`/clients/${id}`);
 }
 
 export interface Client {

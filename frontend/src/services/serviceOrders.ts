@@ -53,6 +53,7 @@ export async function createServiceOrder(dados: {
   veiculo_id: number;
   mecanico_id: number;
   observacoes?: string;
+  quilometragem_registrada?: number;
 }): Promise<ServiceOrder> {
   const { data } = await api.post<ServiceOrder>("/service-orders", dados);
   return data;
