@@ -9,7 +9,8 @@ import {
   Wrench,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { getUserRole } from "../../lib/auth";
+import { getUserRole, PERFIL_LABEL } from "../../lib/auth";
+import { useAuth } from "../../contexts/AuthContext";
 
 const menuItems = [
   { label: "Início", path: "/", icon: Home, restrito: false },
@@ -39,25 +40,30 @@ const menuItemsFuturos = [{ label: "Produtividade", icon: Wrench }];
 
 export default function Sidebar() {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const perfil = getUserRole();
+  const primeiroNome = user?.nome?.split(" ")[0] ?? "";
   const itensVisiveis = menuItems.filter(
     (item) => !item.restrito || perfil === "PROPRIETARIO",
   );
 
   function handleLogout() {
-    localStorage.removeItem("@autos:token");
+    // signOut limpa token e usuário (antes só o token era removido)
+    signOut();
     navigate("/login");
   }
 
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-24 flex-col bg-[#1F1F1F] text-white">
-      <div className="flex h-28 items-center justify-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FF7518]">
+      {/* Logo */}
+      <div className="flex h-28 shrink-0 items-center justify-center [@media(max-height:850px)]:h-16">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FF7518] [@media(max-height:850px)]:h-11 [@media(max-height:850px)]:w-11">
           <Wrench size={27} strokeWidth={2.5} />
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col items-center gap-1">
+      {/* Menu: se não couber, só esta área rola */}
+      <nav className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {itensVisiveis.map((item) => {
           const Icon = item.icon;
           return (
@@ -65,12 +71,12 @@ export default function Sidebar() {
               key={item.path}
               to={item.path}
               end={item.path === "/"}
-              className="group flex w-full flex-col items-center justify-center gap-1.5 px-2 py-2.5 text-center"
+              className="group flex w-full flex-col items-center justify-center gap-1.5 px-2 py-2.5 text-center [@media(max-height:850px)]:gap-1 [@media(max-height:850px)]:py-1.5"
             >
               {({ isActive }) => (
                 <>
                   <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl transition ${
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl transition [@media(max-height:850px)]:h-9 [@media(max-height:850px)]:w-9 ${
                       isActive
                         ? "bg-[#FF7518] text-white"
                         : "text-gray-400 group-hover:bg-[#292929] group-hover:text-white"
@@ -100,9 +106,9 @@ export default function Sidebar() {
               <div
                 key={item.label}
                 title="Disponível em uma próxima versão"
-                className="flex w-full cursor-not-allowed flex-col items-center justify-center gap-1.5 px-2 py-2.5 text-center opacity-40"
+                className="flex w-full cursor-not-allowed flex-col items-center justify-center gap-1.5 px-2 py-2.5 text-center opacity-40 [@media(max-height:850px)]:gap-1 [@media(max-height:850px)]:py-1.5"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-500">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 [@media(max-height:850px)]:h-9 [@media(max-height:850px)]:w-9">
                   <Icon size={20} strokeWidth={1.8} />
                 </div>
                 <span className="text-[11px] leading-tight text-gray-500">
@@ -113,11 +119,32 @@ export default function Sidebar() {
           })}
       </nav>
 
-      <div className="pb-4">
+      {/* Rodapé: sempre visível */}
+      <div className="shrink-0 pb-2">
+        {perfil && (
+          <div className="mx-2 mb-2 rounded-xl bg-[#292929] px-1.5 py-2 text-center [@media(max-height:850px)]:mb-1 [@media(max-height:850px)]:py-1">
+            {primeiroNome && (
+              <p
+                className="truncate text-[11px] font-medium text-white"
+                title={user?.nome}
+              >
+                {primeiroNome}
+              </p>
+            )}
+            <p
+              className={`truncate text-[10px] ${
+                perfil === "PROPRIETARIO" ? "text-[#FF7518]" : "text-gray-400"
+              }`}
+            >
+              {PERFIL_LABEL[perfil]}
+            </p>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full flex-col items-center gap-1.5 py-4 text-gray-400 transition hover:text-red-400"
+          className="flex w-full flex-col items-center gap-1 py-2 text-gray-400 transition hover:text-red-400 [@media(max-height:850px)]:py-1"
         >
           <LogOut size={21} />
           <span className="text-[11px]">Sair</span>

@@ -1,4 +1,14 @@
-export function getUserRole(): "PROPRIETARIO" | "FUNCIONARIO" | null {
+import type { Perfil } from "../services/auth";
+
+export type { Perfil };
+
+// Texto exibido na interface para cada perfil
+export const PERFIL_LABEL: Record<Perfil, string> = {
+  PROPRIETARIO: "Proprietário",
+  FUNCIONARIO: "Funcionário",
+};
+
+export function getUserRole(): Perfil | null {
   const token = localStorage.getItem("@autos:token");
   if (!token) return null;
   try {
