@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
+import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
 import FinancialEntryModal from "../components/financial/FinancialEntryModal";
 import {
@@ -54,9 +55,9 @@ export default function Financial() {
         fim: alvo.fim ? `${alvo.fim}T23:59:59` : undefined,
       });
       setLancamentos(data);
-    } catch (e: any) {
+    } catch (e) {
       setErro(
-        e.response?.data?.erro ??
+        (isAxiosError(e) ? e.response?.data?.erro : undefined) ??
           "Não foi possível carregar os lançamentos financeiros.",
       );
     } finally {
@@ -64,12 +65,29 @@ export default function Financial() {
     }
   }
 
+  // Carga inicial (o estado já começa com loading = true)
   useEffect(() => {
-    async function carregarInicial() {
-      await carregar(filtrosVazios);
-    }
+    let ativo = true;
 
-    carregarInicial();
+    listFinancialEntries({})
+      .then((data) => {
+        if (ativo) setLancamentos(data);
+      })
+      .catch((e) => {
+        if (ativo) {
+          setErro(
+            (isAxiosError(e) ? e.response?.data?.erro : undefined) ??
+              "Não foi possível carregar os lançamentos financeiros.",
+          );
+        }
+      })
+      .finally(() => {
+        if (ativo) setLoading(false);
+      });
+
+    return () => {
+      ativo = false;
+    };
   }, []);
 
   function aplicarFiltro(patch: Partial<Filtros>) {
@@ -93,9 +111,10 @@ export default function Financial() {
       await createFinancialEntry(payload);
       setModalAberto(false);
       await carregar(filtros);
-    } catch (e: any) {
+    } catch (e) {
       setErroModal(
-        e.response?.data?.erro ?? "Não foi possível salvar o lançamento.",
+        (isAxiosError(e) ? e.response?.data?.erro : undefined) ??
+          "Não foi possível salvar o lançamento.",
       );
     } finally {
       setSalvando(false);

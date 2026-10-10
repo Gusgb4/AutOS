@@ -21,7 +21,7 @@ const menuItems = [
     restrito: false,
   },
   { label: "Clientes", path: "/clientes", icon: Users, restrito: false },
-  { label: "Estoque", path: "/estoque", icon: Package, restrito: true },
+  { label: "Estoque", path: "/estoque", icon: Package, restrito: false },
   {
     label: "Financeiro",
     path: "/financeiro",

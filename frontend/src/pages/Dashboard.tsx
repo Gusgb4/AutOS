@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ClipboardList,
@@ -16,7 +16,6 @@ import {
   listServiceOrders,
   type ServiceOrder,
 } from "../services/serviceOrders";
-import { getUserRole } from "../lib/auth";
 
 function formatCurrency(value: string | number) {
   return Number(value)
@@ -33,30 +32,29 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDashboard = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const perfil = getUserRole();
-    try {
-      const [clientes, stock, ordensData] = await Promise.all([
-        listClients(),
-        perfil === "PROPRIETARIO" ? listStock() : Promise.resolve([]),
-        listServiceOrders(),
-      ]);
-      setTotalClientes(clientes.length);
-      setItensBaixoEstoque(stock.filter((item) => item.alerta_minimo));
-      setOrdens(ordensData);
-    } catch (err) {
-      console.error(err);
-      setError("Não foi possível carregar os dados da oficina.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
+    let ativo = true;
+
+    Promise.all([listClients(), listStock(), listServiceOrders()])
+      .then(([clientes, stock, ordensData]) => {
+        if (!ativo) return;
+        setTotalClientes(clientes.length);
+        setItensBaixoEstoque(stock.filter((item) => item.alerta_minimo));
+        setOrdens(ordensData);
+      })
+      .catch((err) => {
+        if (!ativo) return;
+        console.error(err);
+        setError("Não foi possível carregar os dados da oficina.");
+      })
+      .finally(() => {
+        if (ativo) setLoading(false);
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   const ordensAbertas = ordens.filter(
     (o) => o.status === "ABERTA" || o.status === "EM_ANDAMENTO",

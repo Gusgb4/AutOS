@@ -11,10 +11,14 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
+import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
 import { listStock, deleteStockItem, type StockItem } from "../services/stock";
+import { getUserRole } from "../lib/auth";
 
 export default function Stock() {
+  // Funcionário pode consultar o estoque, mas só o proprietário altera
+  const podeEditar = getUserRole() === "PROPRIETARIO";
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -28,9 +32,10 @@ export default function Stock() {
         setErro(null);
         const data = await listStock();
         setItems(data);
-      } catch (e: any) {
+      } catch (e) {
         setErro(
-          e.response?.data?.error ?? "Não foi possível carregar o estoque.",
+          (isAxiosError(e) ? e.response?.data?.error : undefined) ??
+            "Não foi possível carregar o estoque.",
         );
       } finally {
         setLoading(false);
@@ -70,8 +75,11 @@ export default function Stock() {
       setErro(null);
       await deleteStockItem(item.id);
       setItems((atuais) => atuais.filter((i) => i.id !== item.id));
-    } catch (e: any) {
-      setErro(e.response?.data?.error ?? "Não foi possível excluir o item.");
+    } catch (e) {
+      setErro(
+        (isAxiosError(e) ? e.response?.data?.error : undefined) ??
+          "Não foi possível excluir o item.",
+      );
     } finally {
       setExcluindo(null);
     }
@@ -145,13 +153,15 @@ export default function Stock() {
                 className="w-64 rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#FF7518]"
               />
             </div>
-            <Link
-              to="/estoque/novo"
-              className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f]"
-            >
-              <Plus size={16} />
-              Adicionar Item
-            </Link>
+            {podeEditar && (
+              <Link
+                to="/estoque/novo"
+                className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f]"
+              >
+                <Plus size={16} />
+                Adicionar Item
+              </Link>
+            )}
           </div>
         </div>
 
@@ -179,7 +189,9 @@ export default function Stock() {
                   <th className="px-5 py-3 font-medium">Mínimo</th>
                   <th className="px-5 py-3 font-medium">Preço unitário</th>
                   <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 text-right font-medium">Ações</th>
+                  {podeEditar && (
+                    <th className="px-5 py-3 text-right font-medium">Ações</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -236,30 +248,32 @@ export default function Stock() {
                       </span>
                     </td>
 
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          to={`/estoque/${item.id}/editar`}
-                          aria-label="Editar"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
-                        >
-                          <Pencil size={14} />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleExcluir(item)}
-                          disabled={excluindo === item.id}
-                          aria-label="Excluir"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
-                        >
-                          {excluindo === item.id ? (
-                            <Loader2 size={14} className="animate-spin" />
-                          ) : (
-                            <Trash2 size={14} />
-                          )}
-                        </button>
-                      </div>
-                    </td>
+                     {podeEditar && (
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            to={`/estoque/${item.id}/editar`}
+                            aria-label="Editar"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
+                          >
+                            <Pencil size={14} />
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleExcluir(item)}
+                            disabled={excluindo === item.id}
+                            aria-label="Excluir"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
+                          >
+                            {excluindo === item.id ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : (
+                              <Trash2 size={14} />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

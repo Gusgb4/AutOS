@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import ProtectedRoute from "./ProtectedRoute";
+import RoleRoute from "./RoleRoute";
 import Dashboard from "../pages/Dashboard";
 import Login from "../pages/Login";
 import Clients from "../pages/Clients";
@@ -35,8 +36,14 @@ export const router = createBrowserRouter([
           { path: "clientes", element: <Clients /> },
           { path: "clientes/:id", element: <ClientProfile /> },
           { path: "estoque", element: <Stock /> },
-          { path: "estoque/novo", element: <NewStockItem /> },
-          { path: "estoque/:id/editar", element: <NewStockItem /> },
+          // Funcionário só consulta o estoque; criar/editar é do proprietário
+          {
+            element: <RoleRoute allowed={["PROPRIETARIO"]} />,
+            children: [
+              { path: "estoque/novo", element: <NewStockItem /> },
+              { path: "estoque/:id/editar", element: <NewStockItem /> },
+            ],
+          },
           { path: "ordens-servico/novo", element: <NewServiceOrder /> },
           { path: "financeiro", element: <Financial /> },
           { path: "/produtividade", element: <Productivity /> },
