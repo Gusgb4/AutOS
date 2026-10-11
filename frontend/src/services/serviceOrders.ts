@@ -36,9 +36,11 @@ export interface ServiceOrder {
 
 export async function listServiceOrders(
   status?: StatusOS,
+  clienteId?: number,
 ): Promise<ServiceOrder[]> {
+  // O axios omite da URL os parâmetros undefined
   const { data } = await api.get<ServiceOrder[]>("/service-orders", {
-    params: status ? { status } : undefined,
+    params: { status, cliente_id: clienteId },
   });
   return data;
 }

@@ -13,14 +13,19 @@ import {
 } from "../services/serviceOrders.service";
 
 const statusSchema = z.enum(StatusOrdemServico);
+const clienteIdSchema = z.coerce.number().int().positive();
 
-// GET /api/service-orders?status=ABERTA
+// GET /api/service-orders?status=ABERTA&cliente_id=1
 export async function listController(req: Request, res: Response) {
   const status =
     typeof req.query.status === "string"
       ? statusSchema.parse(req.query.status)
       : undefined;
-  const ordens = await search(status);
+  const cliente_id =
+    typeof req.query.cliente_id === "string"
+      ? clienteIdSchema.parse(req.query.cliente_id)
+      : undefined;
+  const ordens = await search({ status, cliente_id });
   return res.status(200).json(ordens);
 }
 

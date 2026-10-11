@@ -89,9 +89,15 @@ async function buscarOrdemEditavel(tx: Tx, ordemId: number) {
   return ordem;
 }
 
-export async function search(status?: StatusOrdemServico) {
+interface SearchServiceOrdersFilters {
+  status?: StatusOrdemServico;
+  cliente_id?: number;
+}
+
+export async function search(filtros: SearchServiceOrdersFilters = {}) {
   return prisma.serviceOrder.findMany({
-    where: status ? { status } : undefined,
+    // Campos undefined são ignorados pelo Prisma: cada filtro é opcional
+    where: { status: filtros.status, cliente_id: filtros.cliente_id },
     include: ordemCompleta,
     orderBy: { created_at: "desc" },
   });
