@@ -33,7 +33,7 @@ export interface StatusInventario {
     fornecedor: string | null;
     quantidade: number;
     quantidade_minima: number;
-    valor_unitario: number;
+    valor_final: number;
     valor_em_estoque: number;
     abaixo_minimo: boolean;
   }[];

@@ -33,7 +33,8 @@ export default function NewStockItem() {
   const [fornecedor, setFornecedor] = useState("");
   const [quantidade, setQuantidade] = useState("");
   const [quantidadeMinima, setQuantidadeMinima] = useState("");
-  const [valorUnitario, setValorUnitario] = useState("");
+  const [valorFinal, setValorFinal] = useState("");
+  const [valorEntrada, setValorEntrada] = useState("");
 
   const [salvando, setSalvando] = useState(false);
   const [carregando, setCarregando] = useState(editando);
@@ -52,7 +53,8 @@ export default function NewStockItem() {
         setFornecedor(item.fornecedor ?? "");
         setQuantidade(String(item.quantidade));
         setQuantidadeMinima(String(item.quantidade_minima));
-        setValorUnitario(String(item.valor_unitario));
+        setValorFinal(String(item.valor_final));
+        setValorEntrada(item.valor_entrada ?? "");
       } catch (e: any) {
         setErro(e.response?.data?.error ?? "Não foi possível carregar o item.");
       } finally {
@@ -70,8 +72,12 @@ export default function NewStockItem() {
       setErro("Informe o nome do item.");
       return;
     }
-    if (Number(valorUnitario) <= 0) {
-      setErro("O valor unitário deve ser maior que zero.");
+    if (Number(valorFinal) <= 0) {
+      setErro("O preço de venda deve ser maior que zero.");
+      return;
+    }
+    if (valorEntrada !== "" && Number(valorEntrada) < 0) {
+      setErro("O preço de custo não pode ser negativo.");
       return;
     }
 
@@ -84,7 +90,9 @@ export default function NewStockItem() {
         fornecedor: fornecedor.trim() || undefined,
         quantidade: Number(quantidade || 0),
         quantidade_minima: Number(quantidadeMinima || 0),
-        valor_unitario: Number(valorUnitario),
+        valor_final: Number(valorFinal),
+        // Campo vazio vira null para apagar um custo já cadastrado
+        valor_entrada: valorEntrada === "" ? null : Number(valorEntrada),
       };
 
       if (id) {
@@ -234,18 +242,33 @@ export default function NewStockItem() {
 
           <div>
             <label className={labelClass}>
-              Preço unitário (R$) <span className="text-red-500">*</span>
+              Preço de venda (R$) <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
               step="0.01"
-              value={valorUnitario}
-              onChange={(e) => setValorUnitario(e.target.value)}
+              value={valorFinal}
+              onChange={(e) => setValorFinal(e.target.value)}
               placeholder="0,00"
               className={inputClass}
             />
             <p className="mt-1.5 text-xs text-gray-400">
-              Custo por unidade individual.
+              Valor cobrado do cliente por unidade.
+            </p>
+          </div>
+
+          <div>
+            <label className={labelClass}>Preço de custo (R$)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={valorEntrada}
+              onChange={(e) => setValorEntrada(e.target.value)}
+              placeholder="0,00"
+              className={inputClass}
+            />
+            <p className="mt-1.5 text-xs text-gray-400">
+              Quanto a oficina paga por unidade. Usado no cálculo da margem.
             </p>
           </div>
 

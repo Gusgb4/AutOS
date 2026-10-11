@@ -84,7 +84,8 @@ model StockItem {
   fornecedor        String?
   quantidade        Int      @default(0)
   quantidade_minima Int      @default(0)
-  valor_unitario    Decimal  @db.Decimal(10, 2)
+  valor_final       Decimal  @db.Decimal(10, 2)
+  valor_entrada     Decimal? @db.Decimal(10, 2)
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
 

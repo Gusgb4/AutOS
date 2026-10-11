@@ -118,14 +118,12 @@ export async function vendasPorPeriodo(p: Periodo) {
 }
 
 // ---------- 2. Status do inventário ----------
-// ATENÇÃO: quando o card "Estoque - Polimentos" renomear valor_unitario
-// para valor_final, trocar aqui também.
 export async function statusInventario() {
   const itens = await prisma.stockItem.findMany({ orderBy: { nome: "asc" } });
 
   let valorTotal = zero();
   const lista = itens.map((i) => {
-    const valorEmEstoque = i.valor_unitario.mul(i.quantidade);
+    const valorEmEstoque = i.valor_final.mul(i.quantidade);
     valorTotal = valorTotal.plus(valorEmEstoque);
     return {
       id: i.id,
@@ -134,7 +132,7 @@ export async function statusInventario() {
       fornecedor: i.fornecedor,
       quantidade: i.quantidade,
       quantidade_minima: i.quantidade_minima,
-      valor_unitario: arredondar(i.valor_unitario),
+      valor_final: arredondar(i.valor_final),
       valor_em_estoque: arredondar(valorEmEstoque),
       abaixo_minimo: i.quantidade <= i.quantidade_minima,
     };
