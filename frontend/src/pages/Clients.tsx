@@ -15,7 +15,6 @@ import {
   ClipboardList,
 } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
-import DisabledBadge from "../components/ui/DisabledBadge";
 import { createVehicle } from "../services/vehicles";
 import ClientFormModal, {
   type ClientFormData,
@@ -26,9 +25,11 @@ import {
   createClient,
   updateClient,
   deleteClient,
+  buildClientPayload,
   type Client,
 } from "../services/clients";
 import { listServiceOrders } from "../services/serviceOrders";
+import { mensagemDeErro } from "../lib/errors";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -51,11 +52,13 @@ export default function Clients() {
 
       // Filtra clientes ativos e garante que apenas veículos ativos sejam contados
       const clientesAtivos = data
-        .filter((c: any) => c.ativo !== false)
-        .map((c: any) => ({
+        .filter((c) => (c as { ativo?: boolean }).ativo !== false)
+        .map((c) => ({
           ...c,
           veiculos: c.veiculos
-            ? c.veiculos.filter((v: any) => v.ativo !== false)
+            ? c.veiculos.filter(
+                (v) => (v as { ativo?: boolean }).ativo !== false,
+              )
             : [],
         }));
 
@@ -104,10 +107,9 @@ export default function Clients() {
     setSubmitting(true);
     try {
       if (modalMode === "edit" && editingClient) {
-        await updateClient(editingClient.id, data);
+        await updateClient(editingClient.id, buildClientPayload(data));
       } else {
-        const newClient = await createClient(data);
-
+        const newClient = await createClient(buildClientPayload(data));
         if (vehicle) {
           try {
             await createVehicle({
@@ -117,25 +119,19 @@ export default function Clients() {
               placa: vehicle.placa,
               ano: vehicle.ano,
             });
-          } catch (vehicleErr: any) {
+          } catch (vehicleErr) {
             // Cliente já foi criado; avisa mas não desfaz o cadastro
             alert(
               "Cliente criado, mas houve um erro ao cadastrar o veículo: " +
-                (vehicleErr?.response?.data?.erro ||
-                  vehicleErr?.response?.data?.errors?.[0]?.message ||
-                  "erro desconhecido."),
+                mensagemDeErro(vehicleErr, "erro desconhecido."),
             );
           }
         }
       }
       setModalOpen(false);
       await fetchClients(search || undefined);
-    } catch (err: any) {
-      alert(
-        err?.response?.data?.erro ||
-          err?.response?.data?.errors?.[0]?.message ||
-          "Erro ao salvar cliente.",
-      );
+    } catch (err) {
+      alert(mensagemDeErro(err, "Erro ao salvar cliente."));
     } finally {
       setSubmitting(false);
     }
@@ -315,8 +311,10 @@ export default function Clients() {
                     <td className="px-5 py-4 text-gray-600">
                       {client.telefone}
                     </td>
-                    <td className="px-5 py-4">
-                      <DisabledBadge />
+                    <td className="px-5 py-4 text-gray-600">
+                      {client.email || (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <span className="inline-flex items-center gap-1.5 text-gray-600">
@@ -374,6 +372,8 @@ export default function Clients() {
             ? {
                 nome: editingClient.nome,
                 telefone: editingClient.telefone,
+                email: editingClient.email ?? "",
+                endereco: editingClient.endereco ?? "",
               }
             : undefined
         }

@@ -3,6 +3,9 @@ import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
   Phone,
+  Mail,
+  MapPin,
+  CalendarDays,
   User,
   Pencil,
   Car,
@@ -19,13 +22,29 @@ import ClientFormModal, {
 import VehicleFormModal, {
   type VehicleFormData,
 } from "../components/clients/VehicleFormModal";
-import { getClientById, updateClient, type Client } from "../services/clients";
+import {
+  getClientById,
+  updateClient,
+  buildClientPayload,
+  type Client,
+} from "../services/clients";
 import {
   createVehicle,
   updateVehicle,
   deleteVehicle,
   type Vehicle,
 } from "../services/vehicles";
+import { mensagemDeErro } from "../lib/errors";
+
+// Mantém só os veículos ativos do cliente
+function comVeiculosAtivos(data: Client): Client {
+  return {
+    ...data,
+    veiculos: (data.veiculos ?? []).filter(
+      (v) => (v as { ativo?: boolean }).ativo !== false,
+    ),
+  };
+}
 
 export default function ClientProfile() {
   const { id } = useParams();
@@ -45,45 +64,52 @@ export default function ClientProfile() {
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [savingVehicle, setSavingVehicle] = useState(false);
 
+  // Recarrega o cliente (usado depois de salvar/remover algo)
   const fetchClient = useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
       const data = await getClientById(clientId);
-
-      // Filtra apenas os veículos ativos do cliente
-      if (data && data.veiculos) {
-        data.veiculos = data.veiculos.filter((v: any) => v.ativo !== false);
-      }
-
-      setClient(data);
+      setClient(comVeiculosAtivos(data));
+      setError(null);
     } catch (err) {
       console.error(err);
       setError("Não foi possível carregar os dados do cliente.");
-    } finally {
-      setLoading(false);
     }
   }, [clientId]);
 
+  // Carga inicial (e quando o id da URL muda)
   useEffect(() => {
-    if (!Number.isNaN(clientId)) {
-      fetchClient();
-    }
-  }, [clientId, fetchClient]);
+    if (Number.isNaN(clientId)) return;
+
+    let ativo = true;
+    getClientById(clientId)
+      .then((data) => {
+        if (!ativo) return;
+        setClient(comVeiculosAtivos(data));
+        setError(null);
+      })
+      .catch((err) => {
+        if (!ativo) return;
+        console.error(err);
+        setError("Não foi possível carregar os dados do cliente.");
+      })
+      .finally(() => {
+        if (ativo) setLoading(false);
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, [clientId]);
 
   // ---------- Editar dados do cliente ----------
   async function handleSaveClient(data: ClientFormData) {
     setSavingClient(true);
     try {
-      await updateClient(clientId, data);
+      await updateClient(clientId, buildClientPayload(data));
       setEditClientOpen(false);
       await fetchClient();
-    } catch (err: any) {
-      alert(
-        err?.response?.data?.erro ||
-          err?.response?.data?.errors?.[0]?.message ||
-          "Erro ao atualizar cliente.",
-      );
+    } catch (err) {
+      alert(mensagemDeErro(err, "Erro ao atualizar cliente."));
     } finally {
       setSavingClient(false);
     }
@@ -147,12 +173,8 @@ export default function ClientProfile() {
       }
       setVehicleModalOpen(false);
       await fetchClient();
-    } catch (err: any) {
-      alert(
-        err?.response?.data?.erro ||
-          err?.response?.data?.errors?.[0]?.message ||
-          "Erro ao salvar veículo.",
-      );
+    } catch (err) {
+      alert(mensagemDeErro(err, "Erro ao salvar veículo."));
     } finally {
       setSavingVehicle(false);
     }
@@ -258,9 +280,12 @@ export default function ClientProfile() {
                 <p className="text-xs uppercase tracking-wide text-gray-400">
                   Endereço
                 </p>
-                <div className="mt-1">
-                  <DisabledBadge />
-                </div>
+                <p className="mt-1 flex items-center gap-2 text-sm text-[#1F1F1F]">
+                  <MapPin size={14} className="shrink-0 text-gray-400" />
+                  {client.endereco || (
+                    <span className="text-gray-300">Não informado</span>
+                  )}
+                </p>
               </div>
             </div>
 
@@ -278,9 +303,12 @@ export default function ClientProfile() {
                 <p className="text-xs uppercase tracking-wide text-gray-400">
                   Membro desde
                 </p>
-                <div className="mt-1">
-                  <DisabledBadge />
-                </div>
+                <p className="mt-1 flex items-center gap-2 text-sm text-[#1F1F1F]">
+                  <CalendarDays size={14} className="text-gray-400" />
+                  {client.created_at
+                    ? new Date(client.created_at).toLocaleDateString("pt-BR")
+                    : "—"}
+                </p>
               </div>
             </div>
 
@@ -289,9 +317,12 @@ export default function ClientProfile() {
                 <p className="text-xs uppercase tracking-wide text-gray-400">
                   Email
                 </p>
-                <div className="mt-1">
-                  <DisabledBadge />
-                </div>
+                <p className="mt-1 flex items-center gap-2 break-all text-sm text-[#1F1F1F]">
+                  <Mail size={14} className="shrink-0 text-gray-400" />
+                  {client.email || (
+                    <span className="text-gray-300">Não informado</span>
+                  )}
+                </p>
               </div>
             </div>
           </div>
@@ -363,7 +394,7 @@ export default function ClientProfile() {
                 </tr>
               </thead>
               <tbody>
-                {client.veiculos.map((vehicle: any) => (
+                {client.veiculos.map((vehicle) => (
                   <tr
                     key={vehicle.id}
                     className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
@@ -450,6 +481,8 @@ export default function ClientProfile() {
         initialData={{
           nome: client.nome,
           telefone: client.telefone,
+          email: client.email ?? "",
+          endereco: client.endereco ?? "",
         }}
         submitting={savingClient}
         onClose={() => setEditClientOpen(false)}
@@ -515,7 +548,7 @@ function MiniStat({ icon: Icon, label, value, accentColor }: MiniStatProps) {
   );
 }
 
-function MaintenanceInfo({ vehicle }: { vehicle: any }) {
+function MaintenanceInfo({ vehicle }: { vehicle: Vehicle }) {
   const lembrete = vehicle.lembrete_manutencao;
   if (!lembrete) return null;
 
