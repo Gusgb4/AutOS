@@ -13,6 +13,7 @@ import {
   Trash2,
   Loader2,
   ClipboardList,
+  AlertTriangle,
 } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
 import { createVehicle } from "../services/vehicles";
@@ -30,6 +31,7 @@ import {
 } from "../services/clients";
 import { listServiceOrders } from "../services/serviceOrders";
 import { mensagemDeErro } from "../lib/errors";
+import { isMaintenanceOverdue } from "../lib/maintenance";
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -317,10 +319,21 @@ export default function Clients() {
                       )}
                     </td>
                     <td className="px-5 py-4">
-                      <span className="inline-flex items-center gap-1.5 text-gray-600">
-                        <Car size={14} className="text-[#FF7518]" />
-                        {client.veiculos.length}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-gray-600">
+                          <Car size={14} className="text-[#FF7518]" />
+                          {client.veiculos.length}
+                        </span>
+                        {client.veiculos.some(isMaintenanceOverdue) && (
+                          <span
+                            title="Há veículo com revisão vencida"
+                            className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600"
+                          >
+                            <AlertTriangle size={11} />
+                            Revisão vencida
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-2">

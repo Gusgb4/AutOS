@@ -35,6 +35,7 @@ import {
   type Vehicle,
 } from "../services/vehicles";
 import { mensagemDeErro } from "../lib/errors";
+import { isMaintenanceOverdue } from "../lib/maintenance";
 
 // Mantém só os veículos ativos do cliente
 function comVeiculosAtivos(data: Client): Client {
@@ -552,9 +553,7 @@ function MaintenanceInfo({ vehicle }: { vehicle: Vehicle }) {
   const lembrete = vehicle.lembrete_manutencao;
   if (!lembrete) return null;
 
-  const vencido =
-    new Date(lembrete.proxima_data) <= new Date() ||
-    (vehicle.quilometragem_atual ?? 0) >= lembrete.proximo_km;
+  const vencido = isMaintenanceOverdue(vehicle);
 
   return (
     <span
