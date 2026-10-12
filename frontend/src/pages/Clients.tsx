@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Users,
@@ -16,6 +16,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
+import ToolbarMenu from "../components/ui/ToolbarMenu";
+import { isMaintenanceOverdue } from "../lib/maintenance";
 import { createVehicle } from "../services/vehicles";
 import ClientFormModal, {
   type ClientFormData,
@@ -31,7 +33,18 @@ import {
 } from "../services/clients";
 import { listServiceOrders } from "../services/serviceOrders";
 import { mensagemDeErro } from "../lib/errors";
-import { isMaintenanceOverdue } from "../lib/maintenance";
+
+type FiltroVeiculos = "todos" | "com" | "sem";
+type FiltroEmail = "todos" | "com" | "sem";
+type Ordenacao = "nome-asc" | "nome-desc" | "recentes" | "antigos" | "veiculos";
+
+const ORDENACOES: { value: Ordenacao; label: string }[] = [
+  { value: "nome-asc", label: "Nome (A → Z)" },
+  { value: "nome-desc", label: "Nome (Z → A)" },
+  { value: "recentes", label: "Mais recentes" },
+  { value: "antigos", label: "Mais antigos" },
+  { value: "veiculos", label: "Mais veículos" },
+];
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -40,6 +53,12 @@ export default function Clients() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [ordensAtivas, setOrdensAtivas] = useState(0);
+
+  // Filtros e ordenação (aplicados sobre a lista já carregada)
+  const [filtroVeiculos, setFiltroVeiculos] = useState<FiltroVeiculos>("todos");
+  const [filtroEmail, setFiltroEmail] = useState<FiltroEmail>("todos");
+  const [apenasRevisaoVencida, setApenasRevisaoVencida] = useState(false);
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>("nome-asc");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
@@ -167,6 +186,49 @@ export default function Clients() {
     }
   }
 
+  const filtrosAtivos =
+    (filtroVeiculos !== "todos" ? 1 : 0) +
+    (filtroEmail !== "todos" ? 1 : 0) +
+    (apenasRevisaoVencida ? 1 : 0);
+
+  function limparFiltros() {
+    setFiltroVeiculos("todos");
+    setFiltroEmail("todos");
+    setApenasRevisaoVencida(false);
+  }
+
+  const clientesExibidos = useMemo(() => {
+    const filtrados = clients.filter((c) => {
+      if (filtroVeiculos === "com" && c.veiculos.length === 0) return false;
+      if (filtroVeiculos === "sem" && c.veiculos.length > 0) return false;
+      if (filtroEmail === "com" && !c.email) return false;
+      if (filtroEmail === "sem" && c.email) return false;
+      if (apenasRevisaoVencida && !c.veiculos.some(isMaintenanceOverdue)) {
+        return false;
+      }
+      return true;
+    });
+
+    return [...filtrados].sort((a, b) => {
+      switch (ordenacao) {
+        case "nome-desc":
+          return b.nome.localeCompare(a.nome, "pt-BR", { sensitivity: "base" });
+        case "recentes":
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        case "antigos":
+          return (
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        case "veiculos":
+          return b.veiculos.length - a.veiculos.length;
+        default:
+          return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+      }
+    });
+  }, [clients, filtroVeiculos, filtroEmail, apenasRevisaoVencida, ordenacao]);
+
   const totalVeiculos = clients.reduce((acc, c) => acc + c.veiculos.length, 0);
   const agora = new Date();
   const novosNesteMes = clients.filter((c) => {
@@ -232,21 +294,94 @@ export default function Clients() {
             />
           </div>
 
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
+          <ToolbarMenu
+            label="Filtro"
+            icon={SlidersHorizontal}
+            activeCount={filtrosAtivos}
           >
-            <SlidersHorizontal size={15} />
-            Filtro
-          </button>
+            <div className="space-y-4">
+              <MenuGroup label="Veículos">
+                <MenuChoice
+                  checked={filtroVeiculos === "todos"}
+                  onSelect={() => setFiltroVeiculos("todos")}
+                >
+                  Todos
+                </MenuChoice>
+                <MenuChoice
+                  checked={filtroVeiculos === "com"}
+                  onSelect={() => setFiltroVeiculos("com")}
+                >
+                  Com veículo
+                </MenuChoice>
+                <MenuChoice
+                  checked={filtroVeiculos === "sem"}
+                  onSelect={() => setFiltroVeiculos("sem")}
+                >
+                  Sem veículo
+                </MenuChoice>
+              </MenuGroup>
 
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-          >
-            <ArrowUpDown size={15} />
-            Organizar
-          </button>
+              <MenuGroup label="Email">
+                <MenuChoice
+                  checked={filtroEmail === "todos"}
+                  onSelect={() => setFiltroEmail("todos")}
+                >
+                  Todos
+                </MenuChoice>
+                <MenuChoice
+                  checked={filtroEmail === "com"}
+                  onSelect={() => setFiltroEmail("com")}
+                >
+                  Com email
+                </MenuChoice>
+                <MenuChoice
+                  checked={filtroEmail === "sem"}
+                  onSelect={() => setFiltroEmail("sem")}
+                >
+                  Sem email
+                </MenuChoice>
+              </MenuGroup>
+
+              <MenuGroup label="Manutenção">
+                <MenuChoice
+                  checked={!apenasRevisaoVencida}
+                  onSelect={() => setApenasRevisaoVencida(false)}
+                >
+                  Todos
+                </MenuChoice>
+                <MenuChoice
+                  checked={apenasRevisaoVencida}
+                  onSelect={() => setApenasRevisaoVencida(true)}
+                >
+                  Revisão vencida
+                </MenuChoice>
+              </MenuGroup>
+
+              {filtrosAtivos > 0 && (
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="w-full rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+          </ToolbarMenu>
+
+          <ToolbarMenu label="Organizar" icon={ArrowUpDown}>
+            <MenuGroup label="Ordenar por">
+              {ORDENACOES.map((o) => (
+                <MenuChoice
+                  key={o.value}
+                  checked={ordenacao === o.value}
+                  onSelect={() => setOrdenacao(o.value)}
+                >
+                  {o.label}
+                </MenuChoice>
+              ))}
+            </MenuGroup>
+          </ToolbarMenu>
         </div>
 
         <button
@@ -270,7 +405,7 @@ export default function Clients() {
             <div>
               <p className="font-semibold text-[#1F1F1F]">Clientes</p>
               <p className="text-xs text-gray-500">
-                Mostrando {clients.length} clientes
+                Mostrando {clientesExibidos.length} de {clients.length} clientes
               </p>
             </div>
           </div>
@@ -284,9 +419,21 @@ export default function Clients() {
           </div>
         ) : error ? (
           <div className="p-10 text-center text-sm text-red-500">{error}</div>
-        ) : clients.length === 0 ? (
+        ) : clientesExibidos.length === 0 ? (
           <div className="p-10 text-center text-sm text-gray-500">
             Nenhum cliente encontrado.
+            {filtrosAtivos > 0 && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="font-medium text-[#FF7518] hover:underline"
+                >
+                  Limpar filtros
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -301,7 +448,7 @@ export default function Clients() {
                 </tr>
               </thead>
               <tbody>
-                {clients.map((client) => (
+                {clientesExibidos.map((client) => (
                   <tr
                     onClick={() => navigate(`/clientes/${client.id}`)}
                     key={client.id}
@@ -396,5 +543,51 @@ export default function Clients() {
         onDelete={modalMode === "edit" ? handleDelete : undefined}
       />
     </div>
+  );
+}
+
+function MenuGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+        {label}
+      </p>
+      <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+function MenuChoice({
+  checked,
+  onSelect,
+  children,
+}: {
+  checked: boolean;
+  onSelect: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${
+        checked ? "font-medium text-[#1F1F1F]" : "text-gray-600"
+      }`}
+    >
+      <span
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+          checked ? "border-[#FF7518]" : "border-gray-300"
+        }`}
+      >
+        {checked && <span className="h-2 w-2 rounded-full bg-[#FF7518]" />}
+      </span>
+      {children}
+    </button>
   );
 }
