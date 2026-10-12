@@ -18,6 +18,7 @@ import NotFound from "../pages/NotFound";
 import Productivity from "../pages/Productivity";
 import TermsOfUse from "../pages/TermsOfSerivce";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
+import Team from "../pages/Team";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
             children: [
               { path: "estoque/novo", element: <NewStockItem /> },
               { path: "estoque/:id/editar", element: <NewStockItem /> },
+              { path: "equipe", element: <Team /> },
             ],
           },
           { path: "ordens-servico/novo", element: <NewServiceOrder /> },
