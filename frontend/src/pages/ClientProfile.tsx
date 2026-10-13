@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Phone,
@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import DisabledBadge from "../components/ui/DisabledBadge";
+import StatusBadge from "../components/ui/StatusBadge";
 import ClientFormModal, {
   type ClientFormData,
 } from "../components/clients/ClientFormModal";
@@ -34,8 +35,24 @@ import {
   deleteVehicle,
   type Vehicle,
 } from "../services/vehicles";
+
+import {
+  listServiceOrders,
+  type ServiceOrder,
+} from "../services/serviceOrders";
 import { mensagemDeErro } from "../lib/errors";
 import { isMaintenanceOverdue } from "../lib/maintenance";
+
+function formatCurrency(value: string | number) {
+  return Number(value).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("pt-BR");
+}
 
 // Mantém só os veículos ativos do cliente
 function comVeiculosAtivos(data: Client): Client {
@@ -50,10 +67,16 @@ function comVeiculosAtivos(data: Client): Client {
 export default function ClientProfile() {
   const { id } = useParams();
   const clientId = Number(id);
+  const navigate = useNavigate();
 
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Histórico de OS tem estado próprio: se falhar, o resto do perfil continua
+  const [ordens, setOrdens] = useState<ServiceOrder[]>([]);
+  const [loadingOrdens, setLoadingOrdens] = useState(true);
+  const [errorOrdens, setErrorOrdens] = useState<string | null>(null);
 
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
@@ -97,10 +120,27 @@ export default function ClientProfile() {
         if (ativo) setLoading(false);
       });
 
+    // Histórico de OS carrega à parte: se falhar, o resto do perfil continua
+    listServiceOrders(undefined, clientId)
+      .then((data) => {
+        if (!ativo) return;
+        setOrdens(data);
+        setErrorOrdens(null);
+      })
+      .catch((err) => {
+        if (!ativo) return;
+        console.error(err);
+        setErrorOrdens("Não foi possível carregar o histórico de serviço.");
+      })
+      .finally(() => {
+        if (ativo) setLoadingOrdens(false);
+      });
+
     return () => {
       ativo = false;
     };
   }, [clientId]);
+
 
   // ---------- Editar dados do cliente ----------
   async function handleSaveClient(data: ClientFormData) {
@@ -190,6 +230,21 @@ export default function ClientProfile() {
       console.error(err);
       alert("Erro ao remover veículo.");
     }
+  }
+
+  // ---------- Resumo das OS (apenas finalizadas) ----------
+  // valor_total chega da API como string (Decimal do Prisma)
+  const ordensFinalizadas = ordens.filter((o) => o.status === "FINALIZADA");
+  const totalGasto = ordensFinalizadas.reduce(
+    (acc, o) => acc + Number(o.valor_total),
+    0,
+  );
+
+  function resumoOrdens(valor: React.ReactNode) {
+    if (loadingOrdens) {
+      return <Loader2 size={14} className="animate-spin text-gray-400" />;
+    }
+    return errorOrdens ? "—" : valor;
   }
 
   // ---------- Estados de carregamento ----------
@@ -339,13 +394,13 @@ export default function ClientProfile() {
             <MiniStat
               icon={ClipboardList}
               label="Total gasto"
-              value={<DisabledBadge />}
+              value={resumoOrdens(formatCurrency(totalGasto))}
               accentColor="#10B981"
             />
             <MiniStat
               icon={ClipboardList}
               label="OS Feitas"
-              value={<DisabledBadge />}
+              value={resumoOrdens(ordensFinalizadas.length)}
               accentColor="#2563EB"
             />
           </div>
@@ -449,7 +504,7 @@ export default function ClientProfile() {
         )}
       </div>
 
-      {/* Histórico de serviço — ainda não integrado ao backend */}
+      {/* Histórico de serviço */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-gray-100 p-5">
           <div className="flex items-center gap-3">
@@ -465,13 +520,66 @@ export default function ClientProfile() {
               </p>
             </div>
           </div>
-          <DisabledBadge label="Em breve" />
         </div>
 
-        <div className="p-10 text-center text-sm text-gray-400">
-          Esta seção será conectada quando o módulo de Ordens de Serviço estiver
-          disponível no backend.
-        </div>
+        {loadingOrdens ? (
+          <div className="flex items-center justify-center gap-2 p-10 text-sm text-gray-500">
+            <Loader2 size={16} className="animate-spin" />
+            Carregando histórico...
+          </div>
+        ) : errorOrdens ? (
+          <div className="p-10 text-center text-sm text-red-500">
+            {errorOrdens}
+          </div>
+        ) : ordens.length === 0 ? (
+          <div className="p-10 text-center text-sm text-gray-500">
+            Nenhuma ordem de serviço registrada para este cliente.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                  <th className="px-5 py-3 font-medium">Ordem</th>
+                  <th className="px-5 py-3 font-medium">Data de abertura</th>
+                  <th className="px-5 py-3 font-medium">Veículo</th>
+                  <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 font-medium">Valor total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ordens.map((order) => (
+                  <tr
+                    key={order.id}
+                    onClick={() => navigate(`/ordens-servico/${order.id}`)}
+                    className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
+                  >
+                    <td className="px-5 py-4 font-medium text-[#FF7518]">
+                      #OS-{order.id}
+                    </td>
+                    <td className="px-5 py-4 text-gray-600">
+                      {formatDate(order.created_at)}
+                    </td>
+                    <td className="px-5 py-4">
+                      <p className="text-gray-700">
+                        {order.veiculo?.marca} {order.veiculo?.modelo}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {order.veiculo?.placa}
+                      </p>
+                    </td>
+                    <td className="px-5 py-4">
+                      <StatusBadge status={order.status} />
+                    </td>
+                    <td className="px-5 py-4 font-medium text-[#1F1F1F]">
+                      {formatCurrency(order.valor_total)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Modal de edição do cliente */}
