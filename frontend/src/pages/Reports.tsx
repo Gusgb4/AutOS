@@ -277,7 +277,7 @@ export default function Reports() {
           "Fornecedor",
           "Quantidade",
           "Mínimo",
-          "Valor unitário",
+          "Preço de venda",
           "Valor em estoque",
           "Situação",
         ],
@@ -287,7 +287,7 @@ export default function Reports() {
           i.fornecedor,
           i.quantidade,
           i.quantidade_minima,
-          i.valor_unitario,
+          i.valor_final,
           i.valor_em_estoque,
           i.abaixo_minimo ? "Abaixo do mínimo" : "Em estoque",
         ]),
@@ -550,7 +550,7 @@ export default function Reports() {
                 { titulo: "Categoria" },
                 { titulo: "Quantidade", direita: true },
                 { titulo: "Mínimo", direita: true },
-                { titulo: "Valor unit.", direita: true },
+                { titulo: "Preço de venda", direita: true },
                 { titulo: "Em estoque", direita: true },
                 { titulo: "Situação" },
               ]}
@@ -559,7 +559,7 @@ export default function Reports() {
                 i.categoria ?? "—",
                 i.quantidade,
                 i.quantidade_minima,
-                formatCurrency(i.valor_unitario),
+                formatCurrency(i.valor_final),
                 formatCurrency(i.valor_em_estoque),
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-medium ${
@@ -636,8 +636,7 @@ export default function Reports() {
             <p className="border-t border-gray-100 px-5 py-4 text-xs text-gray-500">
               Outras receitas (lançamentos manuais, sem OS):{" "}
               {formatCurrency(resumo.outras_receitas)}. A margem de lucro nas
-              peças entra quando o estoque passar a registrar o valor de
-              entrada.
+              peças ainda não está disponível neste resumo.
             </p>
           </>
         )}

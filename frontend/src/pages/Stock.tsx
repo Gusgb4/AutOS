@@ -10,11 +10,28 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  Clock,
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
 import { listStock, deleteStockItem, type StockItem } from "../services/stock";
 import { getUserRole } from "../lib/auth";
+
+// Margem sobre o preço de venda; negativa aparece em vermelho
+function Margem({ item }: { item: StockItem }) {
+  if (item.valor_entrada == null) {
+    return <span className="text-xs text-gray-300">—</span>;
+  }
+
+  const venda = Number(item.valor_final);
+  const margem = ((venda - Number(item.valor_entrada)) / venda) * 100;
+
+  return (
+    <span className={margem < 0 ? "font-medium text-red-600" : "text-gray-700"}>
+      {margem.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%
+    </span>
+  );
+}
 
 export default function Stock() {
   // Funcionário pode consultar o estoque, mas só o proprietário altera
@@ -23,6 +40,7 @@ export default function Stock() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+  const [apenasParados, setApenasParados] = useState(false);
   const [excluindo, setExcluindo] = useState<number | null>(null);
 
   useEffect(() => {
@@ -48,21 +66,23 @@ export default function Stock() {
   const totalItens = items.length;
   const estoqueBaixo = items.filter((item) => item.alerta_minimo).length;
   const valorTotal = items.reduce(
-    (soma, item) => soma + item.quantidade * Number(item.valor_unitario),
+    (soma, item) => soma + item.quantidade * Number(item.valor_final),
     0,
   );
   const totalCategorias = new Set(
     items.map((item) => item.categoria).filter(Boolean),
   ).size;
+  const totalParados = items.filter((item) => item.parado).length;
 
   const termo = busca.trim().toLowerCase();
-  const itensFiltrados = termo
-    ? items.filter((item) =>
+  const itensFiltrados = items.filter(
+    (item) =>
+      (!apenasParados || item.parado) &&
+      (!termo ||
         [item.nome, item.categoria, item.fornecedor].some((campo) =>
           (campo ?? "").toLowerCase().includes(termo),
-        ),
-      )
-    : items;
+        )),
+  );
 
   async function handleExcluir(item: StockItem) {
     const confirmado = window.confirm(
@@ -139,7 +159,21 @@ export default function Stock() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setApenasParados((atual) => !atual)}
+              aria-pressed={apenasParados}
+              title="Itens com saldo e sem uso em OS nos últimos 90 dias"
+              className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                apenasParados
+                  ? "border-[#FF7518] bg-[#FF75180D] text-[#FF7518]"
+                  : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              <Clock size={16} />
+              Parados ({totalParados})
+            </button>
             <div className="relative">
               <Search
                 size={16}
@@ -176,7 +210,9 @@ export default function Stock() {
           <div className="p-10 text-center text-sm text-gray-500">
             {termo
               ? `Nenhum item encontrado para "${busca}".`
-              : "Nenhum item cadastrado ainda."}
+              : apenasParados
+                ? "Nenhum item parado no momento."
+                : "Nenhum item cadastrado ainda."}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -187,7 +223,13 @@ export default function Stock() {
                   <th className="px-5 py-3 font-medium">Categoria</th>
                   <th className="px-5 py-3 font-medium">Quantidade</th>
                   <th className="px-5 py-3 font-medium">Mínimo</th>
-                  <th className="px-5 py-3 font-medium">Preço unitário</th>
+                  <th className="px-5 py-3 font-medium">Preço de venda</th>
+                  {podeEditar && (
+                    <>
+                      <th className="px-5 py-3 font-medium">Preço de custo</th>
+                      <th className="px-5 py-3 font-medium">Margem</th>
+                    </>
+                  )}
                   <th className="px-5 py-3 font-medium">Status</th>
                   {podeEditar && (
                     <th className="px-5 py-3 text-right font-medium">Ações</th>
@@ -230,22 +272,58 @@ export default function Stock() {
                     </td>
 
                     <td className="px-5 py-4 font-medium text-[#1F1F1F]">
-                      {Number(item.valor_unitario).toLocaleString("pt-BR", {
+                      {Number(item.valor_final).toLocaleString("pt-BR", {
                         style: "currency",
                         currency: "BRL",
                       })}
                     </td>
 
+                    {podeEditar && (
+                      <>
+                        <td className="px-5 py-4 text-gray-700">
+                          {item.valor_entrada != null ? (
+                            Number(item.valor_entrada).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })
+                          ) : (
+                            <span className="text-xs text-gray-400">
+                              não informado
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <Margem item={item} />
+                        </td>
+                      </>
+                    )}
+
                     <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex w-max items-center rounded-full px-3 py-1 text-xs font-medium ${
-                          item.alerta_minimo
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-emerald-100 text-emerald-700"
-                        }`}
-                      >
-                        {item.alerta_minimo ? "Estoque baixo" : "Em estoque"}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`inline-flex w-max items-center rounded-full px-3 py-1 text-xs font-medium ${
+                            item.alerta_minimo
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {item.alerta_minimo ? "Estoque baixo" : "Em estoque"}
+                        </span>
+                        {item.parado && (
+                          <span
+                            title={
+                              item.ultimo_uso
+                                ? `Último uso em OS: ${new Date(item.ultimo_uso).toLocaleDateString("pt-BR")}`
+                                : "Nunca usado em OS"
+                            }
+                            className="inline-flex w-max items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600"
+                          >
+                            <Clock size={12} />
+                            Parado
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                      {podeEditar && (
