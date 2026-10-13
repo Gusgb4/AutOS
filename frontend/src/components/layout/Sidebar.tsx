@@ -6,6 +6,7 @@ import {
   LogOut,
   Package,
   Users,
+  UserCog,
   Wrench,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -32,6 +33,12 @@ const menuItems = [
     label: "Relatórios",
     path: "/relatorios",
     icon: BarChart3,
+    restrito: true,
+  },
+  {
+    label: "Equipe",
+    path: "/equipe",
+    icon: UserCog,
     restrito: true,
   },
 ];

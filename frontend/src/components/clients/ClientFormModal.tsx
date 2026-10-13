@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   X,
   User,
@@ -6,7 +6,6 @@ import {
   Mail,
   MapPin,
   Calendar,
-  Lock,
   Car,
   Tag,
   Hash,
@@ -18,6 +17,8 @@ import {
 export interface ClientFormData {
   nome: string;
   telefone: string;
+  email: string;
+  endereco: string;
 }
 
 export interface NewVehicleData {
@@ -42,6 +43,8 @@ interface ClientFormModalProps {
 const emptyForm: ClientFormData = {
   nome: "",
   telefone: "",
+  email: "",
+  endereco: "",
 };
 
 const emptyVehicle = {
@@ -52,9 +55,8 @@ const emptyVehicle = {
   quilometragem_atual: "", // <-- Adicionado aqui
 };
 
-export default function ClientFormModal({
+function ClientFormModalContent({
   mode,
-  open,
   clientName,
   initialData,
   submitting = false,
@@ -67,16 +69,6 @@ export default function ClientFormModal({
 
   const [wantsVehicle, setWantsVehicle] = useState(false);
   const [vehicle, setVehicle] = useState(emptyVehicle);
-
-  useEffect(() => {
-    if (open) {
-      setForm(initialData ?? emptyForm);
-      setWantsVehicle(false);
-      setVehicle(emptyVehicle);
-    }
-  }, [open, initialData]);
-
-  if (!open) return null;
 
   function handleChange<K extends keyof ClientFormData>(
     key: K,
@@ -189,38 +181,32 @@ export default function ClientFormModal({
               </InputWithIcon>
             </Field>
 
-            {/* -------- Campos desativados (ainda não suportados pelo backend) -------- */}
-
-            <Field label="Email" optional disabled>
-              <InputWithIcon icon={Mail} disabled>
+            <Field label="Email" optional>
+              <InputWithIcon icon={Mail}>
                 <input
                   type="email"
-                  value=""
-                  disabled
-                  placeholder="Desativado"
-                  className="input-field input-field-disabled"
+                  value={form.email}
+                  onChange={(e) => handleChange("email", e.target.value)}
+                  placeholder="joao@email.com"
+                  className="input-field"
                 />
               </InputWithIcon>
             </Field>
 
-            <Field label="Endereço" optional disabled full>
-              <InputWithIcon icon={MapPin} disabled>
+            <Field label="Endereço" optional full>
+              <InputWithIcon icon={MapPin}>
                 <input
                   type="text"
-                  value=""
-                  disabled
-                  placeholder="Desativado"
-                  className="input-field input-field-disabled"
+                  value={form.endereco}
+                  onChange={(e) => handleChange("endereco", e.target.value)}
+                  placeholder="Rua, número, bairro, cidade"
+                  className="input-field"
                 />
               </InputWithIcon>
             </Field>
           </div>
 
-          <p className="mb-4 mt-2 flex items-center gap-1.5 text-xs text-gray-400">
-            <Lock size={12} />
-            Os campos acima ainda não são suportados pelo sistema e não serão
-            salvos.
-          </p>
+          <div className="mb-4" />
 
           {/* -------- Veículo (só no modo "add") -------- */}
           {!isEdit && (
@@ -466,4 +452,11 @@ function InputWithIcon({
       {children}
     </div>
   );
+}
+
+// O formulário só existe enquanto o modal está aberto. Assim, cada abertura
+// começa com o estado limpo (sem precisar de useEffect para resetar).
+export default function ClientFormModal(props: ClientFormModalProps) {
+  if (!props.open) return null;
+  return <ClientFormModalContent {...props} />;
 }

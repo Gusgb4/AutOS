@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { z } from "zod";
 
 const prisma = new PrismaClient();
+
+const NOVENTA_DIAS_MS = 90 * 24 * 60 * 60 * 1000;
 
 const stockItemSchema = z.object({
   nome: z.string().min(1, "Nome do item é obrigatório"),
@@ -21,8 +23,47 @@ const stockItemSchema = z.object({
     .number()
     .int()
     .nonnegative("Quantidade mínima não pode ser negativa"),
-  valor_unitario: z.number().positive("Valor unitário deve ser maior que zero"),
+  valor_final: z.number().positive("Preço de venda deve ser maior que zero"),
+  // null permite apagar o preço de custo ao editar
+  valor_entrada: z
+    .number()
+    .nonnegative("Preço de custo não pode ser negativo")
+    .nullable()
+    .optional(),
 });
+
+// Último uso em OS não cancelada. ServiceOrderPart não tem data própria,
+// então a referência é a data de abertura da OS.
+const ultimoUsoInclude = {
+  usos_em_ordens: {
+    where: { ordem: { status: { not: "CANCELADA" } } },
+    select: { ordem: { select: { created_at: true } } },
+    orderBy: { ordem: { created_at: "desc" } },
+    take: 1,
+  },
+} satisfies Prisma.StockItemInclude;
+
+type StockItemComUso = Prisma.StockItemGetPayload<{
+  include: typeof ultimoUsoInclude;
+}>;
+
+// Parado: tem saldo e nenhum uso nos últimos 90 dias. Item nunca usado
+// conta a partir do próprio cadastro. O custo só vai para o proprietário.
+function formatarItem(item: StockItemComUso, exibirCusto: boolean) {
+  const { usos_em_ordens, valor_entrada, ...dados } = item;
+  const ultimo_uso = usos_em_ordens[0]?.ordem.created_at ?? null;
+  const referencia = ultimo_uso ?? item.created_at;
+
+  return {
+    ...dados,
+    ...(exibirCusto ? { valor_entrada } : {}),
+    alerta_minimo: item.quantidade <= item.quantidade_minima,
+    ultimo_uso,
+    parado:
+      item.quantidade > 0 &&
+      Date.now() - referencia.getTime() > NOVENTA_DIAS_MS,
+  };
+}
 
 export class StockController {
   // Criar novo item no estoque
@@ -52,13 +93,14 @@ export class StockController {
       const { lowStockOnly } = req.query;
 
       const items = await prisma.stockItem.findMany({
+        include: ultimoUsoInclude,
         orderBy: { nome: "asc" },
       });
 
-      const formattedItems = items.map((item) => ({
-        ...item,
-        alerta_minimo: item.quantidade <= item.quantidade_minima,
-      }));
+      const exibirCusto = req.user?.perfil === "PROPRIETARIO";
+      const formattedItems = items.map((item) =>
+        formatarItem(item, exibirCusto),
+      );
 
       if (lowStockOnly === "true") {
         const lowStockItems = formattedItems.filter(
@@ -80,6 +122,7 @@ export class StockController {
 
       const item = await prisma.stockItem.findUnique({
         where: { id: Number(id) },
+        include: ultimoUsoInclude,
       });
 
       if (!item) {
@@ -88,10 +131,7 @@ export class StockController {
           .json({ error: "Item de estoque não encontrado" });
       }
 
-      return res.json({
-        ...item,
-        alerta_minimo: item.quantidade <= item.quantidade_minima,
-      });
+      return res.json(formatarItem(item, req.user?.perfil === "PROPRIETARIO"));
     } catch (error) {
       return res.status(500).json({ error: "Erro ao buscar item de estoque" });
     }

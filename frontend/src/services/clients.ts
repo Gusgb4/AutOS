@@ -6,17 +6,24 @@ export interface Client {
   nome: string;
   telefone: string;
   documento?: string;
+  email?: string | null;
+  endereco?: string | null;
+  created_at: string;
   veiculos: Vehicle[];
 }
 
 export interface CreateClientPayload {
   nome: string;
   telefone: string;
+  email?: string;
+  endereco?: string;
 }
 
 export interface UpdateClientPayload {
   nome?: string;
   telefone?: string;
+  email?: string;
+  endereco?: string;
 }
 
 export async function listClients(busca?: string): Promise<Client[]> {
@@ -52,11 +59,24 @@ export async function deleteClient(id: number): Promise<void> {
   //await api.delete(`/clients/${id}`);
 }
 
-export interface Client {
-  id: number;
+/**
+ * Converte os dados do formulário em payload para a API.
+ * Campos opcionais vazios não são enviados (evita falhar na validação
+ * de email e salvar string vazia no banco).
+ */
+export function buildClientPayload(data: {
   nome: string;
   telefone: string;
-  documento?: string;
-  created_at: string;
-  veiculos: Vehicle[];
+  email: string;
+  endereco: string;
+}): CreateClientPayload {
+  const email = data.email.trim();
+  const endereco = data.endereco.trim();
+
+  return {
+    nome: data.nome.trim(),
+    telefone: data.telefone.trim(),
+    ...(email ? { email } : {}),
+    ...(endereco ? { endereco } : {}),
+  };
 }

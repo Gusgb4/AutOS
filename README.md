@@ -64,7 +64,7 @@ Orientação: Prof. Edson Vaz Lopes — PAC Extensionista VI
 
 - ✅ **MVP1** — núcleo operacional (esta entrega)
 - 🔜 **MVP2** (setembro/2026) — financeiro, relatórios, lembretes de manutenção
-- 🔜 **MVP3** (outubro/2026) — responsividade mobile, polimento final
+- 🔜 **MVP3** (outubro/2026) — polimento final
 
 ## Licença
 

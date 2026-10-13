@@ -8,8 +8,13 @@ export interface StockItem {
   fornecedor: string | null;
   quantidade: number;
   quantidade_minima: number;
-  valor_unitario: string;
+  valor_final: string;
+  // Só vem para PROPRIETARIO; null quando o custo não foi informado
+  valor_entrada?: string | null;
   alerta_minimo: boolean;
+  // Data de abertura da última OS não cancelada que usou o item
+  ultimo_uso: string | null;
+  parado: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -20,7 +25,8 @@ export interface StockItemPayload {
   fornecedor?: string;
   quantidade: number;
   quantidade_minima: number;
-  valor_unitario: number;
+  valor_final: number;
+  valor_entrada?: number | null;
 }
 
 export async function listStock(lowStockOnly = false): Promise<StockItem[]> {

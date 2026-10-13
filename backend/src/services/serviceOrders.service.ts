@@ -9,7 +9,8 @@ const ordemCompleta = {
   veiculo: true,
   mecanico: { select: { id: true, nome: true, email: true, perfil: true } },
   servicos: true,
-  pecas: { include: { item_estoque: true } },
+  // Preço de custo é só do proprietário, e as rotas de OS atendem os dois perfis
+  pecas: { include: { item_estoque: { omit: { valor_entrada: true } } } },
 } satisfies Prisma.ServiceOrderInclude;
 
 const STATUS_EDITAVEIS: StatusOrdemServico[] = ["ABERTA", "EM_ANDAMENTO"];
@@ -200,7 +201,7 @@ export async function addPart(
         ordem_id: ordemId,
         item_estoque_id: itemId,
         quantidade,
-        valor_unitario: item.valor_unitario,
+        valor_unitario: item.valor_final,
       },
       update: { quantidade: { increment: quantidade } },
     });

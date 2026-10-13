@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Users,
@@ -13,9 +13,11 @@ import {
   Trash2,
   Loader2,
   ClipboardList,
+  AlertTriangle,
 } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
-import DisabledBadge from "../components/ui/DisabledBadge";
+import ToolbarMenu from "../components/ui/ToolbarMenu";
+import { isMaintenanceOverdue } from "../lib/maintenance";
 import { createVehicle } from "../services/vehicles";
 import ClientFormModal, {
   type ClientFormData,
@@ -26,9 +28,23 @@ import {
   createClient,
   updateClient,
   deleteClient,
+  buildClientPayload,
   type Client,
 } from "../services/clients";
 import { listServiceOrders } from "../services/serviceOrders";
+import { mensagemDeErro } from "../lib/errors";
+
+type FiltroVeiculos = "todos" | "com" | "sem";
+type FiltroEmail = "todos" | "com" | "sem";
+type Ordenacao = "nome-asc" | "nome-desc" | "recentes" | "antigos" | "veiculos";
+
+const ORDENACOES: { value: Ordenacao; label: string }[] = [
+  { value: "nome-asc", label: "Nome (A → Z)" },
+  { value: "nome-desc", label: "Nome (Z → A)" },
+  { value: "recentes", label: "Mais recentes" },
+  { value: "antigos", label: "Mais antigos" },
+  { value: "veiculos", label: "Mais veículos" },
+];
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -37,6 +53,12 @@ export default function Clients() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [ordensAtivas, setOrdensAtivas] = useState(0);
+
+  // Filtros e ordenação (aplicados sobre a lista já carregada)
+  const [filtroVeiculos, setFiltroVeiculos] = useState<FiltroVeiculos>("todos");
+  const [filtroEmail, setFiltroEmail] = useState<FiltroEmail>("todos");
+  const [apenasRevisaoVencida, setApenasRevisaoVencida] = useState(false);
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>("nome-asc");
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
@@ -51,11 +73,13 @@ export default function Clients() {
 
       // Filtra clientes ativos e garante que apenas veículos ativos sejam contados
       const clientesAtivos = data
-        .filter((c: any) => c.ativo !== false)
-        .map((c: any) => ({
+        .filter((c) => (c as { ativo?: boolean }).ativo !== false)
+        .map((c) => ({
           ...c,
           veiculos: c.veiculos
-            ? c.veiculos.filter((v: any) => v.ativo !== false)
+            ? c.veiculos.filter(
+                (v) => (v as { ativo?: boolean }).ativo !== false,
+              )
             : [],
         }));
 
@@ -104,10 +128,9 @@ export default function Clients() {
     setSubmitting(true);
     try {
       if (modalMode === "edit" && editingClient) {
-        await updateClient(editingClient.id, data);
+        await updateClient(editingClient.id, buildClientPayload(data));
       } else {
-        const newClient = await createClient(data);
-
+        const newClient = await createClient(buildClientPayload(data));
         if (vehicle) {
           try {
             await createVehicle({
@@ -117,25 +140,19 @@ export default function Clients() {
               placa: vehicle.placa,
               ano: vehicle.ano,
             });
-          } catch (vehicleErr: any) {
+          } catch (vehicleErr) {
             // Cliente já foi criado; avisa mas não desfaz o cadastro
             alert(
               "Cliente criado, mas houve um erro ao cadastrar o veículo: " +
-                (vehicleErr?.response?.data?.erro ||
-                  vehicleErr?.response?.data?.errors?.[0]?.message ||
-                  "erro desconhecido."),
+                mensagemDeErro(vehicleErr, "erro desconhecido."),
             );
           }
         }
       }
       setModalOpen(false);
       await fetchClients(search || undefined);
-    } catch (err: any) {
-      alert(
-        err?.response?.data?.erro ||
-          err?.response?.data?.errors?.[0]?.message ||
-          "Erro ao salvar cliente.",
-      );
+    } catch (err) {
+      alert(mensagemDeErro(err, "Erro ao salvar cliente."));
     } finally {
       setSubmitting(false);
     }
@@ -168,6 +185,49 @@ export default function Clients() {
       alert("Erro ao remover cliente.");
     }
   }
+
+  const filtrosAtivos =
+    (filtroVeiculos !== "todos" ? 1 : 0) +
+    (filtroEmail !== "todos" ? 1 : 0) +
+    (apenasRevisaoVencida ? 1 : 0);
+
+  function limparFiltros() {
+    setFiltroVeiculos("todos");
+    setFiltroEmail("todos");
+    setApenasRevisaoVencida(false);
+  }
+
+  const clientesExibidos = useMemo(() => {
+    const filtrados = clients.filter((c) => {
+      if (filtroVeiculos === "com" && c.veiculos.length === 0) return false;
+      if (filtroVeiculos === "sem" && c.veiculos.length > 0) return false;
+      if (filtroEmail === "com" && !c.email) return false;
+      if (filtroEmail === "sem" && c.email) return false;
+      if (apenasRevisaoVencida && !c.veiculos.some(isMaintenanceOverdue)) {
+        return false;
+      }
+      return true;
+    });
+
+    return [...filtrados].sort((a, b) => {
+      switch (ordenacao) {
+        case "nome-desc":
+          return b.nome.localeCompare(a.nome, "pt-BR", { sensitivity: "base" });
+        case "recentes":
+          return (
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          );
+        case "antigos":
+          return (
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        case "veiculos":
+          return b.veiculos.length - a.veiculos.length;
+        default:
+          return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+      }
+    });
+  }, [clients, filtroVeiculos, filtroEmail, apenasRevisaoVencida, ordenacao]);
 
   const totalVeiculos = clients.reduce((acc, c) => acc + c.veiculos.length, 0);
   const agora = new Date();
@@ -234,21 +294,94 @@ export default function Clients() {
             />
           </div>
 
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
+          <ToolbarMenu
+            label="Filtro"
+            icon={SlidersHorizontal}
+            activeCount={filtrosAtivos}
           >
-            <SlidersHorizontal size={15} />
-            Filtro
-          </button>
+            <div className="space-y-4">
+              <MenuGroup label="Veículos">
+                <MenuChoice
+                  checked={filtroVeiculos === "todos"}
+                  onSelect={() => setFiltroVeiculos("todos")}
+                >
+                  Todos
+                </MenuChoice>
+                <MenuChoice
+                  checked={filtroVeiculos === "com"}
+                  onSelect={() => setFiltroVeiculos("com")}
+                >
+                  Com veículo
+                </MenuChoice>
+                <MenuChoice
+                  checked={filtroVeiculos === "sem"}
+                  onSelect={() => setFiltroVeiculos("sem")}
+                >
+                  Sem veículo
+                </MenuChoice>
+              </MenuGroup>
 
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50"
-          >
-            <ArrowUpDown size={15} />
-            Organizar
-          </button>
+              <MenuGroup label="Email">
+                <MenuChoice
+                  checked={filtroEmail === "todos"}
+                  onSelect={() => setFiltroEmail("todos")}
+                >
+                  Todos
+                </MenuChoice>
+                <MenuChoice
+                  checked={filtroEmail === "com"}
+                  onSelect={() => setFiltroEmail("com")}
+                >
+                  Com email
+                </MenuChoice>
+                <MenuChoice
+                  checked={filtroEmail === "sem"}
+                  onSelect={() => setFiltroEmail("sem")}
+                >
+                  Sem email
+                </MenuChoice>
+              </MenuGroup>
+
+              <MenuGroup label="Manutenção">
+                <MenuChoice
+                  checked={!apenasRevisaoVencida}
+                  onSelect={() => setApenasRevisaoVencida(false)}
+                >
+                  Todos
+                </MenuChoice>
+                <MenuChoice
+                  checked={apenasRevisaoVencida}
+                  onSelect={() => setApenasRevisaoVencida(true)}
+                >
+                  Revisão vencida
+                </MenuChoice>
+              </MenuGroup>
+
+              {filtrosAtivos > 0 && (
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="w-full rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+          </ToolbarMenu>
+
+          <ToolbarMenu label="Organizar" icon={ArrowUpDown}>
+            <MenuGroup label="Ordenar por">
+              {ORDENACOES.map((o) => (
+                <MenuChoice
+                  key={o.value}
+                  checked={ordenacao === o.value}
+                  onSelect={() => setOrdenacao(o.value)}
+                >
+                  {o.label}
+                </MenuChoice>
+              ))}
+            </MenuGroup>
+          </ToolbarMenu>
         </div>
 
         <button
@@ -272,7 +405,7 @@ export default function Clients() {
             <div>
               <p className="font-semibold text-[#1F1F1F]">Clientes</p>
               <p className="text-xs text-gray-500">
-                Mostrando {clients.length} clientes
+                Mostrando {clientesExibidos.length} de {clients.length} clientes
               </p>
             </div>
           </div>
@@ -286,9 +419,21 @@ export default function Clients() {
           </div>
         ) : error ? (
           <div className="p-10 text-center text-sm text-red-500">{error}</div>
-        ) : clients.length === 0 ? (
+        ) : clientesExibidos.length === 0 ? (
           <div className="p-10 text-center text-sm text-gray-500">
             Nenhum cliente encontrado.
+            {filtrosAtivos > 0 && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={limparFiltros}
+                  className="font-medium text-[#FF7518] hover:underline"
+                >
+                  Limpar filtros
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -303,7 +448,7 @@ export default function Clients() {
                 </tr>
               </thead>
               <tbody>
-                {clients.map((client) => (
+                {clientesExibidos.map((client) => (
                   <tr
                     onClick={() => navigate(`/clientes/${client.id}`)}
                     key={client.id}
@@ -315,14 +460,27 @@ export default function Clients() {
                     <td className="px-5 py-4 text-gray-600">
                       {client.telefone}
                     </td>
-                    <td className="px-5 py-4">
-                      <DisabledBadge />
+                    <td className="px-5 py-4 text-gray-600">
+                      {client.email || (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-4">
-                      <span className="inline-flex items-center gap-1.5 text-gray-600">
-                        <Car size={14} className="text-[#FF7518]" />
-                        {client.veiculos.length}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-gray-600">
+                          <Car size={14} className="text-[#FF7518]" />
+                          {client.veiculos.length}
+                        </span>
+                        {client.veiculos.some(isMaintenanceOverdue) && (
+                          <span
+                            title="Há veículo com revisão vencida"
+                            className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600"
+                          >
+                            <AlertTriangle size={11} />
+                            Revisão vencida
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-2">
@@ -374,6 +532,8 @@ export default function Clients() {
             ? {
                 nome: editingClient.nome,
                 telefone: editingClient.telefone,
+                email: editingClient.email ?? "",
+                endereco: editingClient.endereco ?? "",
               }
             : undefined
         }
@@ -383,5 +543,51 @@ export default function Clients() {
         onDelete={modalMode === "edit" ? handleDelete : undefined}
       />
     </div>
+  );
+}
+
+function MenuGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+        {label}
+      </p>
+      <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+function MenuChoice({
+  checked,
+  onSelect,
+  children,
+}: {
+  checked: boolean;
+  onSelect: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${
+        checked ? "font-medium text-[#1F1F1F]" : "text-gray-600"
+      }`}
+    >
+      <span
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+          checked ? "border-[#FF7518]" : "border-gray-300"
+        }`}
+      >
+        {checked && <span className="h-2 w-2 rounded-full bg-[#FF7518]" />}
+      </span>
+      {children}
+    </button>
   );
 }
