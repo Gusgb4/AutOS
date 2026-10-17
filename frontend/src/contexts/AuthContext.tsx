@@ -6,15 +6,26 @@ import {
   type ReactNode,
 } from "react";
 import * as authService from "../services/auth";
-import type { User, LoginPayload, RegisterPayload } from "../services/auth";
+import type { LoginPayload, RegisterPayload } from "../services/auth";
+
+// Atualizamos a interface User para reconhecer a flag trocar_senha
+export interface User {
+  id: number | string;
+  nome: string;
+  email: string;
+  perfil: string;
+  trocar_senha?: boolean;
+}
 
 interface AuthContextData {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
+  needsPasswordChange: boolean; // Novo estado para controlar se precisa trocar a senha
   signIn: (payload: LoginPayload) => Promise<void>;
   signUp: (payload: RegisterPayload) => Promise<void>;
   signOut: () => void;
+  updateUser: (updatedUser: User) => void; // Para atualizar o estado após a troca de senha
 }
 
 const AuthContext = createContext<AuthContextData | undefined>(undefined);
@@ -48,7 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signUp(payload: RegisterPayload) {
     await authService.register(payload);
-    // Após cadastro, loga automaticamente
     await signIn({ email: payload.email, senha: payload.senha });
   }
 
@@ -58,15 +68,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
+  function updateUser(updatedUser: User) {
+    localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  }
+
+  // Verifica se o usuário logado precisa trocar a senha obrigatoriamente
+  const needsPasswordChange = !!user?.trocar_senha;
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
         loading,
+        needsPasswordChange,
         signIn,
         signUp,
         signOut,
+        updateUser,
       }}
     >
       {children}

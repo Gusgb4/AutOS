@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
@@ -8,7 +8,6 @@ import Clients from "../pages/Clients";
 import ClientProfile from "../pages/ClientProfile";
 import NewStockItem from "../pages/NewStockItem";
 import Reports from "../pages/Reports";
-/// import Vehicles from "../pages/Vehicles";
 import Stock from "../pages/Stock";
 import Financial from "../pages/Financial";
 import ServiceOrders from "../pages/ServiceOrders";
@@ -19,6 +18,17 @@ import Productivity from "../pages/Productivity";
 import TermsOfUse from "../pages/TermsOfSerivce";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
 import Team from "../pages/Team";
+import ChangePassword from "../pages/ChangePassword"; // <-- Importa a tela nova
+import { useAuth } from "../contexts/AuthContext";
+
+// Componente auxiliar para verificar se precisa de trocar senha nas rotas protegidas
+function PasswordCheckWrapper() {
+  const { user } = useAuth();
+  if (user?.trocar_senha) {
+    return <ChangePassword />;
+  }
+  return <Layout />;
+}
 
 export const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
@@ -29,7 +39,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/",
-        element: <Layout />,
+        element: <PasswordCheckWrapper />, // <-- Intercepta o Layout principal
         children: [
           { index: true, element: <Dashboard /> },
           { path: "ordens-servico", element: <ServiceOrders /> },
@@ -37,7 +47,6 @@ export const router = createBrowserRouter([
           { path: "clientes", element: <Clients /> },
           { path: "clientes/:id", element: <ClientProfile /> },
           { path: "estoque", element: <Stock /> },
-          // Funcionário só consulta o estoque; criar/editar é do proprietário
           {
             element: <RoleRoute allowed={["PROPRIETARIO"]} />,
             children: [
@@ -50,8 +59,6 @@ export const router = createBrowserRouter([
           { path: "ordens-servico/novo", element: <NewServiceOrder /> },
           { path: "/produtividade", element: <Productivity /> },
           { path: "relatorios", element: <Reports /> },
-
-          /// { path: "veiculos", element: <Vehicles /> },
         ],
       },
     ],

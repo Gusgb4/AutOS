@@ -83,15 +83,19 @@ export class AuthController {
         { expiresIn: '8h' }
       );
 
-      return res.json({
-        user: {
-          id: user.id,
-          nome: user.nome,
-          email: user.email,
-          perfil: user.perfil,
-        },
-        token,
-      });
+     // Exemplo de retorno no backend após validar a senha:
+return res.json({
+  token,
+  user: {
+    id: user.id,
+    nome: user.nome,
+    email: user.email,
+    perfil: user.perfil,
+    ativo: user.ativo,
+    trocar_senha: user.trocar_senha, // <-- Certifica-te de que isto é enviado!
+  },
+});
+
     } catch (error: any) {
       console.error('Erro detalhado no login:', error);
       if (error instanceof z.ZodError) {
