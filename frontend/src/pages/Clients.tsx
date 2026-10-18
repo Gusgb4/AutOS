@@ -33,6 +33,7 @@ import {
 } from "../services/clients";
 import { listServiceOrders } from "../services/serviceOrders";
 import { mensagemDeErro } from "../lib/errors";
+import { getUserRole } from "../lib/auth";
 
 type FiltroVeiculos = "todos" | "com" | "sem";
 type FiltroEmail = "todos" | "com" | "sem";
@@ -48,6 +49,8 @@ const ORDENACOES: { value: Ordenacao; label: string }[] = [
 
 export default function Clients() {
   const navigate = useNavigate();
+  // Funcionário cadastra e consulta; editar e arquivar é só do proprietário
+  const podeEditar = getUserRole() === "PROPRIETARIO";
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -491,28 +494,32 @@ export default function Clients() {
                         >
                           <Eye size={14} />
                         </Link>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditModal(client);
-                          }}
-                          aria-label="Editar"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteDirect(client);
-                          }}
-                          aria-label="Excluir"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {podeEditar && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditModal(client);
+                              }}
+                              aria-label="Editar"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteDirect(client);
+                              }}
+                              aria-label="Excluir"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -540,7 +547,9 @@ export default function Clients() {
         submitting={submitting}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
-        onDelete={modalMode === "edit" ? handleDelete : undefined}
+        onDelete={
+          modalMode === "edit" && podeEditar ? handleDelete : undefined
+        }
       />
     </div>
   );
