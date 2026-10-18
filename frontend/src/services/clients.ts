@@ -9,7 +9,12 @@ export interface Client {
   email?: string | null;
   endereco?: string | null;
   created_at: string;
+  // Só veículos ativos (o backend já filtra)
   veiculos: Vehicle[];
+  // Vêm só na listagem (GET /clients)
+  total_gasto?: number; // soma das OS finalizadas
+  qtd_os?: number; // quantidade de OS finalizadas
+  ultima_visita?: string | null; // OS mais recente que não foi cancelada
 }
 
 export interface CreateClientPayload {
@@ -26,9 +31,16 @@ export interface UpdateClientPayload {
   endereco?: string;
 }
 
-export async function listClients(busca?: string): Promise<Client[]> {
+// Por padrão só clientes ativos; arquivados = true traz só os arquivados
+export async function listClients(
+  busca?: string,
+  opcoes: { arquivados?: boolean } = {},
+): Promise<Client[]> {
   const { data } = await api.get<Client[]>("/clients", {
-    params: busca ? { busca } : undefined,
+    params: {
+      busca: busca || undefined,
+      arquivados: opcoes.arquivados ? "true" : undefined,
+    },
   });
   return data;
 }

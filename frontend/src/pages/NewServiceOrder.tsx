@@ -101,17 +101,8 @@ export default function NewServiceOrder() {
           listUsers(),
           listStock(),
         ]);
-        // Cliente ou veículo arquivado não aparece pra abrir OS nova
-        setClientes(
-          clientesData
-            .filter((c: any) => c.ativo !== false)
-            .map((c: any) => ({
-              ...c,
-              veiculos: (c.veiculos ?? []).filter(
-                (v: any) => v.ativo !== false,
-              ),
-            })),
-        );
+        // O backend já devolve só clientes e veículos ativos
+        setClientes(clientesData);
         setMecanicos(Array.isArray(mecanicosData) ? mecanicosData : []);
         setStockItems(stockData);
       } catch (err) {
