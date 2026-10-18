@@ -22,6 +22,12 @@ export function parsePeriodo(inicio: string, fim: string): Periodo {
   };
 }
 
+export function parseMes(mes: string): Periodo {
+  const [ano, numeroMes] = mes.split("-").map(Number);
+  const ultimoDia = new Date(Date.UTC(ano, numeroMes, 0)).getUTCDate();
+  return parsePeriodo(`${mes}-01`, `${mes}-${ultimoDia}`);
+}
+
 function periodoAnterior(p: Periodo): Periodo {
   const duracao = p.fimExclusivo.getTime() - p.inicio.getTime();
   return {
@@ -34,14 +40,14 @@ function diaBrasilia(data: Date): string {
   return new Date(data.getTime() - TRES_HORAS_MS).toISOString().slice(0, 10);
 }
 
-function descreverPeriodo(p: Periodo) {
+export function descreverPeriodo(p: Periodo) {
   return {
     inicio: diaBrasilia(p.inicio),
     fim: diaBrasilia(new Date(p.fimExclusivo.getTime() - 1)),
   };
 }
 
-function arredondar(valor: Prisma.Decimal): number {
+export function arredondar(valor: Prisma.Decimal): number {
   return valor.toDecimalPlaces(2).toNumber();
 }
 
@@ -50,7 +56,7 @@ function variacao(atual: number, anterior: number): number | null {
   return Math.round(((atual - anterior) / anterior) * 1000) / 10;
 }
 
-function filtroOSFinalizada(p: Periodo): Prisma.ServiceOrderWhereInput {
+export function filtroOSFinalizada(p: Periodo): Prisma.ServiceOrderWhereInput {
   return {
     status: "FINALIZADA",
     finalizada_em: { gte: p.inicio, lt: p.fimExclusivo },
@@ -119,7 +125,7 @@ export async function vendasPorPeriodo(p: Periodo) {
 
 // ---------- 2. Status do inventário ----------
 export async function statusInventario() {
-   const itens = await prisma.stockItem.findMany({
+  const itens = await prisma.stockItem.findMany({
     where: { ativo: true },
     orderBy: { nome: "asc" },
   });
