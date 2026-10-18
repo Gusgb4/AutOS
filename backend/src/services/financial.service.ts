@@ -1,4 +1,6 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
+import { comPagamento, pagamentosAtivos } from "./serviceOrders.service";
 
 interface Filtros {
   tipo?: string;
@@ -41,4 +43,37 @@ export async function createEntry(dados: {
       estornado: false,
     },
   });
+}
+
+export async function contasAReceber() {
+  const ordens = await prisma.serviceOrder.findMany({
+    where: { status: "FINALIZADA" },
+    select: {
+      id: true,
+      status: true,
+      valor_total: true,
+      finalizada_em: true,
+      cliente: { select: { id: true, nome: true } },
+      financialEntries: pagamentosAtivos,
+    },
+    orderBy: { finalizada_em: "asc" },
+  });
+
+  const emAberto = ordens.map(comPagamento).filter((o) => o.saldo.gt(0));
+
+  return {
+    total: emAberto.reduce(
+      (acc, o) => acc.plus(o.saldo),
+      new Prisma.Decimal(0),
+    ),
+    ordens: emAberto.map((o) => ({
+      id: o.id,
+      cliente: o.cliente,
+      valor_total: o.valor_total,
+      valor_pago: o.valor_pago,
+      saldo: o.saldo,
+      status_pagamento: o.status_pagamento,
+      finalizada_em: o.finalizada_em,
+    })),
+  };
 }

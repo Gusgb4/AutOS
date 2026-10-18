@@ -1,8 +1,15 @@
-import { Prisma, StatusOrdemServico } from "@prisma/client";
+import { FormaPagamento, Prisma, StatusOrdemServico } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
 
 type Tx = Prisma.TransactionClient;
+
+export type StatusPagamento = "PENDENTE" | "PARCIAL" | "PAGO";
+
+export const pagamentosAtivos = {
+  where: { tipo: "RECEITA", estornado: false },
+  select: { valor: true },
+} satisfies Prisma.ServiceOrder$financialEntriesArgs;
 
 const ordemCompleta = {
   cliente: true,
@@ -11,6 +18,7 @@ const ordemCompleta = {
   servicos: true,
   // Preço de custo é só do proprietário, e as rotas de OS atendem os dois perfis
   pecas: { include: { item_estoque: { omit: { valor_entrada: true } } } },
+  financialEntries: pagamentosAtivos,
 } satisfies Prisma.ServiceOrderInclude;
 
 const STATUS_EDITAVEIS: StatusOrdemServico[] = ["ABERTA", "EM_ANDAMENTO"];
@@ -21,6 +29,51 @@ const TRANSICOES: Record<StatusOrdemServico, StatusOrdemServico[]> = {
   FINALIZADA: ["EM_ANDAMENTO"],
   CANCELADA: [],
 };
+
+export function calcularPagamento(
+  ordem: { status: StatusOrdemServico; valor_total: Prisma.Decimal },
+  pagamentos: { valor: Prisma.Decimal }[],
+) {
+  const valor_pago = pagamentos.reduce(
+    (acc, pagamento) => acc.plus(pagamento.valor),
+    new Prisma.Decimal(0),
+  );
+  const saldo = ordem.valor_total.minus(valor_pago);
+
+  let status_pagamento: StatusPagamento | null = null;
+  if (ordem.status === "FINALIZADA") {
+    if (saldo.lte(0)) status_pagamento = "PAGO";
+    else if (valor_pago.gt(0)) status_pagamento = "PARCIAL";
+    else status_pagamento = "PENDENTE";
+  }
+
+  return { valor_pago, saldo, status_pagamento };
+}
+
+export function comPagamento<
+  T extends {
+    status: StatusOrdemServico;
+    valor_total: Prisma.Decimal;
+    financialEntries: { valor: Prisma.Decimal }[];
+  },
+>({ financialEntries, ...ordem }: T) {
+  return { ...ordem, ...calcularPagamento(ordem, financialEntries) };
+}
+
+async function travarOrdem(tx: Tx, ordemId: number) {
+  await tx.$queryRaw`SELECT id FROM service_orders WHERE id = ${ordemId} FOR UPDATE`;
+
+  const ordem = await tx.serviceOrder.findUnique({
+    where: { id: ordemId },
+    include: { financialEntries: pagamentosAtivos },
+  });
+
+  if (!ordem) {
+    throw new AppError("Ordem de serviço não encontrada.", 404);
+  }
+
+  return ordem;
+}
 
 async function recalcularTotal(tx: Tx, ordemId: number) {
   const [servicos, pecas] = await Promise.all([
@@ -39,11 +92,13 @@ async function recalcularTotal(tx: Tx, ordemId: number) {
     ...pecas.map((peca) => peca.valor_unitario.mul(peca.quantidade)),
   ].reduce((acc, valor) => acc.plus(valor), new Prisma.Decimal(0));
 
-  return tx.serviceOrder.update({
+  const ordem = await tx.serviceOrder.update({
     where: { id: ordemId },
     data: { valor_total: total },
     include: ordemCompleta,
   });
+
+  return comPagamento(ordem);
 }
 
 function somarDias(data: Date, dias: number): Date {
@@ -93,22 +148,33 @@ async function buscarOrdemEditavel(tx: Tx, ordemId: number) {
 interface SearchServiceOrdersFilters {
   status?: StatusOrdemServico;
   cliente_id?: number;
+  status_pagamento?: StatusPagamento;
 }
 
 export async function search(filtros: SearchServiceOrdersFilters = {}) {
-  return prisma.serviceOrder.findMany({
+  const ordens = await prisma.serviceOrder.findMany({
     // Campos undefined são ignorados pelo Prisma: cada filtro é opcional
     where: { status: filtros.status, cliente_id: filtros.cliente_id },
     include: ordemCompleta,
     orderBy: { created_at: "desc" },
   });
+
+  return ordens
+    .map(comPagamento)
+    .filter(
+      (ordem) =>
+        !filtros.status_pagamento ||
+        ordem.status_pagamento === filtros.status_pagamento,
+    );
 }
 
 export async function findById(id: number) {
-  return prisma.serviceOrder.findUnique({
+  const ordem = await prisma.serviceOrder.findUnique({
     where: { id },
     include: ordemCompleta,
   });
+
+  return ordem && comPagamento(ordem);
 }
 
 interface CreateServiceOrderInput {
@@ -152,10 +218,12 @@ export async function create(dados: CreateServiceOrderInput) {
       });
     }
 
-    return tx.serviceOrder.create({
+    const ordem = await tx.serviceOrder.create({
       data: dados,
       include: ordemCompleta,
     });
+
+    return comPagamento(ordem);
   });
 }
 
@@ -291,25 +359,23 @@ export async function changeStatus(
   novoStatus: StatusOrdemServico,
 ) {
   return prisma.$transaction(async (tx) => {
-    const ordem = await tx.serviceOrder.findUnique({ where: { id: ordemId } });
+    const ordem = await travarOrdem(tx, ordemId);
 
-    if (!ordem) {
-      throw new AppError("Ordem de serviço não encontrada.", 404);
-    }
     if (!TRANSICOES[ordem.status].includes(novoStatus)) {
       throw new AppError(
         `Não é possível mudar o status de ${ordem.status} para ${novoStatus}.`,
         409,
       );
     }
-
-    const agora = new Date();
+    if (novoStatus === "CANCELADA" && ordem.financialEntries.length > 0) {
+      throw new AppError("Estorne os pagamentos antes de cancelar.", 409);
+    }
 
     const { count } = await tx.serviceOrder.updateMany({
       where: { id: ordemId, status: ordem.status },
       data: {
         status: novoStatus,
-        finalizada_em: novoStatus === "FINALIZADA" ? agora : null,
+        finalizada_em: novoStatus === "FINALIZADA" ? new Date() : null,
       },
     });
 
@@ -320,44 +386,11 @@ export async function changeStatus(
       );
     }
 
-    // Se a OS foi finalizada, geramos a receita automaticamente
     if (novoStatus === "FINALIZADA") {
       await recalcularLembreteManutencao(tx, ordem.veiculo_id);
-
-      // Marca todos os lançamentos ativos anteriores desta OS como estornados (regra de reabertura/ciclo)
-      await tx.financialEntry.updateMany({
-        where: { ordemId: ordemId, estornado: false },
-        data: { estornado: true },
-      });
-
-      // Cria sempre um lançamento NOVO para o encerramento atual
-      await tx.financialEntry.create({
-        data: {
-          tipo: "RECEITA",
-          descricao: `Receita referente à Ordem de Serviço #${ordem.id}`,
-          valor: ordem.valor_total,
-          data: agora,
-          ordemId: ordem.id,
-          estornado: false,
-        },
-      });
     }
 
-    // Se uma OS finalizada foi REABERTA
-    if (ordem.status === "FINALIZADA" && novoStatus === "EM_ANDAMENTO") {
-      await tx.financialEntry.updateMany({
-        where: { ordemId: ordemId, estornado: false },
-        data: { estornado: true },
-      });
-    }
-
-    // Se a OS foi cancelada, estorna o financeiro e devolve as peças
     if (novoStatus === "CANCELADA") {
-      await tx.financialEntry.updateMany({
-        where: { ordemId: ordemId, estornado: false },
-        data: { estornado: true },
-      });
-
       const pecas = await tx.serviceOrderPart.findMany({
         where: { ordem_id: ordemId },
       });
@@ -370,10 +403,12 @@ export async function changeStatus(
       }
     }
 
-    return tx.serviceOrder.findUniqueOrThrow({
+    const atualizada = await tx.serviceOrder.findUniqueOrThrow({
       where: { id: ordemId },
       include: ordemCompleta,
     });
+
+    return comPagamento(atualizada);
   });
 }
 
@@ -389,9 +424,95 @@ export async function updateObservacoes(
     throw new AppError("Ordem de serviço não encontrada.", 404);
   }
 
-  return prisma.serviceOrder.update({
+  const atualizada = await prisma.serviceOrder.update({
     where: { id: ordemId },
     data: { observacoes },
     include: ordemCompleta,
+  });
+
+  return comPagamento(atualizada);
+}
+
+interface RegistrarPagamentoInput {
+  valor: number;
+  forma_pagamento: FormaPagamento;
+  data?: Date;
+}
+
+export async function registrarPagamento(
+  ordemId: number,
+  dados: RegistrarPagamentoInput,
+) {
+  return prisma.$transaction(async (tx) => {
+    const ordem = await travarOrdem(tx, ordemId);
+
+    if (ordem.status !== "FINALIZADA") {
+      throw new AppError(
+        "Só é possível registrar pagamento de OS finalizada.",
+        409,
+      );
+    }
+
+    const valor = new Prisma.Decimal(dados.valor).toDecimalPlaces(2);
+    const { saldo } = calcularPagamento(ordem, ordem.financialEntries);
+
+    if (saldo.lte(0)) {
+      throw new AppError("Esta ordem de serviço já está paga.", 409);
+    }
+    if (valor.lte(0) || valor.gt(saldo)) {
+      throw new AppError(
+        `O valor deve ser maior que zero e no máximo o saldo de R$ ${saldo.toFixed(2).replace(".", ",")}.`,
+        409,
+      );
+    }
+
+    return tx.financialEntry.create({
+      data: {
+        tipo: "RECEITA",
+        descricao: `Pagamento da Ordem de Serviço #${ordem.id}`,
+        valor,
+        forma_pagamento: dados.forma_pagamento,
+        data: dados.data ?? new Date(),
+        ordemId: ordem.id,
+      },
+    });
+  });
+}
+
+export async function listarPagamentos(ordemId: number) {
+  const ordem = await prisma.serviceOrder.findUnique({
+    where: { id: ordemId },
+  });
+
+  if (!ordem) {
+    throw new AppError("Ordem de serviço não encontrada.", 404);
+  }
+
+  return prisma.financialEntry.findMany({
+    where: { ordemId, tipo: "RECEITA" },
+    orderBy: { data: "asc" },
+  });
+}
+
+export async function estornarPagamento(ordemId: number, pagamentoId: string) {
+  const pagamento = await prisma.financialEntry.findFirst({
+    where: { id: pagamentoId, ordemId, tipo: "RECEITA" },
+  });
+
+  if (!pagamento) {
+    throw new AppError("Pagamento não encontrado nesta ordem de serviço.", 404);
+  }
+
+  const { count } = await prisma.financialEntry.updateMany({
+    where: { id: pagamentoId, estornado: false },
+    data: { estornado: true },
+  });
+
+  if (count === 0) {
+    throw new AppError("Este pagamento já foi estornado.", 409);
+  }
+
+  return prisma.financialEntry.findUniqueOrThrow({
+    where: { id: pagamentoId },
   });
 }

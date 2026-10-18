@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { StatusOrdemServico } from "@prisma/client";
+import { FormaPagamento, StatusOrdemServico } from "@prisma/client";
 import { z } from "zod";
 import {
   search,
@@ -10,10 +10,14 @@ import {
   addService,
   removeService,
   changeStatus,
+  registrarPagamento,
+  listarPagamentos,
+  estornarPagamento,
 } from "../services/serviceOrders.service";
 
 const statusSchema = z.enum(StatusOrdemServico);
 const clienteIdSchema = z.coerce.number().int().positive();
+const statusPagamentoSchema = z.enum(["PENDENTE", "PARCIAL", "PAGO"]);
 
 // GET /api/service-orders?status=ABERTA&cliente_id=1
 export async function listController(req: Request, res: Response) {
@@ -25,7 +29,11 @@ export async function listController(req: Request, res: Response) {
     typeof req.query.cliente_id === "string"
       ? clienteIdSchema.parse(req.query.cliente_id)
       : undefined;
-  const ordens = await search({ status, cliente_id });
+  const status_pagamento =
+    typeof req.query.status_pagamento === "string"
+      ? statusPagamentoSchema.parse(req.query.status_pagamento)
+      : undefined;
+  const ordens = await search({ status, cliente_id, status_pagamento });
   return res.status(200).json(ordens);
 }
 
@@ -134,4 +142,38 @@ export async function updateObservacoesController(req: Request, res: Response) {
   const { observacoes } = updateObservacoesSchema.parse(req.body);
   const ordem = await updateObservacoes(ordemId, observacoes);
   return res.status(200).json(ordem);
+}
+
+const registrarPagamentoSchema = z.object({
+  valor: z.number(),
+  forma_pagamento: z.enum(FormaPagamento),
+  data: z.iso
+    .date("Use o formato AAAA-MM-DD.")
+    .transform((v) => new Date(`${v}T12:00:00-03:00`))
+    .optional(),
+});
+
+export async function registrarPagamentoController(
+  req: Request,
+  res: Response,
+) {
+  const ordemId = Number(req.params.id);
+  const dados = registrarPagamentoSchema.parse(req.body);
+  const pagamento = await registrarPagamento(ordemId, dados);
+  return res.status(201).json(pagamento);
+}
+
+export async function listarPagamentosController(req: Request, res: Response) {
+  const ordemId = Number(req.params.id);
+  const pagamentos = await listarPagamentos(ordemId);
+  return res.status(200).json(pagamentos);
+}
+
+export async function estornarPagamentoController(req: Request, res: Response) {
+  const ordemId = Number(req.params.id);
+  const pagamento = await estornarPagamento(
+    ordemId,
+    String(req.params.pagamentoId),
+  );
+  return res.status(200).json(pagamento);
 }

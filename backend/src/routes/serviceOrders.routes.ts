@@ -9,9 +9,15 @@ import {
   removeServiceController,
   changeStatusController,
   updateObservacoesController,
+  registrarPagamentoController,
+  listarPagamentosController,
+  estornarPagamentoController,
 } from "../controllers/serviceOrders.controller";
 import { asyncHandler } from "../utils/asyncHandler";
-import { ensureAuthenticated } from "../middlewares/auth.middleware";
+import {
+  ensureAuthenticated,
+  requireRole,
+} from "../middlewares/auth.middleware";
 
 const router = Router();
 
@@ -36,5 +42,17 @@ router.delete(
   asyncHandler(removeServiceController),
 );
 router.patch("/:id/observacoes", asyncHandler(updateObservacoesController));
+
+router.get("/:id/pagamentos", asyncHandler(listarPagamentosController));
+router.post(
+  "/:id/pagamentos",
+  requireRole(["PROPRIETARIO"]),
+  asyncHandler(registrarPagamentoController),
+);
+router.patch(
+  "/:id/pagamentos/:pagamentoId/estornar",
+  requireRole(["PROPRIETARIO"]),
+  asyncHandler(estornarPagamentoController),
+);
 
 export default router;
