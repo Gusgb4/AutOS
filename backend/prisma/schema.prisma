@@ -117,6 +117,14 @@ enum FormaPagamento {
   TRANSFERENCIA
 }
 
+enum CategoriaDespesa {
+  ALUGUEL
+  SALARIO
+  PECAS
+  ENERGIA
+  OUTROS
+}
+
 model ServiceOrder {
   id                       Int                @id @default(autoincrement())
   cliente_id               Int
@@ -200,6 +208,8 @@ model FinancialEntry {
   estornado    Boolean       @default(false)
   // Preenchido nos pagamentos de OS (null em lançamentos manuais)
   forma_pagamento FormaPagamento?
+  // Obrigatória em despesa; null em receita
+  categoria    CategoriaDespesa?
 
   ordemId      Int?          // Alterado de String? para Int? para bater com o ID de ServiceOrder
   ordemServico ServiceOrder? @relation(fields: [ordemId], references: [id], onDelete: SetNull)

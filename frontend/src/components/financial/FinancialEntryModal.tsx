@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -6,12 +6,18 @@ import {
   Check,
   DollarSign,
   FileText,
+  Tag,
   X,
 } from "lucide-react";
-import type { FinancialEntryPayload, TipoLancamento } from "../../services/financial";
+import {
+  CATEGORIAS_DESPESA,
+  type CategoriaDespesa,
+  type FinancialEntryPayload,
+  type TipoLancamento,
+} from "../../services/financial";
 
+// Montado só enquanto está aberto, então o formulário sempre começa vazio
 interface FinancialEntryModalProps {
-  open: boolean;
   submitting?: boolean;
   erro?: string | null;
   onClose: () => void;
@@ -23,22 +29,16 @@ const emptyForm = {
   descricao: "",
   valor: "",
   data: "",
+  categoria: "" as CategoriaDespesa | "",
 };
 
 export default function FinancialEntryModal({
-  open,
   submitting = false,
   erro,
   onClose,
   onSave,
 }: FinancialEntryModalProps) {
   const [form, setForm] = useState(emptyForm);
-
-  useEffect(() => {
-    if (open) setForm(emptyForm);
-  }, [open]);
-
-  if (!open) return null;
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -48,12 +48,18 @@ export default function FinancialEntryModal({
       alert("Informe um valor maior que zero.");
       return;
     }
+    if (form.tipo === "DESPESA" && !form.categoria) {
+      alert("Selecione a categoria da despesa.");
+      return;
+    }
 
     onSave({
       tipo: form.tipo,
       descricao: form.descricao.trim(),
       valor,
       data: form.data || undefined,
+      categoria:
+        form.tipo === "DESPESA" && form.categoria ? form.categoria : undefined,
     });
   }
 
@@ -141,6 +147,38 @@ export default function FinancialEntryModal({
               />
             </div>
           </div>
+
+          {!isReceita && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-[#1B2130]">
+                Categoria
+              </label>
+              <div className="relative">
+                <Tag
+                  size={15}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <select
+                  value={form.categoria}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      categoria: e.target.value as CategoriaDespesa | "",
+                    }))
+                  }
+                  required
+                  className="entry-input"
+                >
+                  <option value="">Selecione...</option>
+                  {CATEGORIAS_DESPESA.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">

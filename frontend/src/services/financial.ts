@@ -3,6 +3,25 @@ import type { FormaPagamento, StatusPagamento } from "./serviceOrders";
 
 export type TipoLancamento = "RECEITA" | "DESPESA";
 
+export type CategoriaDespesa =
+  | "ALUGUEL"
+  | "SALARIO"
+  | "PECAS"
+  | "ENERGIA"
+  | "OUTROS";
+
+export const CATEGORIAS_DESPESA: { value: CategoriaDespesa; label: string }[] = [
+  { value: "ALUGUEL", label: "Aluguel" },
+  { value: "SALARIO", label: "Salário" },
+  { value: "PECAS", label: "Peças" },
+  { value: "ENERGIA", label: "Energia" },
+  { value: "OUTROS", label: "Outros" },
+];
+
+export function categoriaLabel(categoria: CategoriaDespesa | null) {
+  return CATEGORIAS_DESPESA.find((c) => c.value === categoria)?.label ?? "—";
+}
+
 export interface FinancialEntry {
   id: string;
   tipo: TipoLancamento;
@@ -11,6 +30,7 @@ export interface FinancialEntry {
   data: string;
   estornado: boolean;
   forma_pagamento: FormaPagamento | null;
+  categoria: CategoriaDespesa | null;
   ordemId: number | null;
   ordemServico: {
     id: number;
@@ -26,12 +46,16 @@ export interface FinancialEntryPayload {
   descricao: string;
   valor: number;
   data?: string;
+  categoria?: CategoriaDespesa;
 }
 
+// Datas no formato AAAA-MM-DD (fim inclusivo)
 export interface FinancialFilters {
   tipo?: TipoLancamento;
+  categoria?: CategoriaDespesa;
   inicio?: string;
   fim?: string;
+  estornados?: boolean;
 }
 
 export async function listFinancialEntries(
@@ -39,12 +63,30 @@ export async function listFinancialEntries(
 ): Promise<FinancialEntry[]> {
   const params: Record<string, string> = {};
   if (filtros.tipo) params.tipo = filtros.tipo;
+  if (filtros.categoria) params.categoria = filtros.categoria;
   if (filtros.inicio) params.inicio = filtros.inicio;
   if (filtros.fim) params.fim = filtros.fim;
+  if (filtros.estornados) params.estornados = "true";
 
   const { data } = await api.get<FinancialEntry[]>("/financial", {
     params: Object.keys(params).length ? params : undefined,
   });
+  return data;
+}
+
+export interface DespesasPorCategoria {
+  total: number;
+  categorias: { categoria: CategoriaDespesa; valor: number; percentual: number }[];
+}
+
+export async function listDespesasPorCategoria(periodo: {
+  inicio?: string;
+  fim?: string;
+}): Promise<DespesasPorCategoria> {
+  const { data } = await api.get<DespesasPorCategoria>(
+    "/financial/despesas-por-categoria",
+    { params: { inicio: periodo.inicio || undefined, fim: periodo.fim || undefined } },
+  );
   return data;
 }
 
