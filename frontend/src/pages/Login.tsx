@@ -52,8 +52,9 @@ export default function Login() {
       }
       navigate("/", { replace: true });
     } catch (err: any) {
-      const apiMessage =
+        const apiMessage =
         err?.response?.data?.error ||
+        err?.response?.data?.erro ||
         err?.response?.data?.errors?.[0]?.message ||
         "Não foi possível concluir. Tente novamente.";
       setError(apiMessage);
