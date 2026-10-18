@@ -168,7 +168,7 @@ export async function addPart(
     await buscarOrdemEditavel(tx, ordemId);
 
     const { count } = await tx.stockItem.updateMany({
-      where: { id: itemId, quantidade: { gte: quantidade } },
+      where: { id: itemId, ativo: true, quantidade: { gte: quantidade } },
       data: { quantidade: { decrement: quantidade } },
     });
 
@@ -180,6 +180,14 @@ export async function addPart(
       if (!indisponivel) {
         throw new AppError("Item de estoque não encontrado.", 404);
       }
+
+      if (!indisponivel.ativo) {
+        throw new AppError(
+          `O item "${indisponivel.nome}" está arquivado e não pode ser usado em novas OS.`,
+          409,
+        );
+      }
+
       throw new AppError(
         `Estoque insuficiente de "${indisponivel.nome}". Disponível: ${indisponivel.quantidade}.`,
         409,

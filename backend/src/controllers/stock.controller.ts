@@ -41,6 +41,8 @@ const ultimoUsoInclude = {
     orderBy: { ordem: { created_at: "desc" } },
     take: 1,
   },
+  // Qualquer uso (inclusive em OS cancelada) impede a exclusão do item
+  _count: { select: { usos_em_ordens: true } },
 } satisfies Prisma.StockItemInclude;
 
 type StockItemComUso = Prisma.StockItemGetPayload<{
@@ -50,7 +52,7 @@ type StockItemComUso = Prisma.StockItemGetPayload<{
 // Parado: tem saldo e nenhum uso nos últimos 90 dias. Item nunca usado
 // conta a partir do próprio cadastro. O custo só vai para o proprietário.
 function formatarItem(item: StockItemComUso, exibirCusto: boolean) {
-  const { usos_em_ordens, valor_entrada, ...dados } = item;
+  const { usos_em_ordens, _count, valor_entrada, ...dados } = item;
   const ultimo_uso = usos_em_ordens[0]?.ordem.created_at ?? null;
   const referencia = ultimo_uso ?? item.created_at;
 
@@ -58,6 +60,7 @@ function formatarItem(item: StockItemComUso, exibirCusto: boolean) {
     ...dados,
     ...(exibirCusto ? { valor_entrada } : {}),
     alerta_minimo: item.quantidade <= item.quantidade_minima,
+    usado_em_os: _count.usos_em_ordens > 0,
     ultimo_uso,
     parado:
       item.quantidade > 0 &&
@@ -90,21 +93,26 @@ export class StockController {
   // Listar itens com alerta_minimo e filtro opcional
   async list(req: Request, res: Response) {
     try {
-      const { lowStockOnly } = req.query;
+      const { lowStockOnly, incluirArquivados } = req.query;
+      const exibirCusto = req.user?.perfil === "PROPRIETARIO";
+
+      // Arquivados ficam fora por padrão; só o proprietário pode pedi-los
+      const comArquivados = exibirCusto && incluirArquivados === "true";
 
       const items = await prisma.stockItem.findMany({
+        where: comArquivados ? undefined : { ativo: true },
         include: ultimoUsoInclude,
         orderBy: { nome: "asc" },
       });
 
-      const exibirCusto = req.user?.perfil === "PROPRIETARIO";
       const formattedItems = items.map((item) =>
         formatarItem(item, exibirCusto),
       );
 
       if (lowStockOnly === "true") {
+        // Item arquivado nunca entra no alerta de mínimo
         const lowStockItems = formattedItems.filter(
-          (item) => item.alerta_minimo,
+          (item) => item.ativo && item.alerta_minimo,
         );
         return res.json(lowStockItems);
       }
@@ -194,7 +202,7 @@ export class StockController {
       if (emUso > 0) {
         return res.status(409).json({
           error:
-            "Este item já foi usado em ordens de serviço e não pode ser excluído.",
+            "Este item já foi usado em ordens de serviço e não pode ser excluído. Arquive-o para tirá-lo da lista.",
         });
       }
 
@@ -205,6 +213,47 @@ export class StockController {
       return res.status(204).send();
     } catch (error) {
       return res.status(500).json({ error: "Erro ao deletar item de estoque" });
+    }
+  }
+
+  // Arquivar: tira o item das listas, mas ele continua nas OS antigas
+  async archive(req: Request, res: Response) {
+    return StockController.definirAtivo(req, res, false);
+  }
+
+  async unarchive(req: Request, res: Response) {
+    return StockController.definirAtivo(req, res, true);
+  }
+
+  private static async definirAtivo(
+    req: Request,
+    res: Response,
+    ativo: boolean,
+  ) {
+    try {
+      const id = Number(req.params.id);
+
+      const itemExists = await prisma.stockItem.findUnique({ where: { id } });
+
+      if (!itemExists) {
+        return res
+          .status(404)
+          .json({ error: "Item de estoque não encontrado" });
+      }
+
+      const item = await prisma.stockItem.update({
+        where: { id },
+        data: { ativo },
+        include: ultimoUsoInclude,
+      });
+
+      return res.json(formatarItem(item, true));
+    } catch (error) {
+      return res.status(500).json({
+        error: ativo
+          ? "Erro ao desarquivar item de estoque"
+          : "Erro ao arquivar item de estoque",
+      });
     }
   }
 }

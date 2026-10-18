@@ -119,7 +119,10 @@ export async function vendasPorPeriodo(p: Periodo) {
 
 // ---------- 2. Status do inventário ----------
 export async function statusInventario() {
-  const itens = await prisma.stockItem.findMany({ orderBy: { nome: "asc" } });
+   const itens = await prisma.stockItem.findMany({
+    where: { ativo: true },
+    orderBy: { nome: "asc" },
+  });
 
   let valorTotal = zero();
   const lista = itens.map((i) => {

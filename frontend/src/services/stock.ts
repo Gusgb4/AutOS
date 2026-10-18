@@ -12,6 +12,10 @@ export interface StockItem {
   // Só vem para PROPRIETARIO; null quando o custo não foi informado
   valor_entrada?: string | null;
   alerta_minimo: boolean;
+  // Arquivado: fora das listas, mas continua nas OS antigas
+  ativo: boolean;
+  // Já usado em alguma OS (inclusive cancelada): não pode ser excluído
+  usado_em_os: boolean;
   // Data de abertura da última OS não cancelada que usou o item
   ultimo_uso: string | null;
   parado: boolean;
@@ -29,9 +33,16 @@ export interface StockItemPayload {
   valor_entrada?: number | null;
 }
 
-export async function listStock(lowStockOnly = false): Promise<StockItem[]> {
+// Por padrão só vêm os itens ativos. incluirArquivados só vale para o proprietário.
+export async function listStock(
+  lowStockOnly = false,
+  incluirArquivados = false,
+): Promise<StockItem[]> {
   const { data } = await api.get<StockItem[]>("/stock", {
-    params: lowStockOnly ? { lowStockOnly: "true" } : undefined,
+    params: {
+      ...(lowStockOnly ? { lowStockOnly: "true" } : {}),
+      ...(incluirArquivados ? { incluirArquivados: "true" } : {}),
+    },
   });
   return data;
 }
@@ -53,4 +64,14 @@ export async function updateStockItem(id: number, payload: Partial<StockItemPayl
 
 export async function deleteStockItem(id: number) {
   await api.delete(`/stock/${id}`);
+}
+
+export async function archiveStockItem(id: number) {
+  const { data } = await api.patch<StockItem>(`/stock/${id}/archive`);
+  return data;
+}
+
+export async function unarchiveStockItem(id: number) {
+  const { data } = await api.patch<StockItem>(`/stock/${id}/unarchive`);
+  return data;
 }

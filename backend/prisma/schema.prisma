@@ -86,12 +86,14 @@ model StockItem {
   quantidade_minima Int      @default(0)
   valor_final       Decimal  @db.Decimal(10, 2)
   valor_entrada     Decimal? @db.Decimal(10, 2)
+  ativo             Boolean  @default(true) 
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
 
   usos_em_ordens ServiceOrderPart[]
 
   @@index([nome])
+   @@index([ativo])    
   @@map("stock_items")
 }
 

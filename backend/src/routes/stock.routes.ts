@@ -19,5 +19,7 @@ stockRoutes.get("/:id", stockController.getById);
 stockRoutes.post("/", requireRole(["PROPRIETARIO"]), stockController.create);
 stockRoutes.put("/:id", requireRole(["PROPRIETARIO"]), stockController.update);
 stockRoutes.delete("/:id", requireRole(["PROPRIETARIO"]), stockController.delete);
+stockRoutes.patch("/:id/archive", requireRole(["PROPRIETARIO"]), stockController.archive);
+stockRoutes.patch("/:id/unarchive", requireRole(["PROPRIETARIO"]), stockController.unarchive);
 
 export { stockRoutes };
