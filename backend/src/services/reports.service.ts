@@ -50,19 +50,19 @@ function variacao(atual: number, anterior: number): number | null {
   return Math.round(((atual - anterior) / anterior) * 1000) / 10;
 }
 
-// Receita de OS ativa (não estornada) dentro do período
-function filtroReceitaOS(p: Periodo): Prisma.FinancialEntryWhereInput {
+function filtroOSFinalizada(p: Periodo): Prisma.ServiceOrderWhereInput {
   return {
-    tipo: "RECEITA",
-    estornado: false,
-    ordemId: { not: null },
-    data: { gte: p.inicio, lt: p.fimExclusivo },
+    status: "FINALIZADA",
+    finalizada_em: { gte: p.inicio, lt: p.fimExclusivo },
   };
 }
 
-function resumir(entradas: { valor: Prisma.Decimal }[]) {
-  const total = entradas.reduce((acc, e) => acc.plus(e.valor), zero());
-  const ordens = entradas.length;
+function resumir(ordensFinalizadas: { valor_total: Prisma.Decimal }[]) {
+  const total = ordensFinalizadas.reduce(
+    (acc, o) => acc.plus(o.valor_total),
+    zero(),
+  );
+  const ordens = ordensFinalizadas.length;
   const ticket = ordens > 0 ? total.div(ordens) : zero();
   return {
     total: arredondar(total),
@@ -76,14 +76,14 @@ export async function vendasPorPeriodo(p: Periodo) {
   const anterior = periodoAnterior(p);
 
   const [atuais, anteriores] = await Promise.all([
-    prisma.financialEntry.findMany({
-      where: filtroReceitaOS(p),
-      select: { data: true, valor: true },
-      orderBy: { data: "asc" },
+    prisma.serviceOrder.findMany({
+      where: filtroOSFinalizada(p),
+      select: { finalizada_em: true, valor_total: true },
+      orderBy: { finalizada_em: "asc" },
     }),
-    prisma.financialEntry.findMany({
-      where: filtroReceitaOS(anterior),
-      select: { data: true, valor: true },
+    prisma.serviceOrder.findMany({
+      where: filtroOSFinalizada(anterior),
+      select: { valor_total: true },
     }),
   ]);
 
@@ -91,11 +91,11 @@ export async function vendasPorPeriodo(p: Periodo) {
   const anteriorResumo = resumir(anteriores);
 
   const porDia = new Map<string, { ordens: number; total: Prisma.Decimal }>();
-  for (const e of atuais) {
-    const dia = diaBrasilia(e.data);
+  for (const o of atuais) {
+    const dia = diaBrasilia(o.finalizada_em!);
     const acumulado = porDia.get(dia) ?? { ordens: 0, total: zero() };
     acumulado.ordens += 1;
-    acumulado.total = acumulado.total.plus(e.valor);
+    acumulado.total = acumulado.total.plus(o.valor_total);
     porDia.set(dia, acumulado);
   }
 
@@ -158,19 +158,26 @@ function ehDespesa(tipo: string) {
 }
 
 export async function resumoFinanceiro(p: Periodo) {
-  const lancamentos = await prisma.financialEntry.findMany({
-    where: { estornado: false, data: { gte: p.inicio, lt: p.fimExclusivo } },
-    select: { tipo: true, valor: true, ordemId: true },
-  });
+  const [lancamentos, ordensFinalizadas] = await Promise.all([
+    prisma.financialEntry.findMany({
+      where: { estornado: false, data: { gte: p.inicio, lt: p.fimExclusivo } },
+      select: { tipo: true, valor: true, ordemId: true },
+    }),
+    prisma.serviceOrder.findMany({
+      where: filtroOSFinalizada(p),
+      select: { id: true },
+    }),
+  ]);
 
   let entradas = zero();
   let saidas = zero();
-  const ordemIds: number[] = [];
+  let outrasReceitas = zero();
+  const ordemIds = ordensFinalizadas.map((o) => o.id);
 
   for (const l of lancamentos) {
     if (ehReceita(l.tipo)) {
       entradas = entradas.plus(l.valor);
-      if (l.ordemId !== null) ordemIds.push(l.ordemId);
+      if (l.ordemId === null) outrasReceitas = outrasReceitas.plus(l.valor);
     } else if (ehDespesa(l.tipo)) {
       saidas = saidas.plus(l.valor);
     }
@@ -206,24 +213,25 @@ export async function resumoFinanceiro(p: Periodo) {
     saidas: arredondar(saidas),
     saldo: arredondar(entradas.minus(saidas)),
     composicao_receita_os: {
-      mao_de_obra: { valor: arredondar(maoDeObra), percentual: percentual(maoDeObra) },
+      mao_de_obra: {
+        valor: arredondar(maoDeObra),
+        percentual: percentual(maoDeObra),
+      },
       pecas: { valor: arredondar(pecas), percentual: percentual(pecas) },
       total: arredondar(baseOS),
     },
-    outras_receitas: arredondar(entradas.minus(baseOS)),
+    outras_receitas: arredondar(outrasReceitas),
   };
 }
 
 // ---------- 4. Atividade do cliente ----------
 export async function atividadeClientes(p: Periodo) {
-  const entradas = await prisma.financialEntry.findMany({
-    where: filtroReceitaOS(p),
+  const ordensFinalizadas = await prisma.serviceOrder.findMany({
+    where: filtroOSFinalizada(p),
     select: {
-      valor: true,
-      data: true,
-      ordemServico: {
-        select: { cliente: { select: { id: true, nome: true } } },
-      },
+      valor_total: true,
+      finalizada_em: true,
+      cliente: { select: { id: true, nome: true } },
     },
   });
 
@@ -238,20 +246,20 @@ export async function atividadeClientes(p: Periodo) {
     }
   >();
 
-  for (const e of entradas) {
-    const cliente = e.ordemServico?.cliente;
-    if (!cliente) continue;
+  for (const o of ordensFinalizadas) {
+    const { cliente } = o;
+    const finalizadaEm = o.finalizada_em!;
 
     const acumulado = porCliente.get(cliente.id) ?? {
       cliente_id: cliente.id,
       nome: cliente.nome,
       ordens: 0,
       total: zero(),
-      ultima_os: e.data,
+      ultima_os: finalizadaEm,
     };
     acumulado.ordens += 1;
-    acumulado.total = acumulado.total.plus(e.valor);
-    if (e.data > acumulado.ultima_os) acumulado.ultima_os = e.data;
+    acumulado.total = acumulado.total.plus(o.valor_total);
+    if (finalizadaEm > acumulado.ultima_os) acumulado.ultima_os = finalizadaEm;
     porCliente.set(cliente.id, acumulado);
   }
 
@@ -271,9 +279,7 @@ export async function atividadeClientes(p: Periodo) {
     resumo: {
       clientes_atendidos: clientes.length,
       ordens: clientes.reduce((acc, c) => acc + c.ordens, 0),
-      total: arredondar(
-        clientes.reduce((acc, c) => acc.plus(c.total), zero()),
-      ),
+      total: arredondar(clientes.reduce((acc, c) => acc.plus(c.total), zero())),
     },
     clientes,
   };
