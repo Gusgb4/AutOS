@@ -34,8 +34,8 @@ export async function vendasController(req: Request, res: Response) {
 }
 
 // GET /api/reports/inventory
-export async function inventarioController(_req: Request, res: Response) {
-  return res.status(200).json(await statusInventario());
+export async function inventarioController(req: Request, res: Response) {
+  return res.status(200).json(await statusInventario(lerPeriodo(req)));
 }
 
 // GET /api/reports/financial-summary?inicio=...&fim=...
