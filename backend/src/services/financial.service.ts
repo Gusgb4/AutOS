@@ -1,8 +1,15 @@
 import { CategoriaDespesa, Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
-
-const FUSO = "-03:00";
-const UM_DIA_MS = 24 * 60 * 60 * 1000;
+import {
+  FUSO,
+  UM_DIA_MS,
+  descreverPeriodo,
+  mesBrasilia,
+  parsePeriodo,
+  periodoAnterior,
+  variacao,
+  type Periodo as PeriodoDatas,
+} from "../utils/periodo";
 
 export type TipoLancamento = "RECEITA" | "DESPESA";
 
@@ -73,6 +80,54 @@ export async function despesasPorCategoria(periodo: Periodo) {
     .sort((a, b) => b.valor - a.valor);
 
   return { total: total.toDecimalPlaces(2).toNumber(), categorias };
+}
+
+async function totaisDoPeriodo(p: PeriodoDatas) {
+  const grupos = await prisma.financialEntry.groupBy({
+    by: ["tipo"],
+    where: { estornado: false, data: { gte: p.inicio, lt: p.fimExclusivo } },
+    _sum: { valor: true },
+  });
+
+  const soma = (tipo: TipoLancamento) =>
+    grupos.find((g) => g.tipo === tipo)?._sum?.valor ?? new Prisma.Decimal(0);
+  const entradas = soma("RECEITA");
+  const saidas = soma("DESPESA");
+
+  return {
+    entradas: entradas.toDecimalPlaces(2).toNumber(),
+    saidas: saidas.toDecimalPlaces(2).toNumber(),
+    saldo: entradas.minus(saidas).toDecimalPlaces(2).toNumber(),
+  };
+}
+
+// Entradas, saídas e saldo do período comparados com o anterior de mesma
+// duração. Sem período: mês atual contra o mês anterior.
+export async function resumoComparativo(intervalo?: {
+  inicio: string;
+  fim: string;
+}) {
+  const atual = intervalo
+    ? parsePeriodo(intervalo.inicio, intervalo.fim)
+    : mesBrasilia(0);
+  const anterior = intervalo ? periodoAnterior(atual) : mesBrasilia(-1);
+
+  const [totaisAtual, totaisAnterior] = await Promise.all([
+    totaisDoPeriodo(atual),
+    totaisDoPeriodo(anterior),
+  ]);
+
+  return {
+    periodo: descreverPeriodo(atual),
+    periodo_anterior: descreverPeriodo(anterior),
+    atual: totaisAtual,
+    anterior: totaisAnterior,
+    variacao: {
+      entradas: variacao(totaisAtual.entradas, totaisAnterior.entradas),
+      saidas: variacao(totaisAtual.saidas, totaisAnterior.saidas),
+      saldo: variacao(totaisAtual.saldo, totaisAnterior.saldo),
+    },
+  };
 }
 
 export async function createEntry(dados: {

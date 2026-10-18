@@ -1,53 +1,17 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
-
-const FUSO = "-03:00";
-const TRES_HORAS_MS = 3 * 60 * 60 * 1000;
-const UM_DIA_MS = 24 * 60 * 60 * 1000;
+import {
+  descreverPeriodo,
+  diaBrasilia,
+  periodoAnterior,
+  variacao,
+  type Periodo,
+} from "../utils/periodo";
 
 const zero = () => new Prisma.Decimal(0);
 
-export interface Periodo {
-  inicio: Date;
-  fimExclusivo: Date;
-}
-
-// "2026-10-01" a "2026-10-31" (fim inclusivo), no fuso de Brasília
-export function parsePeriodo(inicio: string, fim: string): Periodo {
-  const dataInicio = new Date(`${inicio}T00:00:00${FUSO}`);
-  const dataFim = new Date(`${fim}T00:00:00${FUSO}`);
-  return {
-    inicio: dataInicio,
-    fimExclusivo: new Date(dataFim.getTime() + UM_DIA_MS),
-  };
-}
-
-function periodoAnterior(p: Periodo): Periodo {
-  const duracao = p.fimExclusivo.getTime() - p.inicio.getTime();
-  return {
-    inicio: new Date(p.inicio.getTime() - duracao),
-    fimExclusivo: p.inicio,
-  };
-}
-
-function diaBrasilia(data: Date): string {
-  return new Date(data.getTime() - TRES_HORAS_MS).toISOString().slice(0, 10);
-}
-
-function descreverPeriodo(p: Periodo) {
-  return {
-    inicio: diaBrasilia(p.inicio),
-    fim: diaBrasilia(new Date(p.fimExclusivo.getTime() - 1)),
-  };
-}
-
 function arredondar(valor: Prisma.Decimal): number {
   return valor.toDecimalPlaces(2).toNumber();
-}
-
-function variacao(atual: number, anterior: number): number | null {
-  if (anterior === 0) return null;
-  return Math.round(((atual - anterior) / anterior) * 1000) / 10;
 }
 
 // Receita de OS ativa (não estornada) dentro do período

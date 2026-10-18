@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { z } from "zod";
+import { parsePeriodo } from "../utils/periodo";
 import {
-  parsePeriodo,
   vendasPorPeriodo,
   statusInventario,
   resumoFinanceiro,

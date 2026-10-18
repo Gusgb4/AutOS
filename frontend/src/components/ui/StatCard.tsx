@@ -7,6 +7,8 @@ interface StatCardProps {
   trend?: {
     value: string;
     positive?: boolean;
+    // Cinza: sem variação ou sem base de comparação
+    neutral?: boolean;
   };
   accentColor?: string;
   valueColor?: boolean;
@@ -53,7 +55,13 @@ export default function StatCard({
 
         {trend && (
           <span
-            className={`text-xs font-medium ${trend.positive ? "text-emerald-600" : "text-red-500"}`}
+            className={`text-xs font-medium ${
+              trend.neutral
+                ? "text-gray-400"
+                : trend.positive
+                  ? "text-emerald-600"
+                  : "text-red-500"
+            }`}
           >
             {trend.value}
           </span>

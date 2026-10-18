@@ -12,6 +12,7 @@ router.use(ensureAuthenticated);
 router.use(requireRole(["PROPRIETARIO"]));
 
 router.get("/", asyncHandler(financialController.list));
+router.get("/resumo", asyncHandler(financialController.summary));
 router.get("/a-receber", asyncHandler(financialController.receivables));
 router.get(
   "/despesas-por-categoria",

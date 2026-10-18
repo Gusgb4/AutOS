@@ -22,6 +22,7 @@ import {
   CATEGORIAS_DESPESA,
   categoriaLabel,
   createFinancialEntry,
+  getResumoFinanceiro,
   listarAReceber,
   listDespesasPorCategoria,
   listFinancialEntries,
@@ -30,6 +31,7 @@ import {
   type DespesasPorCategoria,
   type FinancialEntry,
   type FinancialEntryPayload,
+  type ResumoFinanceiro,
   type TipoLancamento,
 } from "../services/financial";
 import { formaPagamentoLabel } from "../services/serviceOrders";
@@ -65,6 +67,27 @@ function descreverPeriodo({ inicio, fim }: Filtros) {
 const mensagemErro = (e: unknown, padrao: string) =>
   (isAxiosError(e) ? e.response?.data?.erro : undefined) ?? padrao;
 
+// Texto da variação no card; aumentoEhBom = false nas saídas (aumento fica vermelho)
+function tendencia(
+  valor: number | null,
+  aumentoEhBom: boolean,
+  visivel: boolean,
+) {
+  if (!visivel) return { value: "•••", neutral: true };
+  if (valor === null) return { value: "Sem base no período anterior", neutral: true };
+  if (valor === 0) return { value: "0% vs período anterior", neutral: true };
+  const seta = valor > 0 ? "▲" : "▼";
+  return {
+    value: `${seta} ${Math.abs(valor).toLocaleString("pt-BR")}% vs período anterior`,
+    positive: valor > 0 === aumentoEhBom,
+  };
+}
+
+function descreverComparacao(resumo: ResumoFinanceiro) {
+  const { periodo: p, periodo_anterior: a } = resumo;
+  return `De ${dataBR(p.inicio)} a ${dataBR(p.fim)}, comparado com ${dataBR(a.inicio)} a ${dataBR(a.fim)}`;
+}
+
 export default function Financial() {
   const navigate = useNavigate();
   const [showValues, setShowValues] = useState(true);
@@ -89,6 +112,9 @@ export default function Financial() {
   const [porCategoria, setPorCategoria] =
     useState<DespesasPorCategoria | null>(null);
   const [erroPorCategoria, setErroPorCategoria] = useState<string | null>(null);
+
+  const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
+  const [erroResumo, setErroResumo] = useState<string | null>(null);
 
   async function carregar(alvo: Filtros) {
     try {
@@ -125,6 +151,41 @@ export default function Financial() {
       );
     }
   }
+
+  // Os cards comparam o período escolhido (com início e fim) com o anterior;
+  // sem os dois, o backend usa o mês atual contra o mês anterior
+  async function carregarResumo(alvo: Filtros) {
+    try {
+      setErroResumo(null);
+      setResumo(await getResumoFinanceiro({ inicio: alvo.inicio, fim: alvo.fim }));
+    } catch (e) {
+      setErroResumo(mensagemErro(e, "Não foi possível carregar o resumo do período."));
+    }
+  }
+
+  function carregarPeriodo(alvo: Filtros) {
+    return Promise.all([carregarPorCategoria(alvo), carregarResumo(alvo)]);
+  }
+
+  useEffect(() => {
+    let ativo = true;
+
+    getResumoFinanceiro({})
+      .then((data) => {
+        if (ativo) setResumo(data);
+      })
+      .catch((e) => {
+        if (ativo) {
+          setErroResumo(
+            mensagemErro(e, "Não foi possível carregar o resumo do período."),
+          );
+        }
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   useEffect(() => {
     let ativo = true;
@@ -197,20 +258,16 @@ export default function Financial() {
     setFiltros(novos);
     carregar(novos);
     if (novos.inicio !== filtros.inicio || novos.fim !== filtros.fim) {
-      carregarPorCategoria(novos);
+      carregarPeriodo(novos);
     }
   }
 
-  // Estornados aparecem na lista, mas ficam fora dos totais
+  // Estornados aparecem na lista, mas ficam fora da contagem
   const ativos = lancamentos.filter((l) => !l.estornado);
-  const totalReceitas = ativos
-    .filter((l) => l.tipo === "RECEITA")
-    .reduce((soma, l) => soma + Number(l.valor), 0);
-  const totalDespesas = ativos
-    .filter((l) => l.tipo === "DESPESA")
-    .reduce((soma, l) => soma + Number(l.valor), 0);
-  const saldo = totalReceitas - totalDespesas;
   const qtdEstornados = lancamentos.length - ativos.length;
+
+  const saldo = resumo?.atual.saldo ?? 0;
+  const periodoIncompleto = Boolean(filtros.inicio) !== Boolean(filtros.fim);
 
   async function handleSalvar(payload: FinancialEntryPayload) {
     try {
@@ -218,7 +275,7 @@ export default function Financial() {
       setErroModal(null);
       await createFinancialEntry(payload);
       setModalAberto(false);
-      await Promise.all([carregar(filtros), carregarPorCategoria(filtros)]);
+      await Promise.all([carregar(filtros), carregarPeriodo(filtros)]);
     } catch (e) {
       setErroModal(
         (isAxiosError(e) ? e.response?.data?.erro : undefined) ??
@@ -232,7 +289,7 @@ export default function Financial() {
   function limparFiltros() {
     setFiltros(filtrosVazios);
     carregar(filtrosVazios);
-    carregarPorCategoria(filtrosVazios);
+    carregarPeriodo(filtrosVazios);
   }
 
   const temFiltro = Boolean(
@@ -262,27 +319,56 @@ export default function Financial() {
         </button>
       </div>
 
+      <div className="-mb-3 text-xs text-gray-500">
+        {erroResumo ? (
+          <span className="text-red-500">{erroResumo}</span>
+        ) : resumo ? (
+          <>
+            {descreverComparacao(resumo)}
+            {periodoIncompleto &&
+              " (escolha início e fim para comparar outro período)"}
+          </>
+        ) : (
+          "Carregando resumo do período..."
+        )}
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           label="RECEITAS"
-          value={showValues ? moeda(totalReceitas) : "R$ •••••"}
+          value={resumo ? ocultavel(resumo.atual.entradas) : "—"}
           icon={ArrowUpCircle}
           accentColor="#10B981"
           valueColor
+          trend={
+            resumo
+              ? tendencia(resumo.variacao.entradas, true, showValues)
+              : undefined
+          }
         />
         <StatCard
           label="DESPESAS"
-          value={showValues ? moeda(totalDespesas) : "R$ •••••"}
+          value={resumo ? ocultavel(resumo.atual.saidas) : "—"}
           icon={ArrowDownCircle}
           accentColor="#EF4444"
           valueColor
+          trend={
+            resumo
+              ? tendencia(resumo.variacao.saidas, false, showValues)
+              : undefined
+          }
         />
         <StatCard
           label="SALDO"
-          value={showValues ? moeda(saldo) : "R$ •••••"}
+          value={resumo ? ocultavel(saldo) : "—"}
           icon={Wallet}
           accentColor={saldo >= 0 ? "#10B981" : "#EF4444"}
           valueColor
+          trend={
+            resumo
+              ? tendencia(resumo.variacao.saldo, true, showValues)
+              : undefined
+          }
         />
         <StatCard
           label="A RECEBER"

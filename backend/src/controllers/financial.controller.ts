@@ -53,6 +53,25 @@ export async function expensesByCategory(req: Request, res: Response) {
   return res.json(resumo);
 }
 
+// Os dois juntos ou nenhum (aí vale o mês atual contra o anterior)
+const resumoSchema = z
+  .object({ inicio: dataSchema.optional(), fim: dataSchema.optional() })
+  .refine((d) => Boolean(d.inicio) === Boolean(d.fim), {
+    message: "Informe a data inicial e a final, ou nenhuma das duas.",
+  })
+  .refine((d) => !d.inicio || !d.fim || d.inicio <= d.fim, {
+    message: "A data inicial não pode ser maior que a final.",
+  });
+
+// GET /api/financial/resumo?inicio=2026-10-01&fim=2026-10-31
+export async function summary(req: Request, res: Response) {
+  const { inicio, fim } = validar(resumoSchema, req.query);
+  const resumo = await financialService.resumoComparativo(
+    inicio && fim ? { inicio, fim } : undefined,
+  );
+  return res.json(resumo);
+}
+
 // GET /api/financial/a-receber
 export async function receivables(_req: Request, res: Response) {
   const aReceber = await listarAReceber();

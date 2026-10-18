@@ -113,3 +113,31 @@ export async function listarAReceber(): Promise<{
   const { data } = await api.get("/financial/a-receber");
   return data;
 }
+
+export interface TotaisPeriodo {
+  entradas: number;
+  saidas: number;
+  saldo: number;
+}
+
+export interface ResumoFinanceiro {
+  periodo: { inicio: string; fim: string };
+  periodo_anterior: { inicio: string; fim: string };
+  atual: TotaisPeriodo;
+  anterior: TotaisPeriodo;
+  // Percentual com uma casa; null quando o período anterior foi zero
+  variacao: { entradas: number | null; saidas: number | null; saldo: number | null };
+}
+
+// Sem período: mês atual comparado com o mês anterior
+export async function getResumoFinanceiro(periodo: {
+  inicio?: string;
+  fim?: string;
+}): Promise<ResumoFinanceiro> {
+  const params =
+    periodo.inicio && periodo.fim
+      ? { inicio: periodo.inicio, fim: periodo.fim }
+      : undefined;
+  const { data } = await api.get<ResumoFinanceiro>("/financial/resumo", { params });
+  return data;
+}
