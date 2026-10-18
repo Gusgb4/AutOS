@@ -31,7 +31,7 @@ const TIPOS = [
   {
     id: "vendas",
     titulo: "Vendas por período",
-    desc: "Receita e ticket médio",
+    desc: "Faturamento das OS finalizadas",
     icon: BarChart3,
   },
   {
@@ -43,13 +43,13 @@ const TIPOS = [
   {
     id: "resumo",
     titulo: "Resumo financeiro",
-    desc: "Entradas, saídas e composição",
+    desc: "Caixa e faturamento",
     icon: Wallet,
   },
   {
     id: "atividade",
     titulo: "Atividade do cliente",
-    desc: "Gasto e OS por cliente",
+    desc: "OS finalizadas por cliente",
     icon: Users,
   },
 ] as const;
@@ -262,7 +262,7 @@ export default function Reports() {
           vendas.variacao.ticket_medio,
         ],
         [],
-        ["Data", "OS finalizadas", "Receita"],
+        ["Data", "OS finalizadas", "Faturamento"],
         ...vendas.por_dia.map((d) => [formatDate(d.data), d.ordens, d.total]),
       ]);
     }
@@ -300,15 +300,16 @@ export default function Reports() {
         ["Relatório", "Resumo financeiro"],
         ["Período", periodo],
         [],
+        ["Caixa (lançamentos no período)"],
         ["Entradas", resumo.entradas],
         ["Saídas", resumo.saidas],
         ["Saldo", resumo.saldo],
+        ["Outras receitas (lançamentos sem OS)", resumo.outras_receitas],
         [],
-        ["Composição da receita de OS", "Valor", "Percentual (%)"],
+        ["Faturamento (OS finalizadas no período)", "Valor", "Percentual (%)"],
         ["Mão de obra", c.mao_de_obra.valor, c.mao_de_obra.percentual],
         ["Peças", c.pecas.valor, c.pecas.percentual],
-        ["Total de OS", c.total, ""],
-        ["Outras receitas (lançamentos manuais)", resumo.outras_receitas, ""],
+        ["Total faturado", c.total, ""],
       ]);
     }
 
@@ -317,7 +318,13 @@ export default function Reports() {
         ["Relatório", "Atividade do cliente"],
         ["Período", periodo],
         [],
-        ["Cliente", "OS", "Total gasto", "Ticket médio", "Última OS"],
+        [
+          "Cliente",
+          "OS finalizadas",
+          "Total faturado",
+          "Ticket médio",
+          "Última finalização",
+        ],
         ...atividade.clientes.map((c) => [
           c.nome,
           c.ordens,
@@ -495,13 +502,15 @@ export default function Reports() {
               {formatCurrency(vendas.anterior.total)}, {vendas.anterior.ordens}{" "}
               OS).
               {vendas.anterior.ordens === 0 &&
-                " Não houve vendas nesse período, então não há variação para mostrar."}
+                " Não houve vendas nesse período, então não há variação para mostrar."}{" "}
+              Faturamento é o valor das OS finalizadas, pela data de
+              finalização. Os pagamentos recebidos estão no Resumo financeiro.
             </p>
             <Tabela
               colunas={[
                 { titulo: "Data" },
                 { titulo: "OS finalizadas", direita: true },
-                { titulo: "Receita", direita: true },
+                { titulo: "Faturamento", direita: true },
               ]}
               linhas={vendas.por_dia.map((d) => [
                 formatDate(d.data),
@@ -579,6 +588,13 @@ export default function Reports() {
         {/* RESUMO FINANCEIRO */}
         {!loading && !erro && tipo === "resumo" && resumo && (
           <>
+            <div className="bg-gray-50/50 px-5 pt-5">
+              <p className="text-sm font-semibold text-[#1F1F1F]">Caixa</p>
+              <p className="text-xs text-gray-500">
+                Entradas e saídas lançadas no financeiro, pela data do
+                lançamento.
+              </p>
+            </div>
             <div className="grid grid-cols-1 gap-4 bg-gray-50/50 p-5 sm:grid-cols-3">
               <StatCard
                 label="ENTRADAS"
@@ -599,14 +615,24 @@ export default function Reports() {
                 accentColor="#2563EB"
               />
             </div>
-            <p className="border-b border-gray-100 px-5 py-3 text-sm font-semibold text-[#1F1F1F]">
-              Composição da receita de ordens de serviço
+            <p className="border-b border-gray-100 bg-gray-50/50 px-5 pb-4 text-xs text-gray-500">
+              Outras receitas (lançamentos sem OS):{" "}
+              {formatCurrency(resumo.outras_receitas)}.
             </p>
+            <div className="border-b border-gray-100 px-5 py-3">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Faturamento
+              </p>
+              <p className="text-xs text-gray-500">
+                Composição das OS finalizadas no período, pela data de
+                finalização.
+              </p>
+            </div>
             <Tabela
               colunas={[
                 { titulo: "Origem" },
                 { titulo: "Valor", direita: true },
-                { titulo: "% da receita de OS", direita: true },
+                { titulo: "% do faturamento", direita: true },
               ]}
               linhas={[
                 [
@@ -624,7 +650,7 @@ export default function Reports() {
                   formatPercent(resumo.composicao_receita_os.pecas.percentual),
                 ],
                 [
-                  <span className="font-semibold">Total de OS</span>,
+                  <span className="font-semibold">Total faturado</span>,
                   <span className="font-semibold">
                     {formatCurrency(resumo.composicao_receita_os.total)}
                   </span>,
@@ -634,9 +660,8 @@ export default function Reports() {
               vazio=""
             />
             <p className="border-t border-gray-100 px-5 py-4 text-xs text-gray-500">
-              Outras receitas (lançamentos manuais, sem OS):{" "}
-              {formatCurrency(resumo.outras_receitas)}. A margem de lucro nas
-              peças ainda não está disponível neste resumo.
+              A margem de lucro nas peças ainda não está disponível neste
+              resumo.
             </p>
           </>
         )}
@@ -664,13 +689,16 @@ export default function Reports() {
                 accentColor="#10B981"
               />
             </div>
+            <p className="border-b border-gray-100 bg-gray-50/50 px-5 pb-4 text-xs text-gray-500">
+              Considera as OS finalizadas no período, pela data de finalização.
+            </p>
             <Tabela
               colunas={[
                 { titulo: "Cliente" },
-                { titulo: "OS", direita: true },
-                { titulo: "Total gasto", direita: true },
+                { titulo: "OS finalizadas", direita: true },
+                { titulo: "Total faturado", direita: true },
                 { titulo: "Ticket médio", direita: true },
-                { titulo: "Última OS", direita: true },
+                { titulo: "Última finalização", direita: true },
               ]}
               linhas={atividade.clientes.map((c) => [
                 <span className="font-medium">{c.nome}</span>,

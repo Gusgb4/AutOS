@@ -303,9 +303,14 @@ export async function changeStatus(
       );
     }
 
+    const agora = new Date();
+
     const { count } = await tx.serviceOrder.updateMany({
       where: { id: ordemId, status: ordem.status },
-      data: { status: novoStatus },
+      data: {
+        status: novoStatus,
+        finalizada_em: novoStatus === "FINALIZADA" ? agora : null,
+      },
     });
 
     if (count === 0) {
@@ -331,6 +336,7 @@ export async function changeStatus(
           tipo: "RECEITA",
           descricao: `Receita referente à Ordem de Serviço #${ordem.id}`,
           valor: ordem.valor_total,
+          data: agora,
           ordemId: ordem.id,
           estornado: false,
         },

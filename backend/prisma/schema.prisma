@@ -113,6 +113,7 @@ model ServiceOrder {
   valor_total              Decimal            @default(0) @db.Decimal(10, 2)
   observacoes              String?
   quilometragem_registrada Int?
+  finalizada_em            DateTime?
   created_at               DateTime           @default(now())
   updated_at               DateTime           @updatedAt
 
@@ -128,6 +129,7 @@ model ServiceOrder {
   @@index([veiculo_id])
   @@index([mecanico_id])
   @@index([status])
+  @@index([status, finalizada_em])
   @@map("service_orders")
 }
 
