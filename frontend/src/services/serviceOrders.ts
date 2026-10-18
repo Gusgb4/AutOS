@@ -2,6 +2,18 @@ import { api } from "./api";
 
 export type StatusOS = "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA";
 
+export type StatusPagamento = "PENDENTE" | "PARCIAL" | "PAGO";
+
+export type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO" | "OUTRO";
+
+export interface Pagamento {
+  id: string;
+  valor: string;
+  data: string;
+  forma_pagamento: FormaPagamento | null;
+  estornado: boolean;
+}
+
 export interface ServiceOrder {
   id: number;
   cliente_id: number;
@@ -9,6 +21,9 @@ export interface ServiceOrder {
   mecanico_id: number;
   status: StatusOS;
   valor_total: string;
+  valor_pago: string;
+  saldo: string;
+  status_pagamento: StatusPagamento | null;
   observacoes: string | null;
   quilometragem_registrada: number | null;
   created_at: string;
@@ -38,10 +53,15 @@ export interface ServiceOrder {
 export async function listServiceOrders(
   status?: StatusOS,
   clienteId?: number,
+  statusPagamento?: StatusPagamento,
 ): Promise<ServiceOrder[]> {
   // O axios omite da URL os parâmetros undefined
   const { data } = await api.get<ServiceOrder[]>("/service-orders", {
-    params: { status, cliente_id: clienteId },
+    params: {
+      status,
+      cliente_id: clienteId,
+      status_pagamento: statusPagamento,
+    },
   });
   return data;
 }
@@ -122,6 +142,31 @@ export async function updateServiceOrderObservacoes(
     {
       observacoes,
     },
+  );
+  return data;
+}
+
+export async function listPagamentos(ordemId: number) {
+  const { data } = await api.get<Pagamento[]>(
+    `/service-orders/${ordemId}/pagamentos`,
+  );
+  return data;
+}
+
+export async function registrarPagamento(
+  ordemId: number,
+  dados: { valor: number; forma_pagamento: FormaPagamento; data?: string },
+) {
+  const { data } = await api.post<Pagamento>(
+    `/service-orders/${ordemId}/pagamentos`,
+    dados,
+  );
+  return data;
+}
+
+export async function estornarPagamento(ordemId: number, pagamentoId: string) {
+  const { data } = await api.patch<Pagamento>(
+    `/service-orders/${ordemId}/pagamentos/${pagamentoId}/estornar`,
   );
   return data;
 }

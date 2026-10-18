@@ -32,6 +32,8 @@ import {
 } from "../services/serviceOrders";
 import ServicoRow from "../components/serviceOrders/ServicoRow";
 import PecaRow from "../components/serviceOrders/PecaRow";
+import PagamentosCard from "../components/serviceOrders/PagamentosCard";
+import { useAuth } from "../contexts/AuthContext";
 
 const plainInputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
@@ -107,6 +109,7 @@ function Field({
 export default function ServiceOrderDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const orderId = Number(id);
 
   const [ordem, setOrdem] = useState<ServiceOrder | null>(null);
@@ -148,6 +151,14 @@ export default function ServiceOrderDetails() {
       setLoading(false);
     }
   }, [orderId]);
+
+  async function atualizarOrdem() {
+    try {
+      setOrdem(await getServiceOrderById(orderId));
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   useEffect(() => {
     if (!Number.isNaN(orderId)) {
@@ -433,7 +444,12 @@ export default function ServiceOrderDetails() {
 
   async function handleReabrir() {
     if (!ordem) return;
-    if (!confirm("Reabrir esta ordem de serviço?")) return;
+    if (
+      !confirm(
+        "Reabrir esta ordem de serviço? Os pagamentos registrados continuam valendo.",
+      )
+    )
+      return;
     setProcessando(true);
     setErroAcao(null);
     try {
@@ -817,6 +833,14 @@ export default function ServiceOrderDetails() {
           </ul>
         )}
       </div>
+
+      {(ordem.status === "FINALIZADA" || Number(ordem.valor_pago) > 0) && (
+        <PagamentosCard
+          ordem={ordem}
+          podeGerenciar={user?.perfil === "PROPRIETARIO"}
+          onAlterado={atualizarOrdem}
+        />
+      )}
 
       {erroAcao && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-600">

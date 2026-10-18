@@ -29,3 +29,11 @@ export async function create(req: Request, res: Response) {
     return res.status(500).json({ erro: "Erro ao criar lançamento." });
   }
 }
+
+export async function aReceber(_req: Request, res: Response) {
+  try {
+    return res.json(await financialService.contasAReceber());
+  } catch (error) {
+    return res.status(500).json({ erro: "Erro ao buscar contas a receber." });
+  }
+}

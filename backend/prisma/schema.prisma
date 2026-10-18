@@ -176,6 +176,13 @@ model MaintenanceReminder {
   @@map("maintenance_reminders")
 }
 
+enum FormaPagamento {
+  DINHEIRO
+  PIX
+  CARTAO
+  OUTRO
+}
+
 model FinancialEntry {
   id           String        @id @default(uuid())
   tipo         String        // Ex: "RECEITA", "DESPESA"
@@ -183,6 +190,7 @@ model FinancialEntry {
   valor        Decimal       @db.Decimal(10, 2)
   data         DateTime      @default(now())
   estornado    Boolean       @default(false)
+  forma_pagamento FormaPagamento?
   
   ordemId      Int?          // Alterado de String? para Int? para bater com o ID de ServiceOrder
   ordemServico ServiceOrder? @relation(fields: [ordemId], references: [id], onDelete: SetNull)
