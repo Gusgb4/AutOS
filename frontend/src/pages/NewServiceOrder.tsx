@@ -6,7 +6,6 @@ import {
   Car,
   Wrench,
   Plus,
-  Trash2,
   Loader2,
   Check,
   PackageSearch,
