@@ -9,6 +9,7 @@ import {
   Wrench,
   Loader2,
   MessageCircle,
+  FileDown,
   CheckCircle2,
   Ban,
   Check,
@@ -16,7 +17,6 @@ import {
   Plus,
   PackageSearch,
   AlertTriangle,
-  Trash2,
 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
 import { listStock, type StockItem } from "../services/stock";
@@ -114,6 +114,7 @@ export default function ServiceOrderDetails() {
   const [error, setError] = useState<string | null>(null);
   const [processando, setProcessando] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
 
@@ -442,6 +443,22 @@ export default function ServiceOrderDetails() {
       setErroAcao(apiErrorMessage(err, "Erro ao reabrir a ordem de serviço."));
     } finally {
       setProcessando(false);
+    }
+  }
+
+  async function handleBaixarPdf() {
+    if (!ordem) return;
+    setGerandoPdf(true);
+    setErroAcao(null);
+    try {
+      // O jspdf é pesado: só é carregado quando alguém pede o PDF
+      const { baixarPdfOrdemServico } = await import("../lib/pdfOrdemServico");
+      baixarPdfOrdemServico(ordem);
+    } catch (err) {
+      console.error(err);
+      setErroAcao("Não foi possível gerar o PDF.");
+    } finally {
+      setGerandoPdf(false);
     }
   }
 
@@ -826,6 +843,19 @@ export default function ServiceOrderDetails() {
             <MessageCircle size={16} />
             Enviar por WhatsApp
           </a>
+          <button
+            type="button"
+            onClick={handleBaixarPdf}
+            disabled={gerandoPdf}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+          >
+            {gerandoPdf ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <FileDown size={16} />
+            )}
+            Baixar PDF
+          </button>
           {podeAgir && (
             <button
               type="button"
