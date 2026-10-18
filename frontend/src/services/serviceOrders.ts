@@ -10,6 +10,7 @@ export interface ServiceOrder {
   status: StatusOS;
   valor_total: string;
   observacoes: string | null;
+  quilometragem_registrada: number | null;
   created_at: string;
   cliente: { id: number; nome: string; telefone: string };
   veiculo: {
