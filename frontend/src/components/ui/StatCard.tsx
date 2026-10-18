@@ -10,6 +10,9 @@ interface StatCardProps {
   };
   accentColor?: string;
   valueColor?: boolean;
+  // Com onClick o card vira botão; active destaca o card selecionado
+  onClick?: () => void;
+  active?: boolean;
 }
 
 export default function StatCard({
@@ -19,9 +22,19 @@ export default function StatCard({
   trend,
   accentColor = "#FF7518",
   valueColor = false,
+  onClick,
+  active = false,
 }: StatCardProps) {
+  const Wrapper = onClick ? "button" : "div";
+
   return (
-    <div className="flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm">
+    <Wrapper
+      {...(onClick ? { type: "button" as const, onClick, "aria-pressed": active } : {})}
+      className={`flex items-center gap-4 rounded-2xl bg-white p-5 text-left shadow-sm ${
+        onClick ? "cursor-pointer transition hover:shadow-md" : ""
+      }`}
+      style={active ? { boxShadow: `0 0 0 2px ${accentColor}` } : undefined}
+    >
       <div
         className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
         style={{ backgroundColor: `${accentColor}1A`, color: accentColor }}
@@ -46,6 +59,6 @@ export default function StatCard({
           </span>
         )}
       </div>
-    </div>
+    </Wrapper>
   );
 }

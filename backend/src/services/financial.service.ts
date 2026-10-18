@@ -22,6 +22,9 @@ export async function listEntries(filtros: Filtros) {
 
   return prisma.financialEntry.findMany({
     where: onde,
+    include: {
+      ordemServico: { select: { id: true, status: true, valor_total: true } },
+    },
     orderBy: { data: "desc" },
   });
 }

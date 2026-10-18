@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  ExternalLink,
+  Hourglass,
   ListChecks,
   Loader2,
   Plus,
@@ -12,14 +15,18 @@ import {
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
+import PaymentStatusBadge from "../components/ui/PaymentStatusBadge";
 import FinancialEntryModal from "../components/financial/FinancialEntryModal";
 import {
   createFinancialEntry,
+  listarAReceber,
   listFinancialEntries,
+  type ContaAReceber,
   type FinancialEntry,
   type FinancialEntryPayload,
   type TipoLancamento,
 } from "../services/financial";
+import { formaPagamentoLabel } from "../services/serviceOrders";
 
 interface Filtros {
   tipo: TipoLancamento | "";
@@ -33,7 +40,15 @@ const moeda = (valor: number) =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Financial() {
+  const navigate = useNavigate();
   const [showValues, setShowValues] = useState(true);
+
+  const [aReceber, setAReceber] = useState<{
+    total: string;
+    ordens: ContaAReceber[];
+  } | null>(null);
+  const [erroAReceber, setErroAReceber] = useState<string | null>(null);
+  const [aReceberAberto, setAReceberAberto] = useState(false);
   
   const [lancamentos, setLancamentos] = useState<FinancialEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,6 +105,27 @@ export default function Financial() {
     };
   }, []);
 
+  useEffect(() => {
+    let ativo = true;
+
+    listarAReceber()
+      .then((data) => {
+        if (ativo) setAReceber(data);
+      })
+      .catch((e) => {
+        if (ativo) {
+          setErroAReceber(
+            (isAxiosError(e) ? e.response?.data?.erro : undefined) ??
+              "Não foi possível carregar as contas a receber.",
+          );
+        }
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
   function aplicarFiltro(patch: Partial<Filtros>) {
     const novos = { ...filtros, ...patch };
     setFiltros(novos);
@@ -127,6 +163,7 @@ export default function Financial() {
   }
 
   const temFiltro = Boolean(filtros.tipo || filtros.inicio || filtros.fim);
+  const ocultavel = (valor: number) => (showValues ? moeda(valor) : "R$ •••••");
 
   return (
     <div className="space-y-6 p-8">
@@ -146,7 +183,7 @@ export default function Financial() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           label="RECEITAS"
           value={showValues ? moeda(totalReceitas) : "R$ •••••"}
@@ -169,12 +206,109 @@ export default function Financial() {
           valueColor
         />
         <StatCard
+          label="A RECEBER"
+          value={aReceber ? ocultavel(Number(aReceber.total)) : "—"}
+          icon={Hourglass}
+          accentColor="#F59E0B"
+          valueColor
+          onClick={() => setAReceberAberto((aberto) => !aberto)}
+          active={aReceberAberto}
+        />
+        <StatCard
           label="LANÇAMENTOS"
           value={lancamentos.length}
           icon={ListChecks}
           accentColor="#FF7518"
         />
       </div>
+
+      {aReceberAberto && (
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+          <div className="flex items-center gap-3 border-b border-gray-100 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+              <Hourglass size={18} />
+            </div>
+            <div>
+              <p className="font-semibold text-[#1F1F1F]">A receber</p>
+              <p className="text-xs text-gray-500">
+                Ordens finalizadas com pagamento pendente ou parcial
+              </p>
+            </div>
+          </div>
+
+          {erroAReceber ? (
+            <div className="p-10 text-center text-sm text-red-500">
+              {erroAReceber}
+            </div>
+          ) : !aReceber ? (
+            <div className="flex items-center justify-center gap-2 p-10 text-sm text-gray-500">
+              <Loader2 size={16} className="animate-spin" />
+              Carregando contas a receber...
+            </div>
+          ) : aReceber.ordens.length === 0 ? (
+            <div className="p-10 text-center text-sm text-gray-500">
+              Nenhuma OS com valor a receber.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                    <th className="px-5 py-3 font-medium">Ordem</th>
+                    <th className="px-5 py-3 font-medium">Cliente</th>
+                    <th className="px-5 py-3 font-medium">Veículo</th>
+                    <th className="px-5 py-3 font-medium">Pagamento</th>
+                    <th className="px-5 py-3 text-right font-medium">Total</th>
+                    <th className="px-5 py-3 text-right font-medium">Pago</th>
+                    <th className="px-5 py-3 text-right font-medium">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {aReceber.ordens.map((ordem) => (
+                    <tr
+                      key={ordem.id}
+                      onClick={() => navigate(`/ordens-servico/${ordem.id}`)}
+                      className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
+                    >
+                      <td className="px-5 py-4 font-medium text-[#FF7518]">
+                        #OS-{ordem.id}
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="font-medium text-[#1F1F1F]">
+                          {ordem.cliente.nome}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {ordem.cliente.telefone}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="text-gray-700">
+                          {ordem.veiculo.marca} {ordem.veiculo.modelo}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {ordem.veiculo.placa}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <PaymentStatusBadge status={ordem.status_pagamento} />
+                      </td>
+                      <td className="px-5 py-4 text-right text-gray-600">
+                        {ocultavel(Number(ordem.valor_total))}
+                      </td>
+                      <td className="px-5 py-4 text-right text-emerald-600">
+                        {ocultavel(Number(ordem.valor_pago))}
+                      </td>
+                      <td className="px-5 py-4 text-right font-semibold text-red-500">
+                        {ocultavel(Number(ordem.saldo))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-gray-100 p-5 lg:flex-row lg:items-center lg:justify-between">
@@ -261,6 +395,7 @@ export default function Financial() {
                   <th className="px-5 py-3 font-medium">Data</th>
                   <th className="px-5 py-3 font-medium">Descrição</th>
                   <th className="px-5 py-3 font-medium">Tipo</th>
+                  <th className="px-5 py-3 font-medium">Forma de pagamento</th>
                   <th className="px-5 py-3 font-medium">Origem</th>
                   <th className="px-5 py-3 text-right font-medium">Valor</th>
                 </tr>
@@ -299,10 +434,22 @@ export default function Financial() {
                       </td>
 
                       <td className="px-5 py-4 text-gray-600">
+                        {lancamento.forma_pagamento ? (
+                          formaPagamentoLabel(lancamento.forma_pagamento)
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-4 text-gray-600">
                         {lancamento.ordemId ? (
-                          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                          <Link
+                            to={`/ordens-servico/${lancamento.ordemId}`}
+                            className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-orange-50 hover:text-[#FF7518]"
+                          >
                             OS #{lancamento.ordemId}
-                          </span>
+                            <ExternalLink size={11} />
+                          </Link>
                         ) : (
                           <span className="text-xs text-gray-400">Manual</span>
                         )}

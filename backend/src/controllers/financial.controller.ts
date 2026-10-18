@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import * as financialService from "../services/financial.service";
+import { listarAReceber } from "../services/serviceOrders.service";
 
 export async function list(req: Request, res: Response) {
   try {
@@ -12,6 +13,15 @@ export async function list(req: Request, res: Response) {
     return res.json(lancamentos);
   } catch (error) {
     return res.status(500).json({ erro: "Erro ao buscar lançamentos." });
+  }
+}
+
+export async function receivables(_req: Request, res: Response) {
+  try {
+    const aReceber = await listarAReceber();
+    return res.json(aReceber);
+  } catch (error) {
+    return res.status(500).json({ erro: "Erro ao buscar contas a receber." });
   }
 }
 

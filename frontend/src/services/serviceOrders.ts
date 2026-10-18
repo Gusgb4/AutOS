@@ -2,6 +2,38 @@ import { api } from "./api";
 
 export type StatusOS = "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA";
 
+export type StatusPagamento = "PENDENTE" | "PARCIAL" | "PAGO";
+
+export type FormaPagamento =
+  | "DINHEIRO"
+  | "PIX"
+  | "CARTAO_DEBITO"
+  | "CARTAO_CREDITO"
+  | "BOLETO"
+  | "TRANSFERENCIA";
+
+export const FORMAS_PAGAMENTO: { value: FormaPagamento; label: string }[] = [
+  { value: "PIX", label: "Pix" },
+  { value: "DINHEIRO", label: "Dinheiro" },
+  { value: "CARTAO_DEBITO", label: "Cartão de débito" },
+  { value: "CARTAO_CREDITO", label: "Cartão de crédito" },
+  { value: "BOLETO", label: "Boleto" },
+  { value: "TRANSFERENCIA", label: "Transferência" },
+];
+
+export function formaPagamentoLabel(forma: FormaPagamento | null) {
+  return FORMAS_PAGAMENTO.find((f) => f.value === forma)?.label ?? "—";
+}
+
+export interface Pagamento {
+  id: string;
+  valor: string;
+  data: string;
+  estornado: boolean;
+  forma_pagamento: FormaPagamento | null;
+  descricao: string;
+}
+
 export interface ServiceOrder {
   id: number;
   cliente_id: number;
@@ -9,6 +41,8 @@ export interface ServiceOrder {
   mecanico_id: number;
   status: StatusOS;
   valor_total: string;
+  valor_pago: string;
+  status_pagamento: StatusPagamento;
   observacoes: string | null;
   created_at: string;
   cliente: { id: number; nome: string; telefone: string };
@@ -37,10 +71,15 @@ export interface ServiceOrder {
 export async function listServiceOrders(
   status?: StatusOS,
   clienteId?: number,
+  statusPagamento?: StatusPagamento,
 ): Promise<ServiceOrder[]> {
   // O axios omite da URL os parâmetros undefined
   const { data } = await api.get<ServiceOrder[]>("/service-orders", {
-    params: { status, cliente_id: clienteId },
+    params: {
+      status,
+      cliente_id: clienteId,
+      status_pagamento: statusPagamento,
+    },
   });
   return data;
 }
@@ -121,6 +160,33 @@ export async function updateServiceOrderObservacoes(
     {
       observacoes,
     },
+  );
+  return data;
+}
+
+// ---------- Pagamentos (somente proprietário) ----------
+
+export async function listarPagamentos(ordemId: number): Promise<Pagamento[]> {
+  const { data } = await api.get<Pagamento[]>(
+    `/service-orders/${ordemId}/payments`,
+  );
+  return data;
+}
+
+export async function registrarPagamento(
+  ordemId: number,
+  dados: { valor: number; forma_pagamento: FormaPagamento; data: string },
+) {
+  const { data } = await api.post<ServiceOrder>(
+    `/service-orders/${ordemId}/payments`,
+    dados,
+  );
+  return data;
+}
+
+export async function estornarPagamento(ordemId: number, pagamentoId: string) {
+  const { data } = await api.post<ServiceOrder>(
+    `/service-orders/${ordemId}/payments/${pagamentoId}/estorno`,
   );
   return data;
 }

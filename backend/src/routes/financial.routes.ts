@@ -11,6 +11,7 @@ router.use(ensureAuthenticated);
 router.use(requireRole(["PROPRIETARIO"]));
 
 router.get("/", financialController.list);
+router.get("/a-receber", financialController.receivables);
 router.post("/", financialController.create);
 
 export default router;

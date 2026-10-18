@@ -1,4 +1,9 @@
-import { Prisma, StatusOrdemServico } from "@prisma/client";
+import {
+  FormaPagamento,
+  Prisma,
+  StatusOrdemServico,
+  StatusPagamento,
+} from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
 
@@ -44,6 +49,43 @@ async function recalcularTotal(tx: Tx, ordemId: number) {
     data: { valor_total: total },
     include: ordemCompleta,
   });
+}
+
+function calcularStatusPagamento(
+  valorPago: Prisma.Decimal,
+  valorTotal: Prisma.Decimal,
+): StatusPagamento {
+  if (valorPago.gte(valorTotal)) return "PAGO";
+  if (valorPago.gt(0)) return "PARCIAL";
+  return "PENDENTE";
+}
+
+// Pagamentos da OS = receitas vinculadas a ela que não foram estornadas
+async function atualizarPagamento(tx: Tx, ordemId: number) {
+  const ordem = await tx.serviceOrder.findUniqueOrThrow({
+    where: { id: ordemId },
+    select: { valor_total: true },
+  });
+  const { _sum } = await tx.financialEntry.aggregate({
+    where: { ordemId, tipo: "RECEITA", estornado: false },
+    _sum: { valor: true },
+  });
+  const valorPago = _sum.valor ?? new Prisma.Decimal(0);
+
+  return tx.serviceOrder.update({
+    where: { id: ordemId },
+    data: {
+      valor_pago: valorPago,
+      status_pagamento: calcularStatusPagamento(valorPago, ordem.valor_total),
+    },
+    include: ordemCompleta,
+  });
+}
+
+// Trava a linha da OS até o fim da transação, para dois pagamentos
+// simultâneos não passarem juntos pela checagem de saldo
+async function travarOrdem(tx: Tx, ordemId: number) {
+  await tx.$queryRaw`SELECT id FROM "service_orders" WHERE id = ${ordemId} FOR UPDATE`;
 }
 
 function somarDias(data: Date, dias: number): Date {
@@ -92,13 +134,22 @@ async function buscarOrdemEditavel(tx: Tx, ordemId: number) {
 
 interface SearchServiceOrdersFilters {
   status?: StatusOrdemServico;
+  status_pagamento?: StatusPagamento;
   cliente_id?: number;
 }
 
 export async function search(filtros: SearchServiceOrdersFilters = {}) {
+  // Situação de pagamento só faz sentido para OS finalizada
+  const status =
+    filtros.status ?? (filtros.status_pagamento ? "FINALIZADA" : undefined);
+
   return prisma.serviceOrder.findMany({
     // Campos undefined são ignorados pelo Prisma: cada filtro é opcional
-    where: { status: filtros.status, cliente_id: filtros.cliente_id },
+    where: {
+      status,
+      status_pagamento: filtros.status_pagamento,
+      cliente_id: filtros.cliente_id,
+    },
     include: ordemCompleta,
     orderBy: { created_at: "desc" },
   });
@@ -307,34 +358,11 @@ export async function changeStatus(
       );
     }
 
-    // Se a OS foi finalizada, geramos a receita automaticamente
+    // A receita não é mais gerada no encerramento: ela entra no financeiro
+    // conforme o proprietário registra os pagamentos (contas a receber).
+    // Reabrir a OS mantém os pagamentos já recebidos.
     if (novoStatus === "FINALIZADA") {
       await recalcularLembreteManutencao(tx, ordem.veiculo_id);
-
-      // Marca todos os lançamentos ativos anteriores desta OS como estornados (regra de reabertura/ciclo)
-      await tx.financialEntry.updateMany({
-        where: { ordemId: ordemId, estornado: false },
-        data: { estornado: true },
-      });
-
-      // Cria sempre um lançamento NOVO para o encerramento atual
-      await tx.financialEntry.create({
-        data: {
-          tipo: "RECEITA",
-          descricao: `Receita referente à Ordem de Serviço #${ordem.id}`,
-          valor: ordem.valor_total,
-          ordemId: ordem.id,
-          estornado: false,
-        },
-      });
-    }
-
-    // Se uma OS finalizada foi REABERTA
-    if (ordem.status === "FINALIZADA" && novoStatus === "EM_ANDAMENTO") {
-      await tx.financialEntry.updateMany({
-        where: { ordemId: ordemId, estornado: false },
-        data: { estornado: true },
-      });
     }
 
     // Se a OS foi cancelada, estorna o financeiro e devolve as peças
@@ -356,11 +384,157 @@ export async function changeStatus(
       }
     }
 
-    return tx.serviceOrder.findUniqueOrThrow({
-      where: { id: ordemId },
-      include: ordemCompleta,
-    });
+    return atualizarPagamento(tx, ordemId);
   });
+}
+
+// ---------- Pagamentos (contas a receber) ----------
+
+function buscarPagamentosDaOrdem(tx: Tx, ordemId: number) {
+  return tx.financialEntry.findMany({
+    where: {
+      ordemId,
+      tipo: "RECEITA",
+      // Receitas automáticas antigas que foram estornadas na reabertura
+      // (antes das contas a receber) não são pagamentos reais
+      OR: [{ estornado: false }, { forma_pagamento: { not: null } }],
+    },
+    orderBy: [{ data: "asc" }, { createdAt: "asc" }],
+  });
+}
+
+export async function listarPagamentos(ordemId: number) {
+  const ordem = await prisma.serviceOrder.findUnique({
+    where: { id: ordemId },
+    select: { id: true },
+  });
+
+  if (!ordem) {
+    throw new AppError("Ordem de serviço não encontrada.", 404);
+  }
+
+  return buscarPagamentosDaOrdem(prisma, ordemId);
+}
+
+const FORMA_PAGAMENTO_LABEL: Record<FormaPagamento, string> = {
+  DINHEIRO: "dinheiro",
+  PIX: "Pix",
+  CARTAO_DEBITO: "cartão de débito",
+  CARTAO_CREDITO: "cartão de crédito",
+  BOLETO: "boleto",
+  TRANSFERENCIA: "transferência",
+};
+
+interface RegistrarPagamentoInput {
+  valor: number;
+  forma_pagamento: FormaPagamento;
+  data: Date;
+}
+
+export async function registrarPagamento(
+  ordemId: number,
+  dados: RegistrarPagamentoInput,
+) {
+  return prisma.$transaction(async (tx) => {
+    await travarOrdem(tx, ordemId);
+    const ordem = await tx.serviceOrder.findUnique({ where: { id: ordemId } });
+
+    if (!ordem) {
+      throw new AppError("Ordem de serviço não encontrada.", 404);
+    }
+    if (ordem.status !== "FINALIZADA") {
+      throw new AppError(
+        "Só é possível registrar pagamento de uma OS finalizada.",
+        409,
+      );
+    }
+
+    const saldo = ordem.valor_total.minus(ordem.valor_pago);
+    const valor = new Prisma.Decimal(dados.valor).toDecimalPlaces(2);
+
+    if (saldo.lte(0)) {
+      throw new AppError("Esta OS já está totalmente paga.", 409);
+    }
+    if (valor.gt(saldo)) {
+      throw new AppError(
+        `O valor informado é maior que o saldo da OS (R$ ${saldo.toFixed(2).replace(".", ",")}).`,
+        400,
+      );
+    }
+
+    await tx.financialEntry.create({
+      data: {
+        tipo: "RECEITA",
+        descricao: `Pagamento da OS #${ordem.id} (${FORMA_PAGAMENTO_LABEL[dados.forma_pagamento]})`,
+        valor,
+        data: dados.data,
+        forma_pagamento: dados.forma_pagamento,
+        ordemId: ordem.id,
+      },
+    });
+
+    return atualizarPagamento(tx, ordemId);
+  });
+}
+
+export async function estornarPagamento(ordemId: number, pagamentoId: string) {
+  return prisma.$transaction(async (tx) => {
+    await travarOrdem(tx, ordemId);
+    const pagamento = await tx.financialEntry.findUnique({
+      where: { id: pagamentoId },
+    });
+
+    if (
+      !pagamento ||
+      pagamento.ordemId !== ordemId ||
+      pagamento.tipo !== "RECEITA"
+    ) {
+      throw new AppError("Pagamento não encontrado nesta ordem de serviço.", 404);
+    }
+    if (pagamento.estornado) {
+      throw new AppError("Este pagamento já foi estornado.", 409);
+    }
+
+    await tx.financialEntry.update({
+      where: { id: pagamentoId },
+      data: { estornado: true },
+    });
+
+    return atualizarPagamento(tx, ordemId);
+  });
+}
+
+// OS finalizadas com saldo em aberto, da mais antiga para a mais recente
+export async function listarAReceber() {
+  const ordens = await prisma.serviceOrder.findMany({
+    where: {
+      status: "FINALIZADA",
+      status_pagamento: { in: ["PENDENTE", "PARCIAL"] },
+    },
+    select: {
+      id: true,
+      valor_total: true,
+      valor_pago: true,
+      status_pagamento: true,
+      created_at: true,
+      cliente: { select: { id: true, nome: true, telefone: true } },
+      veiculo: { select: { id: true, placa: true, marca: true, modelo: true } },
+    },
+    orderBy: { created_at: "asc" },
+  });
+
+  const comSaldo = ordens.map((ordem) => ({
+    ...ordem,
+    saldo: ordem.valor_total.minus(ordem.valor_pago),
+  }));
+
+  return {
+    total: comSaldo.reduce(
+      (acc, ordem) => acc.plus(ordem.saldo),
+      new Prisma.Decimal(0),
+    ),
+    ordens: comSaldo,
+  };
 }
 
 export async function updateObservacoes(

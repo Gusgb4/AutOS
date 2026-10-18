@@ -16,7 +16,6 @@ import {
   Plus,
   PackageSearch,
   AlertTriangle,
-  Trash2,
 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
 import { listStock, type StockItem } from "../services/stock";
@@ -32,6 +31,8 @@ import {
 } from "../services/serviceOrders";
 import ServicoRow from "../components/serviceOrders/ServicoRow";
 import PecaRow from "../components/serviceOrders/PecaRow";
+import PaymentSection from "../components/serviceOrders/PaymentSection";
+import { useAuth } from "../contexts/AuthContext";
 
 const plainInputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
@@ -107,6 +108,7 @@ function Field({
 export default function ServiceOrderDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const orderId = Number(id);
 
   const [ordem, setOrdem] = useState<ServiceOrder | null>(null);
@@ -473,6 +475,9 @@ export default function ServiceOrderDetails() {
 
   const podeAgir = ordem.status === "ABERTA" || ordem.status === "EM_ANDAMENTO";
   const podeReabrir = ordem.status === "FINALIZADA";
+  // OS reaberta continua mostrando os pagamentos que já foram recebidos
+  const mostrarPagamento =
+    ordem.status === "FINALIZADA" || Number(ordem.valor_pago) > 0;
 
   return (
     <div className="space-y-6 p-8">
@@ -552,6 +557,14 @@ export default function ServiceOrderDetails() {
           </p>
         )}
       </div>
+
+      {mostrarPagamento && (
+        <PaymentSection
+          ordem={ordem}
+          isProprietario={user?.perfil === "PROPRIETARIO"}
+          onOrdemAtualizada={setOrdem}
+        />
+      )}
 
       {/* OBSERVAÇÕES */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">

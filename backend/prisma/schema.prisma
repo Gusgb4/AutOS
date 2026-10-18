@@ -102,6 +102,21 @@ enum StatusOrdemServico {
   CANCELADA
 }
 
+enum StatusPagamento {
+  PENDENTE
+  PARCIAL
+  PAGO
+}
+
+enum FormaPagamento {
+  DINHEIRO
+  PIX
+  CARTAO_DEBITO
+  CARTAO_CREDITO
+  BOLETO
+  TRANSFERENCIA
+}
+
 model ServiceOrder {
   id                       Int                @id @default(autoincrement())
   cliente_id               Int
@@ -109,6 +124,9 @@ model ServiceOrder {
   mecanico_id              Int
   status                   StatusOrdemServico @default(ABERTA)
   valor_total              Decimal            @default(0) @db.Decimal(10, 2)
+  // Soma dos pagamentos não estornados (recalculada a cada pagamento/estorno)
+  valor_pago               Decimal            @default(0) @db.Decimal(10, 2)
+  status_pagamento         StatusPagamento    @default(PENDENTE)
   observacoes              String?
   quilometragem_registrada Int?
   created_at               DateTime           @default(now())
@@ -126,6 +144,7 @@ model ServiceOrder {
   @@index([veiculo_id])
   @@index([mecanico_id])
   @@index([status])
+  @@index([status_pagamento])
   @@map("service_orders")
 }
 
@@ -179,7 +198,9 @@ model FinancialEntry {
   valor        Decimal       @db.Decimal(10, 2)
   data         DateTime      @default(now())
   estornado    Boolean       @default(false)
-  
+  // Preenchido nos pagamentos de OS (null em lançamentos manuais)
+  forma_pagamento FormaPagamento?
+
   ordemId      Int?          // Alterado de String? para Int? para bater com o ID de ServiceOrder
   ordemServico ServiceOrder? @relation(fields: [ordemId], references: [id], onDelete: SetNull)
 

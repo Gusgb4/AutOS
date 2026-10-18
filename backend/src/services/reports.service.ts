@@ -60,9 +60,12 @@ function filtroReceitaOS(p: Periodo): Prisma.FinancialEntryWhereInput {
   };
 }
 
-function resumir(entradas: { valor: Prisma.Decimal }[]) {
+function resumir(
+  entradas: { valor: Prisma.Decimal; ordemId: number | null }[],
+) {
   const total = entradas.reduce((acc, e) => acc.plus(e.valor), zero());
-  const ordens = entradas.length;
+  // Uma OS pode ter vários pagamentos: conta cada OS uma vez só
+  const ordens = new Set(entradas.map((e) => e.ordemId)).size;
   const ticket = ordens > 0 ? total.div(ordens) : zero();
   return {
     total: arredondar(total),
@@ -78,23 +81,26 @@ export async function vendasPorPeriodo(p: Periodo) {
   const [atuais, anteriores] = await Promise.all([
     prisma.financialEntry.findMany({
       where: filtroReceitaOS(p),
-      select: { data: true, valor: true },
+      select: { data: true, valor: true, ordemId: true },
       orderBy: { data: "asc" },
     }),
     prisma.financialEntry.findMany({
       where: filtroReceitaOS(anterior),
-      select: { data: true, valor: true },
+      select: { data: true, valor: true, ordemId: true },
     }),
   ]);
 
   const atual = resumir(atuais);
   const anteriorResumo = resumir(anteriores);
 
-  const porDia = new Map<string, { ordens: number; total: Prisma.Decimal }>();
+  const porDia = new Map<
+    string,
+    { ordens: Set<number | null>; total: Prisma.Decimal }
+  >();
   for (const e of atuais) {
     const dia = diaBrasilia(e.data);
-    const acumulado = porDia.get(dia) ?? { ordens: 0, total: zero() };
-    acumulado.ordens += 1;
+    const acumulado = porDia.get(dia) ?? { ordens: new Set(), total: zero() };
+    acumulado.ordens.add(e.ordemId);
     acumulado.total = acumulado.total.plus(e.valor);
     porDia.set(dia, acumulado);
   }
@@ -111,7 +117,7 @@ export async function vendasPorPeriodo(p: Periodo) {
     },
     por_dia: Array.from(porDia.entries()).map(([data, v]) => ({
       data,
-      ordens: v.ordens,
+      ordens: v.ordens.size,
       total: arredondar(v.total),
     })),
   };
@@ -220,6 +226,7 @@ export async function atividadeClientes(p: Periodo) {
     where: filtroReceitaOS(p),
     select: {
       valor: true,
+      ordemId: true,
       data: true,
       ordemServico: {
         select: { cliente: { select: { id: true, nome: true } } },
@@ -232,7 +239,7 @@ export async function atividadeClientes(p: Periodo) {
     {
       cliente_id: number;
       nome: string;
-      ordens: number;
+      ordens: Set<number | null>;
       total: Prisma.Decimal;
       ultima_os: Date;
     }
@@ -245,11 +252,11 @@ export async function atividadeClientes(p: Periodo) {
     const acumulado = porCliente.get(cliente.id) ?? {
       cliente_id: cliente.id,
       nome: cliente.nome,
-      ordens: 0,
+      ordens: new Set(),
       total: zero(),
       ultima_os: e.data,
     };
-    acumulado.ordens += 1;
+    acumulado.ordens.add(e.ordemId);
     acumulado.total = acumulado.total.plus(e.valor);
     if (e.data > acumulado.ultima_os) acumulado.ultima_os = e.data;
     porCliente.set(cliente.id, acumulado);
@@ -260,9 +267,9 @@ export async function atividadeClientes(p: Periodo) {
     .map((c) => ({
       cliente_id: c.cliente_id,
       nome: c.nome,
-      ordens: c.ordens,
+      ordens: c.ordens.size,
       total: arredondar(c.total),
-      ticket_medio: arredondar(c.total.div(c.ordens)),
+      ticket_medio: arredondar(c.total.div(c.ordens.size)),
       ultima_os: diaBrasilia(c.ultima_os),
     }));
 

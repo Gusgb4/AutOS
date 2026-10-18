@@ -1,5 +1,9 @@
 import { Request, Response } from "express";
-import { StatusOrdemServico } from "@prisma/client";
+import {
+  FormaPagamento,
+  StatusOrdemServico,
+  StatusPagamento,
+} from "@prisma/client";
 import { z } from "zod";
 import {
   search,
@@ -10,22 +14,30 @@ import {
   addService,
   removeService,
   changeStatus,
+  listarPagamentos,
+  registrarPagamento,
+  estornarPagamento,
 } from "../services/serviceOrders.service";
 
 const statusSchema = z.enum(StatusOrdemServico);
+const statusPagamentoSchema = z.enum(StatusPagamento);
 const clienteIdSchema = z.coerce.number().int().positive();
 
-// GET /api/service-orders?status=ABERTA&cliente_id=1
+// GET /api/service-orders?status=ABERTA&status_pagamento=PENDENTE&cliente_id=1
 export async function listController(req: Request, res: Response) {
   const status =
     typeof req.query.status === "string"
       ? statusSchema.parse(req.query.status)
       : undefined;
+  const status_pagamento =
+    typeof req.query.status_pagamento === "string"
+      ? statusPagamentoSchema.parse(req.query.status_pagamento)
+      : undefined;
   const cliente_id =
     typeof req.query.cliente_id === "string"
       ? clienteIdSchema.parse(req.query.cliente_id)
       : undefined;
-  const ordens = await search({ status, cliente_id });
+  const ordens = await search({ status, status_pagamento, cliente_id });
   return res.status(200).json(ordens);
 }
 
@@ -115,6 +127,48 @@ export async function changeStatusController(req: Request, res: Response) {
   const ordemId = Number(req.params.id);
   const { status } = changeStatusSchema.parse(req.body);
   const ordem = await changeStatus(ordemId, status);
+  return res.status(200).json(ordem);
+}
+
+// GET /api/service-orders/:id/payments
+export async function listPaymentsController(req: Request, res: Response) {
+  const ordemId = Number(req.params.id);
+  const pagamentos = await listarPagamentos(ordemId);
+  return res.status(200).json(pagamentos);
+}
+
+const DATA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+const registrarPagamentoSchema = z.object({
+  valor: z.number().positive("O valor deve ser maior que zero."),
+  forma_pagamento: z.enum(FormaPagamento, {
+    message: "Forma de pagamento inválida.",
+  }),
+  // "2026-10-18" no fuso de Brasília; meio-dia evita virar o dia anterior em UTC
+  data: z
+    .string()
+    .regex(DATA_REGEX, "Data inválida.")
+    .transform((d) => new Date(`${d}T12:00:00-03:00`))
+    .refine((d) => !Number.isNaN(d.getTime()), "Data inválida.")
+    .refine(
+      (d) => d.getTime() <= Date.now() + 12 * 60 * 60 * 1000,
+      "A data do pagamento não pode ser no futuro.",
+    ),
+});
+
+// POST /api/service-orders/:id/payments
+export async function registerPaymentController(req: Request, res: Response) {
+  const ordemId = Number(req.params.id);
+  const dados = registrarPagamentoSchema.parse(req.body);
+  const ordem = await registrarPagamento(ordemId, dados);
+  return res.status(201).json(ordem);
+}
+
+// POST /api/service-orders/:id/payments/:paymentId/estorno
+export async function reversePaymentController(req: Request, res: Response) {
+  const ordemId = Number(req.params.id);
+  const pagamentoId = String(req.params.paymentId);
+  const ordem = await estornarPagamento(ordemId, pagamentoId);
   return res.status(200).json(ordem);
 }
 
