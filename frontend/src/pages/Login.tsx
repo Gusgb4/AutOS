@@ -13,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { mensagemDeErro } from "../lib/errors";
 
 type Mode = "login" | "register";
 
@@ -51,13 +52,10 @@ export default function Login() {
         await signUp({ nome, email, senha });
       }
       navigate("/", { replace: true });
-    } catch (err: any) {
-        const apiMessage =
-        err?.response?.data?.error ||
-        err?.response?.data?.erro ||
-        err?.response?.data?.errors?.[0]?.message ||
-        "Não foi possível concluir. Tente novamente.";
-      setError(apiMessage);
+    } catch (err) {
+      setError(
+        mensagemDeErro(err, "Não foi possível concluir. Tente novamente."),
+      );
     } finally {
       setSubmitting(false);
     }

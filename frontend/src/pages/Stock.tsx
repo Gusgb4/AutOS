@@ -14,7 +14,6 @@ import {
   Archive,
   ArchiveRestore,
 } from "lucide-react";
-import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
 import {
   listStock,
@@ -24,6 +23,7 @@ import {
   type StockItem,
 } from "../services/stock";
 import { getUserRole } from "../lib/auth";
+import { mensagemDeErro } from "../lib/errors";
 
 // Margem sobre o preço de venda; negativa aparece em vermelho
 function Margem({ item }: { item: StockItem }) {
@@ -62,10 +62,7 @@ export default function Stock() {
         const data = await listStock(false, podeEditar);
         setItems(data);
       } catch (e) {
-        setErro(
-          (isAxiosError(e) ? e.response?.data?.error : undefined) ??
-            "Não foi possível carregar o estoque.",
-        );
+        setErro(mensagemDeErro(e, "Não foi possível carregar o estoque."));
       } finally {
         setLoading(false);
       }
@@ -110,10 +107,7 @@ export default function Stock() {
       await deleteStockItem(item.id);
       setItems((atuais) => atuais.filter((i) => i.id !== item.id));
     } catch (e) {
-      setErro(
-        (isAxiosError(e) ? e.response?.data?.error : undefined) ??
-          "Não foi possível excluir o item.",
-      );
+      setErro(mensagemDeErro(e, "Não foi possível excluir o item."));
     } finally {
       setExcluindo(null);
     }
@@ -140,10 +134,12 @@ export default function Stock() {
       );
     } catch (e) {
       setErro(
-        (isAxiosError(e) ? e.response?.data?.error : undefined) ??
-          (arquivar
+        mensagemDeErro(
+          e,
+          arquivar
             ? "Não foi possível arquivar o item."
-            : "Não foi possível desarquivar o item."),
+            : "Não foi possível desarquivar o item.",
+        ),
       );
     } finally {
       setExcluindo(null);
