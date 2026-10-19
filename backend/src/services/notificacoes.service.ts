@@ -1,12 +1,15 @@
 import { prisma } from "../config/prisma";
+import { comPagamento, pagamentosAtivos } from "./serviceOrders.service";
 
 const UM_DIA_MS = 24 * 60 * 60 * 1000;
 const DIAS_AVISO_REVISAO = 7;
 const KM_AVISO_REVISAO = 500;
+const DIAS_PAGAMENTO_ATRASADO = 15;
 
 export type TipoNotificacao =
   | "REVISAO_VENCIDA"
   | "REVISAO_PROXIMA"
+  | "PAGAMENTO_ATRASADO"
   | "ESTOQUE_BAIXO";
 
 export interface Notificacao {
@@ -30,6 +33,12 @@ export interface Notificacao {
 
 function formatarData(data: Date): string {
   return data.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+function formatarMoeda(valor: number): string {
+  return valor
+    .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    .replace(/\u00A0/g, " ");
 }
 
 function formatarKm(km: number): string {
@@ -131,6 +140,44 @@ async function notificacoesDeRevisao(agora: Date): Promise<Notificacao[]> {
   ];
 }
 
+// ---------- Pagamentos atrasados (só proprietário) ----------
+// OS finalizada com saldo em aberto há mais de 15 dias. O saldo usa a mesma
+// conta de Contas a receber (calcularPagamento), para os valores baterem.
+async function notificacoesDePagamento(agora: Date): Promise<Notificacao[]> {
+  const limite = new Date(agora.getTime() - DIAS_PAGAMENTO_ATRASADO * UM_DIA_MS);
+
+  const ordens = await prisma.serviceOrder.findMany({
+    where: { status: "FINALIZADA", finalizada_em: { lt: limite } },
+    select: {
+      id: true,
+      status: true,
+      valor_total: true,
+      finalizada_em: true,
+      cliente: { select: { id: true, nome: true } },
+      financialEntries: pagamentosAtivos,
+    },
+    orderBy: { finalizada_em: "asc" },
+  });
+
+  return ordens
+    .map(comPagamento)
+    .filter((ordem) => ordem.saldo.gt(0) && ordem.finalizada_em !== null)
+    .map((ordem) => {
+      const dias = Math.floor(
+        (agora.getTime() - (ordem.finalizada_em as Date).getTime()) /
+          UM_DIA_MS,
+      );
+
+      return {
+        id: `pagamento-${ordem.id}`,
+        tipo: "PAGAMENTO_ATRASADO" as const,
+        titulo: `Pagamento atrasado: ${ordem.cliente.nome}`,
+        descricao: `OS #${ordem.id}, saldo de ${formatarMoeda(ordem.saldo.toNumber())} em aberto há ${dias} dias`,
+        link: `/ordens-servico/${ordem.id}`,
+      };
+    });
+}
+
 // ---------- Estoque abaixo do mínimo ----------
 // Mesma regra do alerta do Estoque: quantidade <= quantidade_minima.
 // Item arquivado não entra.
@@ -156,13 +203,21 @@ async function notificacoesDeEstoque(): Promise<Notificacao[]> {
     }));
 }
 
-export async function listarNotificacoes() {
-  const [revisoes, estoque] = await Promise.all([
-    notificacoesDeRevisao(new Date()),
+interface OpcoesNotificacoes {
+  perfil?: "PROPRIETARIO" | "FUNCIONARIO";
+}
+
+export async function listarNotificacoes({ perfil }: OpcoesNotificacoes = {}) {
+  const agora = new Date();
+
+  // Pagamentos atrasados são financeiros: só o proprietário recebe
+  const [revisoes, pagamentos, estoque] = await Promise.all([
+    notificacoesDeRevisao(agora),
+    perfil === "PROPRIETARIO" ? notificacoesDePagamento(agora) : [],
     notificacoesDeEstoque(),
   ]);
 
-  const notificacoes = [...revisoes, ...estoque];
+  const notificacoes = [...revisoes, ...pagamentos, ...estoque];
 
   return { total: notificacoes.length, notificacoes };
 }

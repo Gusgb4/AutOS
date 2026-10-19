@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Bell,
   Clock,
+  DollarSign,
   Loader2,
   MessageCircle,
   Package,
@@ -20,6 +21,13 @@ function IconeNotificacao({ tipo }: { tipo: Notificacao["tipo"] }) {
     return (
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-500/15 text-red-400">
         <AlertTriangle size={17} />
+      </div>
+    );
+  }
+  if (tipo === "PAGAMENTO_ATRASADO") {
+    return (
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+        <DollarSign size={17} />
       </div>
     );
   }

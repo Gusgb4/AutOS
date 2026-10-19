@@ -3,6 +3,7 @@ import { api } from "./api";
 export type TipoNotificacao =
   | "REVISAO_VENCIDA"
   | "REVISAO_PROXIMA"
+  | "PAGAMENTO_ATRASADO"
   | "ESTOQUE_BAIXO";
 
 export interface Notificacao {
