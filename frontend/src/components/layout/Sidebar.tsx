@@ -12,6 +12,7 @@ import {
 import { NavLink, useNavigate } from "react-router-dom";
 import { getUserRole, PERFIL_LABEL } from "../../lib/auth";
 import { useAuth } from "../../contexts/AuthContext";
+import NotificationBell from "./NotificationBell";
 
 const menuItems = [
   { label: "Início", path: "/", icon: Home, restrito: false },
@@ -129,7 +130,8 @@ export default function Sidebar() {
       {/* Rodapé: sempre visível */}
       <div className="shrink-0 pb-2">
         {perfil && (
-          <div className="mx-2 mb-2 rounded-xl bg-[#292929] px-1.5 py-2 text-center [@media(max-height:850px)]:mb-1 [@media(max-height:850px)]:py-1">
+          <div className="relative mx-2 mb-2 rounded-xl bg-[#292929] px-1.5 py-2 text-center [@media(max-height:850px)]:mb-1 [@media(max-height:850px)]:py-1">
+            <NotificationBell />
             {primeiroNome && (
               <p
                 className="truncate text-[11px] font-medium text-white"

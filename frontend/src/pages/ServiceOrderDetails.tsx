@@ -32,6 +32,7 @@ import {
 } from "../services/serviceOrders";
 import ServicoRow from "../components/serviceOrders/ServicoRow";
 import PecaRow from "../components/serviceOrders/PecaRow";
+import { buildWhatsAppLink } from "../lib/whatsapp";
 
 const plainInputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
@@ -67,25 +68,25 @@ function apiErrorMessage(err: any, fallback: string) {
   );
 }
 
-function buildWhatsAppLink(order: ServiceOrder) {
-  const digits = (order.cliente?.telefone || "").replace(/\D/g, "");
-  const comDDI = digits.length > 11 ? digits : `55${digits}`;
+// function buildWhatsAppLink(order: ServiceOrder) {
+//   const digits = (order.cliente?.telefone || "").replace(/\D/g, "");
+//   const comDDI = digits.length > 11 ? digits : `55${digits}`;
 
-  const linhasServicos = order.servicos
-    .map((s) => `- ${s.descricao}: ${formatCurrency(s.valor)}`)
-    .join("\n");
+//   const linhasServicos = order.servicos
+//     .map((s) => `- ${s.descricao}: ${formatCurrency(s.valor)}`)
+//     .join("\n");
 
-  const linhasPecas = order.pecas
-    .map(
-      (p) =>
-        `- ${p.item_estoque.nome} (x${p.quantidade}): ${formatCurrency(Number(p.valor_unitario) * p.quantidade)}`,
-    )
-    .join("\n");
+//   const linhasPecas = order.pecas
+//     .map(
+//       (p) =>
+//         `- ${p.item_estoque.nome} (x${p.quantidade}): ${formatCurrency(Number(p.valor_unitario) * p.quantidade)}`,
+//     )
+//     .join("\n");
 
-  const mensagem = `Olá ${order.cliente?.nome}!\n\nSegue o orçamento da sua *OS #${order.id}*.\nVeículo: *${order.veiculo?.marca} ${order.veiculo?.modelo}*.\n\n*Serviços:*\n${linhasServicos || "Nenhum serviço."}\n\n*Peças:*\n${linhasPecas || "Nenhuma peça."}\n\n*Valor total: ${formatCurrency(order.valor_total)}*`;
+//   const mensagem = `Olá ${order.cliente?.nome}!\n\nSegue o orçamento da sua *OS #${order.id}*.\nVeículo: *${order.veiculo?.marca} ${order.veiculo?.modelo}*.\n\n*Serviços:*\n${linhasServicos || "Nenhum serviço."}\n\n*Peças:*\n${linhasPecas || "Nenhuma peça."}\n\n*Valor total: ${formatCurrency(order.valor_total)}*`;
 
-  return `https://wa.me/${comDDI}?text=${encodeURIComponent(mensagem)}`;
-}
+//   return `https://wa.me/${comDDI}?text=${encodeURIComponent(mensagem)}`;
+// }
 
 function Field({
   label,
