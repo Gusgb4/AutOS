@@ -8,6 +8,7 @@ import {
   Users,
   UserCog,
   Wrench,
+  KeyRound,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { getUserRole, PERFIL_LABEL } from "../../lib/auth";
@@ -54,7 +55,6 @@ export default function Sidebar() {
   );
 
   function handleLogout() {
-    // signOut limpa token e usuário (antes só o token era removido)
     signOut();
     navigate("/login");
   }
@@ -126,6 +126,16 @@ export default function Sidebar() {
             >
               {PERFIL_LABEL[perfil]}
             </p>
+
+            {/* Link para alterar a senha */}
+            <NavLink
+              to="/trocar-senha"
+              title="Alterar senha"
+              className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-[#242424] py-1.5 text-[10px] font-medium text-gray-300 transition hover:bg-[#333333] hover:text-white"
+            >
+              <KeyRound size={12} />
+              <span>Alterar senha</span>
+            </NavLink>
           </div>
         )}
 

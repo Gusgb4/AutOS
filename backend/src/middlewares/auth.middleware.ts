@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { prisma } from '../config/prisma';
+import { env } from '../config/env';
 
 interface TokenPayload {
   id: number;
@@ -19,7 +21,7 @@ declare global {
   }
 }
 
-export function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {
+export async function ensureAuthenticated(req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -29,12 +31,30 @@ export function ensureAuthenticated(req: Request, res: Response, next: NextFunct
   const [, token] = authHeader.split(' ');
 
   try {
-    const secret = process.env.JWT_SECRET || 'chave_secreta_padrao_oficina_123';
-    const decoded = jwt.verify(token, secret) as TokenPayload;
+    const decoded = jwt.verify(token, env.jwtSecret) as TokenPayload;
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, perfil: true, ativo: true, trocar_senha: true },
+    });
+
+    if (!user || !user.ativo) {
+      return res.status(401).json({ error: 'Usuário não encontrado ou desativado' });
+    }
+
+    const isAllowedRoute =
+      req.originalUrl.includes('/auth/senha') || req.originalUrl.includes('/auth/me');
+
+    if (user.trocar_senha && !isAllowedRoute) {
+      return res.status(403).json({
+        error: 'É necessário alterar a senha provisória antes de continuar.',
+        codigo: 'TROCAR_SENHA',
+      });
+    }
 
     req.user = {
-      id: decoded.id,
-      perfil: decoded.perfil,
+      id: user.id,
+      perfil: user.perfil,
     };
 
     return next();
