@@ -22,6 +22,12 @@ export function parsePeriodo(inicio: string, fim: string): Periodo {
   };
 }
 
+export function parseMes(mes: string): Periodo {
+  const [ano, numeroMes] = mes.split("-").map(Number);
+  const ultimoDia = new Date(Date.UTC(ano, numeroMes, 0)).getUTCDate();
+  return parsePeriodo(`${mes}-01`, `${mes}-${ultimoDia}`);
+}
+
 function periodoAnterior(p: Periodo): Periodo {
   const duracao = p.fimExclusivo.getTime() - p.inicio.getTime();
   return {
@@ -34,35 +40,41 @@ function diaBrasilia(data: Date): string {
   return new Date(data.getTime() - TRES_HORAS_MS).toISOString().slice(0, 10);
 }
 
-function descreverPeriodo(p: Periodo) {
+export function descreverPeriodo(p: Periodo) {
   return {
     inicio: diaBrasilia(p.inicio),
     fim: diaBrasilia(new Date(p.fimExclusivo.getTime() - 1)),
   };
 }
 
-function arredondar(valor: Prisma.Decimal): number {
+export function arredondar(valor: Prisma.Decimal): number {
   return valor.toDecimalPlaces(2).toNumber();
 }
 
 function variacao(atual: number, anterior: number): number | null {
   if (anterior === 0) return null;
-  return Math.round(((atual - anterior) / anterior) * 1000) / 10;
+  return Math.round(((atual - anterior) / Math.abs(anterior)) * 1000) / 10;
 }
 
-// Receita de OS ativa (não estornada) dentro do período
-function filtroReceitaOS(p: Periodo): Prisma.FinancialEntryWhereInput {
+export function filtroOSFinalizada(p: Periodo): Prisma.ServiceOrderWhereInput {
   return {
-    tipo: "RECEITA",
-    estornado: false,
-    ordemId: { not: null },
-    data: { gte: p.inicio, lt: p.fimExclusivo },
+    status: "FINALIZADA",
+    finalizada_em: { gte: p.inicio, lt: p.fimExclusivo },
   };
 }
 
-function resumir(entradas: { valor: Prisma.Decimal }[]) {
-  const total = entradas.reduce((acc, e) => acc.plus(e.valor), zero());
-  const ordens = entradas.length;
+function comparar<T extends Record<string, number>>(atual: T, anterior: T) {
+  return Object.fromEntries(
+    Object.keys(atual).map((k) => [k, variacao(atual[k], anterior[k])]),
+  ) as Record<keyof T, number | null>;
+}
+
+function resumir(ordensFinalizadas: { valor_total: Prisma.Decimal }[]) {
+  const total = ordensFinalizadas.reduce(
+    (acc, o) => acc.plus(o.valor_total),
+    zero(),
+  );
+  const ordens = ordensFinalizadas.length;
   const ticket = ordens > 0 ? total.div(ordens) : zero();
   return {
     total: arredondar(total),
@@ -76,14 +88,14 @@ export async function vendasPorPeriodo(p: Periodo) {
   const anterior = periodoAnterior(p);
 
   const [atuais, anteriores] = await Promise.all([
-    prisma.financialEntry.findMany({
-      where: filtroReceitaOS(p),
-      select: { data: true, valor: true },
-      orderBy: { data: "asc" },
+    prisma.serviceOrder.findMany({
+      where: filtroOSFinalizada(p),
+      select: { finalizada_em: true, valor_total: true },
+      orderBy: { finalizada_em: "asc" },
     }),
-    prisma.financialEntry.findMany({
-      where: filtroReceitaOS(anterior),
-      select: { data: true, valor: true },
+    prisma.serviceOrder.findMany({
+      where: filtroOSFinalizada(anterior),
+      select: { valor_total: true },
     }),
   ]);
 
@@ -91,11 +103,11 @@ export async function vendasPorPeriodo(p: Periodo) {
   const anteriorResumo = resumir(anteriores);
 
   const porDia = new Map<string, { ordens: number; total: Prisma.Decimal }>();
-  for (const e of atuais) {
-    const dia = diaBrasilia(e.data);
+  for (const o of atuais) {
+    const dia = diaBrasilia(o.finalizada_em!);
     const acumulado = porDia.get(dia) ?? { ordens: 0, total: zero() };
     acumulado.ordens += 1;
-    acumulado.total = acumulado.total.plus(e.valor);
+    acumulado.total = acumulado.total.plus(o.valor_total);
     porDia.set(dia, acumulado);
   }
 
@@ -118,11 +130,59 @@ export async function vendasPorPeriodo(p: Periodo) {
 }
 
 // ---------- 2. Status do inventário ----------
-export async function statusInventario() {
-   const itens = await prisma.stockItem.findMany({
-    where: { ativo: true },
-    orderBy: { nome: "asc" },
+export async function consumoPecas(p: Periodo) {
+  const usos = await prisma.serviceOrderPart.findMany({
+    where: { ordem: filtroOSFinalizada(p) },
+    select: {
+      quantidade: true,
+      valor_unitario: true,
+      item_estoque: { select: { id: true, nome: true, categoria: true } },
+    },
   });
+
+  const porItem = new Map<
+    number,
+    {
+      id: number;
+      nome: string;
+      categoria: string | null;
+      quantidade: number;
+      valor: Prisma.Decimal;
+    }
+  >();
+
+  for (const u of usos) {
+    const atual = porItem.get(u.item_estoque.id) ?? {
+      ...u.item_estoque,
+      quantidade: 0,
+      valor: zero(),
+    };
+    atual.quantidade += u.quantidade;
+    atual.valor = atual.valor.plus(u.valor_unitario.mul(u.quantidade));
+    porItem.set(u.item_estoque.id, atual);
+  }
+
+  const itens = Array.from(porItem.values()).sort(
+    (a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome),
+  );
+
+  return {
+    quantidade: itens.reduce((acc, i) => acc + i.quantidade, 0),
+    valor: arredondar(itens.reduce((acc, i) => acc.plus(i.valor), zero())),
+    itens: itens.map((i) => ({ ...i, valor: arredondar(i.valor) })),
+  };
+}
+
+export async function statusInventario(p: Periodo) {
+  const anterior = periodoAnterior(p);
+  const [itens, consumoAtual, consumoAnterior] = await Promise.all([
+    prisma.stockItem.findMany({
+      where: { ativo: true },
+      orderBy: { nome: "asc" },
+    }),
+    consumoPecas(p),
+    consumoPecas(anterior),
+  ]);
 
   let valorTotal = zero();
   const lista = itens.map((i) => {
@@ -148,6 +208,23 @@ export async function statusInventario() {
       valor_total: arredondar(valorTotal),
     },
     itens: lista,
+    consumo: {
+      periodo: descreverPeriodo(p),
+      periodo_anterior: descreverPeriodo(anterior),
+      atual: { quantidade: consumoAtual.quantidade, valor: consumoAtual.valor },
+      anterior: {
+        quantidade: consumoAnterior.quantidade,
+        valor: consumoAnterior.valor,
+      },
+      variacao: comparar(
+        { quantidade: consumoAtual.quantidade, valor: consumoAtual.valor },
+        {
+          quantidade: consumoAnterior.quantidade,
+          valor: consumoAnterior.valor,
+        },
+      ),
+      itens: consumoAtual.itens,
+    },
   };
 }
 
@@ -160,20 +237,27 @@ function ehDespesa(tipo: string) {
   return ["DESPESA", "SAIDA", "SAÍDA"].includes(tipo.trim().toUpperCase());
 }
 
-export async function resumoFinanceiro(p: Periodo) {
-  const lancamentos = await prisma.financialEntry.findMany({
-    where: { estornado: false, data: { gte: p.inicio, lt: p.fimExclusivo } },
-    select: { tipo: true, valor: true, ordemId: true },
-  });
+async function calcularResumo(p: Periodo) {
+  const [lancamentos, ordensFinalizadas] = await Promise.all([
+    prisma.financialEntry.findMany({
+      where: { estornado: false, data: { gte: p.inicio, lt: p.fimExclusivo } },
+      select: { tipo: true, valor: true, ordemId: true },
+    }),
+    prisma.serviceOrder.findMany({
+      where: filtroOSFinalizada(p),
+      select: { id: true },
+    }),
+  ]);
 
   let entradas = zero();
   let saidas = zero();
-  const ordemIds: number[] = [];
+  let outrasReceitas = zero();
+  const ordemIds = ordensFinalizadas.map((o) => o.id);
 
   for (const l of lancamentos) {
     if (ehReceita(l.tipo)) {
       entradas = entradas.plus(l.valor);
-      if (l.ordemId !== null) ordemIds.push(l.ordemId);
+      if (l.ordemId === null) outrasReceitas = outrasReceitas.plus(l.valor);
     } else if (ehDespesa(l.tipo)) {
       saidas = saidas.plus(l.valor);
     }
@@ -199,36 +283,69 @@ export async function resumoFinanceiro(p: Periodo) {
     );
   }
 
-  const baseOS = maoDeObra.plus(pecas);
+  return { entradas, saidas, outrasReceitas, maoDeObra, pecas };
+}
+
+export async function resumoFinanceiro(p: Periodo) {
+  const anterior = periodoAnterior(p);
+  const [atual, ant] = await Promise.all([
+    calcularResumo(p),
+    calcularResumo(anterior),
+  ]);
+
+  const indicadores = (r: typeof atual) => ({
+    entradas: arredondar(r.entradas),
+    saidas: arredondar(r.saidas),
+    saldo: arredondar(r.entradas.minus(r.saidas)),
+    mao_de_obra: arredondar(r.maoDeObra),
+    pecas: arredondar(r.pecas),
+    faturamento: arredondar(r.maoDeObra.plus(r.pecas)),
+  });
+  const indicadoresAtuais = indicadores(atual);
+  const indicadoresAnteriores = indicadores(ant);
+
+  const baseOS = atual.maoDeObra.plus(atual.pecas);
   const percentual = (v: Prisma.Decimal) =>
     baseOS.isZero() ? 0 : v.div(baseOS).mul(100).toDecimalPlaces(1).toNumber();
 
   return {
     periodo: descreverPeriodo(p),
-    entradas: arredondar(entradas),
-    saidas: arredondar(saidas),
-    saldo: arredondar(entradas.minus(saidas)),
+    periodo_anterior: descreverPeriodo(anterior),
+    entradas: indicadoresAtuais.entradas,
+    saidas: indicadoresAtuais.saidas,
+    saldo: indicadoresAtuais.saldo,
     composicao_receita_os: {
-      mao_de_obra: { valor: arredondar(maoDeObra), percentual: percentual(maoDeObra) },
-      pecas: { valor: arredondar(pecas), percentual: percentual(pecas) },
+      mao_de_obra: {
+        valor: indicadoresAtuais.mao_de_obra,
+        percentual: percentual(atual.maoDeObra),
+      },
+      pecas: {
+        valor: indicadoresAtuais.pecas,
+        percentual: percentual(atual.pecas),
+      },
       total: arredondar(baseOS),
     },
-    outras_receitas: arredondar(entradas.minus(baseOS)),
+    outras_receitas: arredondar(atual.outrasReceitas),
+    anterior: indicadoresAnteriores,
+    variacao: comparar(indicadoresAtuais, indicadoresAnteriores),
   };
 }
 
 // ---------- 4. Atividade do cliente ----------
-export async function atividadeClientes(p: Periodo) {
-  const entradas = await prisma.financialEntry.findMany({
-    where: filtroReceitaOS(p),
-    select: {
-      valor: true,
-      data: true,
-      ordemServico: {
-        select: { cliente: { select: { id: true, nome: true } } },
+async function calcularAtividade(p: Periodo) {
+  const [ordensFinalizadas, clientesNovos] = await Promise.all([
+    prisma.serviceOrder.findMany({
+      where: filtroOSFinalizada(p),
+      select: {
+        valor_total: true,
+        finalizada_em: true,
+        cliente: { select: { id: true, nome: true } },
       },
-    },
-  });
+    }),
+    prisma.client.count({
+      where: { created_at: { gte: p.inicio, lt: p.fimExclusivo } },
+    }),
+  ]);
 
   const porCliente = new Map<
     number,
@@ -241,20 +358,20 @@ export async function atividadeClientes(p: Periodo) {
     }
   >();
 
-  for (const e of entradas) {
-    const cliente = e.ordemServico?.cliente;
-    if (!cliente) continue;
+  for (const o of ordensFinalizadas) {
+    const { cliente } = o;
+    const finalizadaEm = o.finalizada_em!;
 
     const acumulado = porCliente.get(cliente.id) ?? {
       cliente_id: cliente.id,
       nome: cliente.nome,
       ordens: 0,
       total: zero(),
-      ultima_os: e.data,
+      ultima_os: finalizadaEm,
     };
     acumulado.ordens += 1;
-    acumulado.total = acumulado.total.plus(e.valor);
-    if (e.data > acumulado.ultima_os) acumulado.ultima_os = e.data;
+    acumulado.total = acumulado.total.plus(o.valor_total);
+    if (finalizadaEm > acumulado.ultima_os) acumulado.ultima_os = finalizadaEm;
     porCliente.set(cliente.id, acumulado);
   }
 
@@ -270,14 +387,29 @@ export async function atividadeClientes(p: Periodo) {
     }));
 
   return {
-    periodo: descreverPeriodo(p),
     resumo: {
       clientes_atendidos: clientes.length,
+      clientes_novos: clientesNovos,
       ordens: clientes.reduce((acc, c) => acc + c.ordens, 0),
-      total: arredondar(
-        clientes.reduce((acc, c) => acc.plus(c.total), zero()),
-      ),
+      total: arredondar(clientes.reduce((acc, c) => acc.plus(c.total), zero())),
     },
     clientes,
+  };
+}
+
+export async function atividadeClientes(p: Periodo) {
+  const anterior = periodoAnterior(p);
+  const [atual, ant] = await Promise.all([
+    calcularAtividade(p),
+    calcularAtividade(anterior),
+  ]);
+
+  return {
+    periodo: descreverPeriodo(p),
+    periodo_anterior: descreverPeriodo(anterior),
+    resumo: atual.resumo,
+    anterior: ant.resumo,
+    variacao: comparar(atual.resumo, ant.resumo),
+    clientes: atual.clientes,
   };
 }

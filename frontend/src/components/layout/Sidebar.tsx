@@ -44,8 +44,6 @@ const menuItems = [
   },
 ];
 
-const menuItemsFuturos = [{ label: "Produtividade", icon: Wrench }];
-
 export default function Sidebar() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -106,25 +104,6 @@ export default function Sidebar() {
             </NavLink>
           );
         })}
-
-        {perfil === "PROPRIETARIO" &&
-          menuItemsFuturos.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div
-                key={item.label}
-                title="Disponível em uma próxima versão"
-                className="flex w-full cursor-not-allowed flex-col items-center justify-center gap-1.5 px-2 py-2.5 text-center opacity-40 [@media(max-height:850px)]:gap-1 [@media(max-height:850px)]:py-1.5"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-500 [@media(max-height:850px)]:h-9 [@media(max-height:850px)]:w-9">
-                  <Icon size={20} strokeWidth={1.8} />
-                </div>
-                <span className="text-[11px] leading-tight text-gray-500">
-                  {item.label}
-                </span>
-              </div>
-            );
-          })}
       </nav>
 
       {/* Rodapé: sempre visível */}

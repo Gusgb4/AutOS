@@ -2,7 +2,13 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Eye, Loader2 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
-import { listServiceOrders, type ServiceOrder, type StatusOS } from "../services/serviceOrders";
+import PagamentoBadge from "../components/ui/PagamentoBadge";
+import {
+  listServiceOrders,
+  type ServiceOrder,
+  type StatusOS,
+  type StatusPagamento,
+} from "../services/serviceOrders";
 
 const STATUS_OPTIONS: { value: StatusOS | ""; label: string }[] = [
   { value: "", label: "Todos os status" },
@@ -10,6 +16,13 @@ const STATUS_OPTIONS: { value: StatusOS | ""; label: string }[] = [
   { value: "EM_ANDAMENTO", label: "Em andamento" },
   { value: "FINALIZADA", label: "Finalizada" },
   { value: "CANCELADA", label: "Cancelada" },
+];
+
+const PAGAMENTO_OPTIONS: { value: StatusPagamento | ""; label: string }[] = [
+  { value: "", label: "Todos os pagamentos" },
+  { value: "PENDENTE", label: "Pendente" },
+  { value: "PARCIAL", label: "Parcial" },
+  { value: "PAGO", label: "Pago" },
 ];
 
 function formatCurrency(value: string | number) {
@@ -27,12 +40,13 @@ export default function ServiceOrders() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFiltro, setStatusFiltro] = useState<StatusOS | "">("");
+  const [pagamentoFiltro, setPagamentoFiltro] = useState<StatusPagamento | "">("");
 
-  const fetchOrdens = useCallback(async (status?: StatusOS) => {
+  const fetchOrdens = useCallback(async (status?: StatusOS, statusPagamento?: StatusPagamento) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listServiceOrders(status || undefined);
+      const data = await listServiceOrders(status, undefined, statusPagamento);
       setOrdens(data);
     } catch (err) {
       console.error(err);
@@ -43,8 +57,8 @@ export default function ServiceOrders() {
   }, []);
 
   useEffect(() => {
-    fetchOrdens(statusFiltro || undefined);
-  }, [statusFiltro, fetchOrdens]);
+    fetchOrdens(statusFiltro || undefined, pagamentoFiltro || undefined);
+  }, [statusFiltro, pagamentoFiltro, fetchOrdens]);
 
   const ordensFiltradas = useMemo(() => {
     const termo = search.trim().toLowerCase();
@@ -100,6 +114,16 @@ export default function ServiceOrders() {
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
+
+        <select
+          value={pagamentoFiltro}
+          onChange={(e) => setPagamentoFiltro(e.target.value as StatusPagamento | "")}
+          className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-600 outline-none"
+        >
+          {PAGAMENTO_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
@@ -123,6 +147,7 @@ export default function ServiceOrders() {
                   <th className="px-5 py-3 font-medium">Cliente</th>
                   <th className="px-5 py-3 font-medium">Veículo</th>
                   <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 font-medium">Pagamento</th>
                   <th className="px-5 py-3 font-medium">Data</th>
                   <th className="px-5 py-3 font-medium">Valor Total</th>
                   <th className="px-5 py-3 text-right font-medium">Ações</th>
@@ -146,6 +171,13 @@ export default function ServiceOrders() {
                     </td>
                     <td className="px-5 py-4">
                       <StatusBadge status={order.status} />
+                    </td>
+                    <td className="px-5 py-4">
+                      {order.status_pagamento ? (
+                        <PagamentoBadge status={order.status_pagamento} />
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-gray-600">{formatDate(order.created_at)}</td>
                     <td className="px-5 py-4 font-medium text-[#1F1F1F]">{formatCurrency(order.valor_total)}</td>

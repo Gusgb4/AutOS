@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -8,14 +9,18 @@ import {
   Receipt,
   Wallet,
   Eye,
-  EyeOff
+  EyeOff,
+  HandCoins,
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
+import PagamentoBadge from "../components/ui/PagamentoBadge";
 import FinancialEntryModal from "../components/financial/FinancialEntryModal";
 import {
   createFinancialEntry,
+  getContasAReceber,
   listFinancialEntries,
+  type ContasAReceber,
   type FinancialEntry,
   type FinancialEntryPayload,
   type TipoLancamento,
@@ -33,7 +38,9 @@ const moeda = (valor: number) =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function Financial() {
+  const navigate = useNavigate();
   const [showValues, setShowValues] = useState(true);
+  const [aReceber, setAReceber] = useState<ContasAReceber | null>(null);
   
   const [lancamentos, setLancamentos] = useState<FinancialEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,6 +90,14 @@ export default function Financial() {
       })
       .finally(() => {
         if (ativo) setLoading(false);
+      });
+
+    getContasAReceber()
+      .then((data) => {
+        if (ativo) setAReceber(data);
+      })
+      .catch(() => {
+        if (ativo) setAReceber(null);
       });
 
     return () => {
@@ -175,6 +190,76 @@ export default function Financial() {
           accentColor="#FF7518"
         />
       </div>
+
+      {aReceber && (
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <HandCoins size={18} />
+              </div>
+              <div>
+                <p className="font-semibold text-[#1F1F1F]">A receber</p>
+                <p className="text-xs text-gray-500">
+                  OS finalizadas com saldo em aberto
+                </p>
+              </div>
+            </div>
+            <p className="text-lg font-semibold text-amber-600">
+              {showValues ? moeda(Number(aReceber.total)) : "R$ •••••"}
+            </p>
+          </div>
+
+          {aReceber.ordens.length === 0 ? (
+            <div className="p-6 text-center text-sm text-gray-500">
+              Nenhuma OS com saldo em aberto.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
+                    <th className="px-5 py-3 font-medium">Ordem</th>
+                    <th className="px-5 py-3 font-medium">Cliente</th>
+                    <th className="px-5 py-3 font-medium">Pagamento</th>
+                    <th className="px-5 py-3 text-right font-medium">Total</th>
+                    <th className="px-5 py-3 text-right font-medium">Pago</th>
+                    <th className="px-5 py-3 text-right font-medium">Saldo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {aReceber.ordens.map((o) => (
+                    <tr
+                      key={o.id}
+                      onClick={() => navigate(`/ordens-servico/${o.id}`)}
+                      className="cursor-pointer border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
+                    >
+                      <td className="px-5 py-4 font-medium text-[#FF7518]">
+                        #OS-{o.id}
+                      </td>
+                      <td className="px-5 py-4 text-[#1F1F1F]">
+                        {o.cliente.nome}
+                      </td>
+                      <td className="px-5 py-4">
+                        <PagamentoBadge status={o.status_pagamento} />
+                      </td>
+                      <td className="px-5 py-4 text-right text-gray-600">
+                        {showValues ? moeda(Number(o.valor_total)) : "•••••"}
+                      </td>
+                      <td className="px-5 py-4 text-right text-gray-600">
+                        {showValues ? moeda(Number(o.valor_pago)) : "•••••"}
+                      </td>
+                      <td className="px-5 py-4 text-right font-semibold text-amber-600">
+                        {showValues ? moeda(Number(o.saldo)) : "•••••"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-gray-100 p-5 lg:flex-row lg:items-center lg:justify-between">
