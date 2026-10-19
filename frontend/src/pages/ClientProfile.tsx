@@ -15,7 +15,6 @@ import {
   History,
   Loader2,
 } from "lucide-react";
-import DisabledBadge from "../components/ui/DisabledBadge";
 import StatusBadge from "../components/ui/StatusBadge";
 import ClientFormModal, {
   type ClientFormData,
@@ -55,16 +54,6 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("pt-BR");
 }
 
-// Mantém só os veículos ativos do cliente
-function comVeiculosAtivos(data: Client): Client {
-  return {
-    ...data,
-    veiculos: (data.veiculos ?? []).filter(
-      (v) => (v as { ativo?: boolean }).ativo !== false,
-    ),
-  };
-}
-
 export default function ClientProfile() {
   const { id } = useParams();
   const clientId = Number(id);
@@ -95,7 +84,7 @@ export default function ClientProfile() {
   const fetchClient = useCallback(async () => {
     try {
       const data = await getClientById(clientId);
-      setClient(comVeiculosAtivos(data));
+      setClient(data);
       setError(null);
     } catch (err) {
       console.error(err);
@@ -111,7 +100,7 @@ export default function ClientProfile() {
     getClientById(clientId)
       .then((data) => {
         if (!ativo) return;
-        setClient(comVeiculosAtivos(data));
+        setClient(data);
         setError(null);
       })
       .catch((err) => {
@@ -327,7 +316,6 @@ export default function ClientProfile() {
         <div className="grid grid-cols-1 gap-6 p-5 lg:grid-cols-[1fr_auto]">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
             <div className="space-y-4">
-              <DisabledBadge label="Status desativado" />
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-400">
                   Nome
@@ -362,7 +350,7 @@ export default function ClientProfile() {
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-400">
-                  Membro desde
+                  Cliente desde
                 </p>
                 <p className="mt-1 flex items-center gap-2 text-sm text-[#1F1F1F]">
                   <CalendarDays size={14} className="text-gray-400" />
