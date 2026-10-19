@@ -14,6 +14,7 @@ api.interceptors.request.use((config) => {
 });
 
 // Se o token expirar/for inválido, desloga automaticamente
+// Se precisar trocar a senha (403 TROCAR_SENHA), redireciona para /trocar-senha
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -24,6 +25,26 @@ api.interceptors.response.use(
         window.location.href = "/login";
       }
     }
+
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.codigo === "TROCAR_SENHA"
+    ) {
+      const storedUser = localStorage.getItem("@autos:user");
+      if (storedUser) {
+        try {
+          const parsed = JSON.parse(storedUser);
+          parsed.trocar_senha = true;
+          localStorage.setItem("@autos:user", JSON.stringify(parsed));
+        } catch {
+          // ignora erro de parse
+        }
+      }
+      if (window.location.pathname !== "/trocar-senha") {
+        window.location.href = "/trocar-senha";
+      }
+    }
+
     return Promise.reject(error);
   },
 );

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter} from "react-router-dom";
 import Layout from "../components/layout/Layout";
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
@@ -18,7 +18,7 @@ import Productivity from "../pages/Productivity";
 import TermsOfUse from "../pages/TermsOfSerivce";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
 import Team from "../pages/Team";
-import ChangePassword from "../pages/ChangePassword"; // <-- Importa a tela nova
+import ChangePassword from "../pages/ChangePassword";
 import { useAuth } from "../contexts/AuthContext";
 
 // Componente auxiliar para verificar se precisa de trocar senha nas rotas protegidas
@@ -32,6 +32,7 @@ function PasswordCheckWrapper() {
 
 export const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
+  { path: "/trocar-senha", element: <ChangePassword /> }, // <-- ADICIONADO AQUI
   { path: "/termos-de-uso", element: <TermsOfUse /> },
   { path: "/politica-de-privacidade", element: <PrivacyPolicy /> },
   {
@@ -39,7 +40,7 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/",
-        element: <PasswordCheckWrapper />, // <-- Intercepta o Layout principal
+        element: <PasswordCheckWrapper />,
         children: [
           { index: true, element: <Dashboard /> },
           { path: "ordens-servico", element: <ServiceOrders /> },
@@ -57,7 +58,7 @@ export const router = createBrowserRouter([
             ],
           },
           { path: "ordens-servico/novo", element: <NewServiceOrder /> },
-          { path: "/produtividade", element: <Productivity /> },
+          { path: "produtividade", element: <Productivity /> },
           { path: "relatorios", element: <Reports /> },
         ],
       },

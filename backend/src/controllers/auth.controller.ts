@@ -1,68 +1,28 @@
 import { Request, Response } from 'express';
-import { PrismaClient, Perfil } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
-
-const registerSchema = z.object({
-  nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  email: z.string().email('E-mail inválido'),
-  senha: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
-  perfil: z.nativeEnum(Perfil).default(Perfil.FUNCIONARIO),
-});
+import { prisma } from '../config/prisma';
+import { env } from '../config/env';
 
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
   senha: z.string().min(1, 'Senha é obrigatória'),
 });
 
+const changePasswordSchema = z.object({
+  senha_atual: z.string().min(1, 'A senha atual é obrigatória'),
+  nova_senha: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres'),
+});
+
 export class AuthController {
-  // Registro
-  async register(req: Request, res: Response) {
-    try {
-      const { nome, email, senha, perfil } = registerSchema.parse(req.body);
-
-      const userExists = await prisma.user.findUnique({ where: { email } });
-      if (userExists) {
-        return res.status(400).json({ error: 'E-mail já cadastrado' });
-      }
-
-      const passwordHash = await bcrypt.hash(senha, 8);
-
-      const user = await prisma.user.create({
-        data: {
-          nome,
-          email,
-          senha: passwordHash,
-          perfil,
-        },
-        select: {
-          id: true,
-          nome: true,
-          email: true,
-          perfil: true,
-          created_at: true,
-        },
-      });
-
-      return res.status(201).json(user);
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ errors: error.issues });
-      }
-      return res.status(500).json({ error: 'Erro ao registrar usuário' });
-    }
-  }
-
-// login
+  // POST /api/auth/login
   async login(req: Request, res: Response) {
     try {
       const { email, senha } = loginSchema.parse(req.body);
 
       const user = await prisma.user.findUnique({ where: { email } });
-      if (!user) {
+      if (!user || !user.ativo) {
         return res.status(400).json({ error: 'E-mail ou senha incorretos' });
       }
 
@@ -71,33 +31,24 @@ export class AuthController {
         return res.status(400).json({ error: 'E-mail ou senha incorretos' });
       }
 
-      if (!user.ativo) {
-        return res.status(400).json({ error: 'E-mail ou senha incorretos' });
-      }
-
-      const secret = process.env.JWT_SECRET || 'chave_secreta_padrao_oficina_123';
-
       const token = jwt.sign(
         { id: user.id, perfil: user.perfil },
-        secret,
-        { expiresIn: '8h' }
+        env.jwtSecret,
+        { expiresIn: env.jwtExpiresIn as SignOptions['expiresIn'] }
       );
 
-     // Exemplo de retorno no backend após validar a senha:
-return res.json({
-  token,
-  user: {
-    id: user.id,
-    nome: user.nome,
-    email: user.email,
-    perfil: user.perfil,
-    ativo: user.ativo,
-    trocar_senha: user.trocar_senha, // <-- Certifica-te de que isto é enviado!
-  },
-});
-
+      return res.json({
+        token,
+        user: {
+          id: user.id,
+          nome: user.nome,
+          email: user.email,
+          perfil: user.perfil,
+          ativo: user.ativo,
+          trocar_senha: user.trocar_senha,
+        },
+      });
     } catch (error: any) {
-      console.error('Erro detalhado no login:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.issues });
       }
@@ -112,12 +63,65 @@ return res.json({
 
       const user = await prisma.user.findUnique({
         where: { id: req.user.id },
-        select: { id: true, nome: true, email: true, perfil: true },
+        select: {
+          id: true,
+          nome: true,
+          email: true,
+          perfil: true,
+          ativo: true,
+          trocar_senha: true,
+        },
       });
+
+      if (!user) {
+        return res.status(401).json({ error: 'Usuário não encontrado' });
+      }
 
       return res.json(user);
     } catch {
       return res.status(500).json({ error: 'Erro ao buscar perfil' });
+    }
+  }
+
+  // PATCH /api/auth/senha
+  async changePassword(req: Request, res: Response) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Não autenticado' });
+
+      const { senha_atual, nova_senha } = changePasswordSchema.parse(req.body);
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.user.id },
+      });
+
+      if (!user) {
+        return res.status(404).json({ error: 'Usuário não encontrado' });
+      }
+
+      const passwordMatch = await bcrypt.compare(senha_atual, user.senha);
+      if (!passwordMatch) {
+        return res.status(400).json({ error: 'Senha atual incorreta' });
+      }
+
+      const hashedPassword = await bcrypt.hash(nova_senha, 10);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          senha: hashedPassword,
+          trocar_senha: false,
+        },
+      });
+
+      return res.json({ message: 'Senha alterada com sucesso!' });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          error: error.issues[0]?.message || 'Dados inválidos',
+          errors: error.issues,
+        });
+      }
+      return res.status(500).json({ error: 'Erro interno ao alterar a senha' });
     }
   }
 }

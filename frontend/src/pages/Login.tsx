@@ -30,8 +30,12 @@ export default function Login() {
 
     setSubmitting(true);
     try {
-      await signIn({ email, senha });
-      navigate("/", { replace: true });
+      const loggedUser = await signIn({ email, senha });
+      if (loggedUser?.trocar_senha) {
+        navigate("/trocar-senha", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
     } catch (err: any) {
       const apiMessage =
         err?.response?.data?.error ||
@@ -71,7 +75,7 @@ export default function Login() {
         <div className="rounded-2xl border border-white/5 bg-[#1C1C1C] p-6 shadow-xl">
           {/* Mensagem de erro da API */}
           {error && (
-            <div className="mb-4 rounded-xl border border-re  d-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
               {error}
             </div>
           )}
@@ -95,17 +99,7 @@ export default function Login() {
               </div>
             </Field>
 
-            <Field
-              label="Senha"
-              action={
-                <button
-                  type="button"
-                  className="text-xs font-medium text-[#FF7518] hover:underline"
-                >
-                  Esqueceu a senha?
-                </button>
-              }
-            >
+            <Field label="Senha">
               <div className="relative">
                 <Lock
                   size={16}
@@ -131,14 +125,9 @@ export default function Login() {
               </div>
             </Field>
 
-            {/* Checkbox */}
-            <label className="flex items-start gap-2 text-xs text-gray-400">
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#242424] accent-[#FF7518]"
-              />
-              <span>Lembre-me por 30 dias</span>
-            </label>
+            <p className="text-xs text-gray-400">
+              Esqueceu a senha? Peça ao proprietário da oficina para redefinir.
+            </p>
 
             {/* Submit */}
             <button
@@ -156,6 +145,23 @@ export default function Login() {
               )}
             </button>
           </form>
+
+          {/* Rodapé com Termos de Serviço e Política de Privacidade */}
+          <div className="mt-5 border-t border-white/5 pt-4 text-center text-xs text-gray-400">
+            <Link
+              to="/termos-de-uso"
+              className="text-[#FF7518] hover:underline"
+            >
+              Termos de Serviço
+            </Link>{" "}
+            e{" "}
+            <Link
+              to="/politica-de-privacidade"
+              className="text-[#FF7518] hover:underline"
+            >
+              Política de Privacidade
+            </Link>
+          </div>
         </div>
 
         {/* Trust badges */}
