@@ -33,8 +33,14 @@ import {
   tabelaMargemPecas,
   tabelaPecasConsumidas,
   tabelaPosicaoEstoque,
+  tabelaPrevisaoFalta,
   tabelaVendasPorDia,
 } from "../lib/relatorios";
+import {
+  corPrevisaoFalta,
+  formatarDecimal,
+  textoPrevisaoFalta,
+} from "../lib/estoque";
 import {
   getVendasPorPeriodo,
   getStatusInventario,
@@ -300,6 +306,8 @@ export default function Reports() {
         ...linhasCsv(tabelaPecasConsumidas(inventario, FORMATO_CSV)),
         [],
         ...linhasCsv(tabelaPosicaoEstoque(inventario, FORMATO_CSV)),
+        [],
+        ...linhasCsv(tabelaPrevisaoFalta(inventario, FORMATO_CSV)),
       ]);
     }
 
@@ -660,6 +668,40 @@ export default function Reports() {
                 </span>,
               ])}
               vazio="Nenhum item para mostrar."
+            />
+            <div className="border-y border-gray-100 px-5 py-3">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Previsão de falta
+              </p>
+              <p className="text-xs text-gray-500">
+                Consumo nas OS finalizadas de{" "}
+                {formatDate(inventario.previsao_falta.periodo.inicio)} a{" "}
+                {formatDate(inventario.previsao_falta.periodo.fim)} (últimos 90
+                dias), independente do período escolhido. A média por mês é o
+                consumo dividido por 3. Itens sem consumo nesses 90 dias não
+                entram.
+              </p>
+            </div>
+            <Tabela
+              colunas={[
+                { titulo: "Item" },
+                { titulo: "Categoria" },
+                { titulo: "Quantidade", direita: true },
+                { titulo: "Consumo (90 dias)", direita: true },
+                { titulo: "Média por mês", direita: true },
+                { titulo: "Previsão" },
+              ]}
+              linhas={inventario.previsao_falta.itens.map((i) => [
+                <span className="font-medium">{i.nome}</span>,
+                i.categoria ?? "—",
+                i.quantidade,
+                i.consumo_90_dias,
+                formatarDecimal(i.media_mensal),
+                <span className={corPrevisaoFalta(i.situacao)}>
+                  {textoPrevisaoFalta(i)}
+                </span>,
+              ])}
+              vazio="Nenhum item com consumo em OS finalizadas nos últimos 90 dias."
             />
           </>
         )}

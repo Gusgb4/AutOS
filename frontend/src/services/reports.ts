@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { PrevisaoFalta } from "./stock";
 
 export interface PeriodoDatas {
   inicio: string;
@@ -56,6 +57,16 @@ export interface StatusInventario {
     valor_em_estoque: number;
     abaixo_minimo: boolean;
   }[];
+  // Últimos 90 dias até hoje, independente do período; itens com consumo, do que acaba primeiro
+  previsao_falta: {
+    periodo: PeriodoDatas;
+    itens: ({
+      id: number;
+      nome: string;
+      categoria: string | null;
+      quantidade: number;
+    } & PrevisaoFalta)[];
+  };
 }
 
 export interface IndicadoresFinanceiros {
