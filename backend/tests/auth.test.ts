@@ -18,6 +18,8 @@ describe("POST /api/auth/login", () => {
       nome: usuario.nome,
       email: usuario.email,
       perfil: "PROPRIETARIO",
+      ativo: true,
+      trocar_senha: false,
     });
     // O hash da senha nunca sai na resposta
     expect(res.body.user.senha).toBeUndefined();
