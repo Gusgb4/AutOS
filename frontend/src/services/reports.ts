@@ -65,6 +65,8 @@ export interface IndicadoresFinanceiros {
   mao_de_obra: number;
   pecas: number;
   faturamento: number;
+  custo_pecas: number;
+  margem_pecas: number;
 }
 
 export interface ResumoFinanceiro {
@@ -79,6 +81,16 @@ export interface ResumoFinanceiro {
     mao_de_obra: { valor: number; percentual: number };
     pecas: { valor: number; percentual: number };
     total: number;
+  };
+  // Mesmas OS da composição; só peças com custo registrado entram na margem
+  margem_pecas: {
+    receita: number;
+    custo: number;
+    margem: number;
+    percentual: number | null;
+    pecas_com_custo: number;
+    pecas_sem_custo: number;
+    valor_sem_custo: number;
   };
   outras_receitas: number;
 }

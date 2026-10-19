@@ -1,4 +1,9 @@
-import { FormaPagamento, Prisma, StatusOrdemServico } from "@prisma/client";
+import {
+  FormaPagamento,
+  Perfil,
+  Prisma,
+  StatusOrdemServico,
+} from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
 
@@ -20,6 +25,10 @@ const ordemCompleta = {
   pecas: { include: { item_estoque: { omit: { valor_entrada: true } } } },
   financialEntries: pagamentosAtivos,
 } satisfies Prisma.ServiceOrderInclude;
+
+type OrdemCompleta = Prisma.ServiceOrderGetPayload<{
+  include: typeof ordemCompleta;
+}>;
 
 const STATUS_EDITAVEIS: StatusOrdemServico[] = ["ABERTA", "EM_ANDAMENTO"];
 
@@ -60,6 +69,64 @@ export function comPagamento<
   return { ...ordem, ...calcularPagamento(ordem, financialEntries) };
 }
 
+// A margem considera só as peças com custo registrado. As antigas, sem
+// valor_custo, ficam fora da conta para não inflar a margem.
+export function calcularMargemPecas(
+  pecas: {
+    quantidade: number;
+    valor_unitario: Prisma.Decimal;
+    valor_custo: Prisma.Decimal | null;
+  }[],
+) {
+  let receita = new Prisma.Decimal(0);
+  let custo = new Prisma.Decimal(0);
+  let valor_sem_custo = new Prisma.Decimal(0);
+  let pecas_com_custo = 0;
+  let pecas_sem_custo = 0;
+
+  for (const peca of pecas) {
+    const venda = peca.valor_unitario.mul(peca.quantidade);
+    if (peca.valor_custo === null) {
+      valor_sem_custo = valor_sem_custo.plus(venda);
+      pecas_sem_custo += 1;
+    } else {
+      receita = receita.plus(venda);
+      custo = custo.plus(peca.valor_custo.mul(peca.quantidade));
+      pecas_com_custo += 1;
+    }
+  }
+
+  const margem = receita.minus(custo);
+  const percentual = receita.gt(0)
+    ? margem.div(receita).mul(100).toDecimalPlaces(1)
+    : null;
+
+  return {
+    receita,
+    custo,
+    margem,
+    percentual,
+    pecas_com_custo,
+    pecas_sem_custo,
+    valor_sem_custo,
+  };
+}
+
+// Custo e margem são só do proprietário: para os outros perfis o valor_custo
+// sai de cada peça e a margem nem é calculada
+function formatarOrdem(ordem: OrdemCompleta, perfil: Perfil | undefined) {
+  const formatada = comPagamento(ordem);
+
+  if (perfil !== "PROPRIETARIO") {
+    return {
+      ...formatada,
+      pecas: formatada.pecas.map(({ valor_custo, ...peca }) => peca),
+    };
+  }
+
+  return { ...formatada, margem_pecas: calcularMargemPecas(formatada.pecas) };
+}
+
 async function travarOrdem(tx: Tx, ordemId: number) {
   await tx.$queryRaw`SELECT id FROM service_orders WHERE id = ${ordemId} FOR UPDATE`;
 
@@ -75,7 +142,11 @@ async function travarOrdem(tx: Tx, ordemId: number) {
   return ordem;
 }
 
-async function recalcularTotal(tx: Tx, ordemId: number) {
+async function recalcularTotal(
+  tx: Tx,
+  ordemId: number,
+  perfil: Perfil | undefined,
+) {
   const [servicos, pecas] = await Promise.all([
     tx.serviceOrderService.findMany({
       where: { ordem_id: ordemId },
@@ -98,7 +169,7 @@ async function recalcularTotal(tx: Tx, ordemId: number) {
     include: ordemCompleta,
   });
 
-  return comPagamento(ordem);
+  return formatarOrdem(ordem, perfil);
 }
 
 function somarDias(data: Date, dias: number): Date {
@@ -151,7 +222,10 @@ interface SearchServiceOrdersFilters {
   status_pagamento?: StatusPagamento;
 }
 
-export async function search(filtros: SearchServiceOrdersFilters = {}) {
+export async function search(
+  filtros: SearchServiceOrdersFilters,
+  perfil: Perfil | undefined,
+) {
   const ordens = await prisma.serviceOrder.findMany({
     // Campos undefined são ignorados pelo Prisma: cada filtro é opcional
     where: { status: filtros.status, cliente_id: filtros.cliente_id },
@@ -160,7 +234,7 @@ export async function search(filtros: SearchServiceOrdersFilters = {}) {
   });
 
   return ordens
-    .map(comPagamento)
+    .map((ordem) => formatarOrdem(ordem, perfil))
     .filter(
       (ordem) =>
         !filtros.status_pagamento ||
@@ -168,13 +242,13 @@ export async function search(filtros: SearchServiceOrdersFilters = {}) {
     );
 }
 
-export async function findById(id: number) {
+export async function findById(id: number, perfil: Perfil | undefined) {
   const ordem = await prisma.serviceOrder.findUnique({
     where: { id },
     include: ordemCompleta,
   });
 
-  return ordem && comPagamento(ordem);
+  return ordem && formatarOrdem(ordem, perfil);
 }
 
 interface CreateServiceOrderInput {
@@ -185,7 +259,10 @@ interface CreateServiceOrderInput {
   observacoes?: string;
 }
 
-export async function create(dados: CreateServiceOrderInput) {
+export async function create(
+  dados: CreateServiceOrderInput,
+  perfil: Perfil | undefined,
+) {
   const veiculo = await prisma.vehicle.findUnique({
     where: { id: dados.veiculo_id },
   });
@@ -223,7 +300,7 @@ export async function create(dados: CreateServiceOrderInput) {
       include: ordemCompleta,
     });
 
-    return comPagamento(ordem);
+    return formatarOrdem(ordem, perfil);
   });
 }
 
@@ -231,6 +308,7 @@ export async function addPart(
   ordemId: number,
   itemId: number,
   quantidade: number,
+  perfil: Perfil | undefined,
 ) {
   return prisma.$transaction(async (tx) => {
     await buscarOrdemEditavel(tx, ordemId);
@@ -278,11 +356,13 @@ export async function addPart(
         item_estoque_id: itemId,
         quantidade,
         valor_unitario: item.valor_final,
+        valor_custo: item.valor_entrada,
       },
+      // Preço e custo ficam os da primeira inclusão da peça na OS
       update: { quantidade: { increment: quantidade } },
     });
 
-    const ordem = await recalcularTotal(tx, ordemId);
+    const ordem = await recalcularTotal(tx, ordemId, perfil);
 
     return {
       ordem,
@@ -292,7 +372,11 @@ export async function addPart(
   });
 }
 
-export async function removePart(ordemId: number, partId: number) {
+export async function removePart(
+  ordemId: number,
+  partId: number,
+  perfil: Perfil | undefined,
+) {
   return prisma.$transaction(async (tx) => {
     await buscarOrdemEditavel(tx, ordemId);
 
@@ -311,7 +395,7 @@ export async function removePart(ordemId: number, partId: number) {
       data: { quantidade: { increment: peca.quantidade } },
     });
 
-    return recalcularTotal(tx, ordemId);
+    return recalcularTotal(tx, ordemId, perfil);
   });
 }
 
@@ -320,7 +404,11 @@ interface AddServiceInput {
   valor: number;
 }
 
-export async function addService(ordemId: number, dados: AddServiceInput) {
+export async function addService(
+  ordemId: number,
+  dados: AddServiceInput,
+  perfil: Perfil | undefined,
+) {
   return prisma.$transaction(async (tx) => {
     await buscarOrdemEditavel(tx, ordemId);
 
@@ -332,11 +420,15 @@ export async function addService(ordemId: number, dados: AddServiceInput) {
       },
     });
 
-    return recalcularTotal(tx, ordemId);
+    return recalcularTotal(tx, ordemId, perfil);
   });
 }
 
-export async function removeService(ordemId: number, serviceId: number) {
+export async function removeService(
+  ordemId: number,
+  serviceId: number,
+  perfil: Perfil | undefined,
+) {
   return prisma.$transaction(async (tx) => {
     await buscarOrdemEditavel(tx, ordemId);
 
@@ -350,13 +442,14 @@ export async function removeService(ordemId: number, serviceId: number) {
 
     await tx.serviceOrderService.delete({ where: { id: serviceId } });
 
-    return recalcularTotal(tx, ordemId);
+    return recalcularTotal(tx, ordemId, perfil);
   });
 }
 
 export async function changeStatus(
   ordemId: number,
   novoStatus: StatusOrdemServico,
+  perfil: Perfil | undefined,
 ) {
   return prisma.$transaction(async (tx) => {
     const ordem = await travarOrdem(tx, ordemId);
@@ -408,13 +501,14 @@ export async function changeStatus(
       include: ordemCompleta,
     });
 
-    return comPagamento(atualizada);
+    return formatarOrdem(atualizada, perfil);
   });
 }
 
 export async function updateObservacoes(
   ordemId: number,
   observacoes: string | undefined,
+  perfil: Perfil | undefined,
 ) {
   const ordem = await prisma.serviceOrder.findUnique({
     where: { id: ordemId },
@@ -430,7 +524,7 @@ export async function updateObservacoes(
     include: ordemCompleta,
   });
 
-  return comPagamento(atualizada);
+  return formatarOrdem(atualizada, perfil);
 }
 
 interface RegistrarPagamentoInput {

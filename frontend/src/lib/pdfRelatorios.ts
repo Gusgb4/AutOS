@@ -24,6 +24,7 @@ import {
   tabelaIndicadoresAtividade,
   tabelaIndicadoresConsumo,
   tabelaIndicadoresVendas,
+  tabelaMargemPecas,
   tabelaPecasConsumidas,
   tabelaPosicaoEstoque,
   tabelaVendasPorDia,
@@ -230,7 +231,12 @@ export function baixarPdfResumoFinanceiro(
     resumo.periodo_anterior,
   );
   y = desenharTabelaRelatorio(doc, y, tabelaCaixa(resumo, FORMATO_PDF));
-  desenharTabelaRelatorio(doc, y + 6, tabelaFaturamento(resumo, FORMATO_PDF));
+  y = desenharTabelaRelatorio(
+    doc,
+    y + 6,
+    tabelaFaturamento(resumo, FORMATO_PDF),
+  );
+  desenharTabelaRelatorio(doc, y + 6, tabelaMargemPecas(resumo, FORMATO_PDF));
   desenharRodape(doc);
   doc.save(`resumo-financeiro-${inicio}-a-${fim}.pdf`);
 }
