@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import {
+  consumoPorItem,
+  periodoGiro,
+  preverFalta,
+} from "../services/reports.service";
 
 const prisma = new PrismaClient();
 
@@ -49,9 +54,19 @@ type StockItemComUso = Prisma.StockItemGetPayload<{
   include: typeof ultimoUsoInclude;
 }>;
 
+// Consumo de cada item nas OS finalizadas dos últimos 90 dias (só quantidades)
+function consumoRecente() {
+  return consumoPorItem(periodoGiro());
+}
+
 // Parado: tem saldo e nenhum uso nos últimos 90 dias. Item nunca usado
 // conta a partir do próprio cadastro. O custo só vai para o proprietário.
-function formatarItem(item: StockItemComUso, exibirCusto: boolean) {
+// A previsão de falta só tem quantidades, então vai para os dois perfis.
+function formatarItem(
+  item: StockItemComUso,
+  exibirCusto: boolean,
+  consumo: Map<number, number>,
+) {
   const { usos_em_ordens, _count, valor_entrada, ...dados } = item;
   const ultimo_uso = usos_em_ordens[0]?.ordem.created_at ?? null;
   const referencia = ultimo_uso ?? item.created_at;
@@ -65,6 +80,7 @@ function formatarItem(item: StockItemComUso, exibirCusto: boolean) {
     parado:
       item.quantidade > 0 &&
       Date.now() - referencia.getTime() > NOVENTA_DIAS_MS,
+    previsao: preverFalta(item.quantidade, consumo.get(item.id) ?? 0),
   };
 }
 
@@ -99,14 +115,17 @@ export class StockController {
       // Arquivados ficam fora por padrão; só o proprietário pode pedi-los
       const comArquivados = exibirCusto && incluirArquivados === "true";
 
-      const items = await prisma.stockItem.findMany({
-        where: comArquivados ? undefined : { ativo: true },
-        include: ultimoUsoInclude,
-        orderBy: { nome: "asc" },
-      });
+      const [items, consumo] = await Promise.all([
+        prisma.stockItem.findMany({
+          where: comArquivados ? undefined : { ativo: true },
+          include: ultimoUsoInclude,
+          orderBy: { nome: "asc" },
+        }),
+        consumoRecente(),
+      ]);
 
       const formattedItems = items.map((item) =>
-        formatarItem(item, exibirCusto),
+        formatarItem(item, exibirCusto, consumo),
       );
 
       if (lowStockOnly === "true") {
@@ -128,10 +147,13 @@ export class StockController {
     try {
       const { id } = req.params;
 
-      const item = await prisma.stockItem.findUnique({
-        where: { id: Number(id) },
-        include: ultimoUsoInclude,
-      });
+      const [item, consumo] = await Promise.all([
+        prisma.stockItem.findUnique({
+          where: { id: Number(id) },
+          include: ultimoUsoInclude,
+        }),
+        consumoRecente(),
+      ]);
 
       if (!item) {
         return res
@@ -139,7 +161,9 @@ export class StockController {
           .json({ error: "Item de estoque não encontrado" });
       }
 
-      return res.json(formatarItem(item, req.user?.perfil === "PROPRIETARIO"));
+      return res.json(
+        formatarItem(item, req.user?.perfil === "PROPRIETARIO", consumo),
+      );
     } catch (error) {
       return res.status(500).json({ error: "Erro ao buscar item de estoque" });
     }
@@ -247,7 +271,7 @@ export class StockController {
         include: ultimoUsoInclude,
       });
 
-      return res.json(formatarItem(item, true));
+      return res.json(formatarItem(item, true, await consumoRecente()));
     } catch (error) {
       return res.status(500).json({
         error: ativo

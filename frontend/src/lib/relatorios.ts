@@ -4,6 +4,7 @@ import type {
   StatusInventario,
   VendasPorPeriodo,
 } from "../services/reports";
+import { textoPrevisaoFalta } from "./estoque";
 
 // Tabelas dos relatórios, montadas uma vez só para o CSV e o PDF terem as mesmas linhas.
 // Não importa o jspdf: a tela de relatórios carrega este arquivo direto.
@@ -27,12 +28,14 @@ export interface Formatador {
   moeda: (valor: number) => Celula;
   percentual: (valor: number) => Celula;
   variacao: (valor: number | null) => Celula;
+  decimal: (valor: number) => Celula;
 }
 
 export const FORMATO_CSV: Formatador = {
   moeda: (valor) => valor,
   percentual: (valor) => valor,
   variacao: (valor) => valor,
+  decimal: (valor) => valor,
 };
 
 export function formatPercent(valor: number) {
@@ -183,6 +186,34 @@ export function tabelaPosicaoEstoque(
       i.abaixo_minimo ? "Abaixo do mínimo" : "Em estoque",
     ]),
     vazio: "Nenhum item para mostrar.",
+  };
+}
+
+// Mesmas linhas da tela, na ordem do backend (do que acaba primeiro ao último)
+export function tabelaPrevisaoFalta(
+  inventario: StatusInventario,
+  f: Formatador,
+): TabelaRelatorio {
+  const { periodo, itens } = inventario.previsao_falta;
+  return {
+    titulo: `Previsão de falta (consumo de ${formatDate(periodo.inicio)} a ${formatDate(periodo.fim)})`,
+    colunas: [
+      { titulo: "Item" },
+      { titulo: "Categoria" },
+      { titulo: "Quantidade", direita: true },
+      { titulo: "Consumo (90 dias)", direita: true },
+      { titulo: "Média por mês", direita: true },
+      { titulo: "Previsão" },
+    ],
+    linhas: itens.map((i) => [
+      i.nome,
+      i.categoria,
+      i.quantidade,
+      i.consumo_90_dias,
+      f.decimal(i.media_mensal),
+      textoPrevisaoFalta(i),
+    ]),
+    vazio: "Nenhum item com consumo em OS finalizadas nos últimos 90 dias.",
   };
 }
 

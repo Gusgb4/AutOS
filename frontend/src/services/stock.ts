@@ -1,6 +1,23 @@
 // frontend/src/services/stock.ts
 import { api } from "./api";
 
+export type SituacaoPrevisao =
+  | "ESGOTADO"
+  | "SEM_CONSUMO"
+  | "MENOS_DE_1_SEMANA"
+  | "SEMANAS"
+  | "MAIS_DE_1_ANO";
+
+// Calculada no backend com as OS finalizadas dos últimos 90 dias; só quantidades
+export interface PrevisaoFalta {
+  consumo_90_dias: number;
+  // Consumo dos 90 dias dividido por 3
+  media_mensal: number;
+  situacao: SituacaoPrevisao;
+  // Semanas arredondadas; só vem na situação SEMANAS
+  semanas: number | null;
+}
+
 export interface StockItem {
   id: number;
   nome: string;
@@ -19,6 +36,7 @@ export interface StockItem {
   // Data de abertura da última OS não cancelada que usou o item
   ultimo_uso: string | null;
   parado: boolean;
+  previsao: PrevisaoFalta;
   created_at: string;
   updated_at: string;
 }

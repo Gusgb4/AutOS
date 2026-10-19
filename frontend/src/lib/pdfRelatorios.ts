@@ -15,6 +15,7 @@ import {
   desenharTabela,
   formatarMoeda,
 } from "./pdf";
+import { formatarDecimal } from "./estoque";
 import {
   formatDate,
   formatPercent,
@@ -27,6 +28,7 @@ import {
   tabelaMargemPecas,
   tabelaPecasConsumidas,
   tabelaPosicaoEstoque,
+  tabelaPrevisaoFalta,
   tabelaVendasPorDia,
   type Celula,
   type Formatador,
@@ -50,6 +52,7 @@ const FORMATO_PDF: Formatador = {
     const sinal = valor > 0 ? "+" : valor < 0 ? "-" : "";
     return `${sinal}${formatPercent(Math.abs(valor))}`;
   },
+  decimal: formatarDecimal,
 };
 
 // Sem valor (categoria, fornecedor, variação sem base de comparação): traço, como na tela
@@ -212,7 +215,11 @@ export function baixarPdfInventario(
     ["Abaixo do mínimo", String(inventario.resumo.abaixo_minimo)],
     ["Valor em estoque", formatarMoeda(inventario.resumo.valor_total)],
   ]);
-  desenharTabelaRelatorio(doc, y + 2, posicao);
+  y = desenharTabelaRelatorio(doc, y + 2, posicao);
+
+  const previsao = tabelaPrevisaoFalta(inventario, FORMATO_PDF);
+  if (previsao.titulo) y = desenharTitulo(doc, y + 10, previsao.titulo);
+  desenharTabelaRelatorio(doc, y, previsao);
   desenharRodape(doc);
   doc.save(`inventario-${inicio}-a-${fim}.pdf`);
 }
