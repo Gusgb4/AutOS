@@ -17,11 +17,17 @@ import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
 import PaymentStatusBadge from "../components/ui/PaymentStatusBadge";
 import FinancialEntryModal from "../components/financial/FinancialEntryModal";
+import ExpensesByCategory from "../components/financial/ExpensesByCategory";
 import {
+  CATEGORIAS_DESPESA,
+  categoriaLabel,
   createFinancialEntry,
   listarAReceber,
+  listDespesasPorCategoria,
   listFinancialEntries,
+  type CategoriaDespesa,
   type ContaAReceber,
+  type DespesasPorCategoria,
   type FinancialEntry,
   type FinancialEntryPayload,
   type TipoLancamento,
@@ -30,14 +36,34 @@ import { formaPagamentoLabel } from "../services/serviceOrders";
 
 interface Filtros {
   tipo: TipoLancamento | "";
+  categoria: CategoriaDespesa | "";
   inicio: string;
   fim: string;
+  estornados: boolean;
 }
 
-const filtrosVazios: Filtros = { tipo: "", inicio: "", fim: "" };
+const filtrosVazios: Filtros = {
+  tipo: "",
+  categoria: "",
+  inicio: "",
+  fim: "",
+  estornados: false,
+};
 
 const moeda = (valor: number) =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const dataBR = (iso: string) => iso.split("-").reverse().join("/");
+
+function descreverPeriodo({ inicio, fim }: Filtros) {
+  if (inicio && fim) return `De ${dataBR(inicio)} a ${dataBR(fim)}`;
+  if (inicio) return `A partir de ${dataBR(inicio)}`;
+  if (fim) return `Até ${dataBR(fim)}`;
+  return "Todo o período";
+}
+
+const mensagemErro = (e: unknown, padrao: string) =>
+  (isAxiosError(e) ? e.response?.data?.erro : undefined) ?? padrao;
 
 export default function Financial() {
   const navigate = useNavigate();
@@ -60,14 +86,20 @@ export default function Financial() {
   const [salvando, setSalvando] = useState(false);
   const [erroModal, setErroModal] = useState<string | null>(null);
 
+  const [porCategoria, setPorCategoria] =
+    useState<DespesasPorCategoria | null>(null);
+  const [erroPorCategoria, setErroPorCategoria] = useState<string | null>(null);
+
   async function carregar(alvo: Filtros) {
     try {
       setLoading(true);
       setErro(null);
       const data = await listFinancialEntries({
         tipo: alvo.tipo || undefined,
+        categoria: alvo.categoria || undefined,
         inicio: alvo.inicio || undefined,
-        fim: alvo.fim ? `${alvo.fim}T23:59:59` : undefined,
+        fim: alvo.fim || undefined,
+        estornados: alvo.estornados,
       });
       setLancamentos(data);
     } catch (e) {
@@ -79,6 +111,40 @@ export default function Financial() {
       setLoading(false);
     }
   }
+
+  // O resumo por categoria segue só o período (ignora tipo, categoria e estornados)
+  async function carregarPorCategoria(alvo: Filtros) {
+    try {
+      setErroPorCategoria(null);
+      setPorCategoria(
+        await listDespesasPorCategoria({ inicio: alvo.inicio, fim: alvo.fim }),
+      );
+    } catch (e) {
+      setErroPorCategoria(
+        mensagemErro(e, "Não foi possível carregar as despesas por categoria."),
+      );
+    }
+  }
+
+  useEffect(() => {
+    let ativo = true;
+
+    listDespesasPorCategoria({})
+      .then((data) => {
+        if (ativo) setPorCategoria(data);
+      })
+      .catch((e) => {
+        if (ativo) {
+          setErroPorCategoria(
+            mensagemErro(e, "Não foi possível carregar as despesas por categoria."),
+          );
+        }
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   // Carga inicial (o estado já começa com loading = true)
   useEffect(() => {
@@ -130,15 +196,21 @@ export default function Financial() {
     const novos = { ...filtros, ...patch };
     setFiltros(novos);
     carregar(novos);
+    if (novos.inicio !== filtros.inicio || novos.fim !== filtros.fim) {
+      carregarPorCategoria(novos);
+    }
   }
 
-  const totalReceitas = lancamentos
+  // Estornados aparecem na lista, mas ficam fora dos totais
+  const ativos = lancamentos.filter((l) => !l.estornado);
+  const totalReceitas = ativos
     .filter((l) => l.tipo === "RECEITA")
     .reduce((soma, l) => soma + Number(l.valor), 0);
-  const totalDespesas = lancamentos
+  const totalDespesas = ativos
     .filter((l) => l.tipo === "DESPESA")
     .reduce((soma, l) => soma + Number(l.valor), 0);
   const saldo = totalReceitas - totalDespesas;
+  const qtdEstornados = lancamentos.length - ativos.length;
 
   async function handleSalvar(payload: FinancialEntryPayload) {
     try {
@@ -146,7 +218,7 @@ export default function Financial() {
       setErroModal(null);
       await createFinancialEntry(payload);
       setModalAberto(false);
-      await carregar(filtros);
+      await Promise.all([carregar(filtros), carregarPorCategoria(filtros)]);
     } catch (e) {
       setErroModal(
         (isAxiosError(e) ? e.response?.data?.erro : undefined) ??
@@ -160,9 +232,16 @@ export default function Financial() {
   function limparFiltros() {
     setFiltros(filtrosVazios);
     carregar(filtrosVazios);
+    carregarPorCategoria(filtrosVazios);
   }
 
-  const temFiltro = Boolean(filtros.tipo || filtros.inicio || filtros.fim);
+  const temFiltro = Boolean(
+    filtros.tipo ||
+      filtros.categoria ||
+      filtros.inicio ||
+      filtros.fim ||
+      filtros.estornados,
+  );
   const ocultavel = (valor: number) => (showValues ? moeda(valor) : "R$ •••••");
 
   return (
@@ -216,7 +295,7 @@ export default function Financial() {
         />
         <StatCard
           label="LANÇAMENTOS"
-          value={lancamentos.length}
+          value={ativos.length}
           icon={ListChecks}
           accentColor="#FF7518"
         />
@@ -310,6 +389,13 @@ export default function Financial() {
         </div>
       )}
 
+      <ExpensesByCategory
+        dados={porCategoria}
+        erro={erroPorCategoria}
+        periodo={descreverPeriodo(filtros)}
+        formatarValor={ocultavel}
+      />
+
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <div className="flex flex-col gap-3 border-b border-gray-100 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
@@ -337,6 +423,23 @@ export default function Financial() {
               <option value="DESPESA">Despesas</option>
             </select>
 
+            <select
+              value={filtros.categoria}
+              onChange={(e) =>
+                aplicarFiltro({
+                  categoria: e.target.value as CategoriaDespesa | "",
+                })
+              }
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#FF7518]"
+            >
+              <option value="">Todas as categorias</option>
+              {CATEGORIAS_DESPESA.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+
             <input
               type="date"
               value={filtros.inicio}
@@ -349,6 +452,18 @@ export default function Financial() {
               onChange={(e) => aplicarFiltro({ fim: e.target.value })}
               className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#FF7518]"
             />
+
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={filtros.estornados}
+                onChange={(e) =>
+                  aplicarFiltro({ estornados: e.target.checked })
+                }
+                className="h-4 w-4 accent-[#FF7518]"
+              />
+              Mostrar estornados
+            </label>
 
             {temFiltro && (
               <button
@@ -395,6 +510,7 @@ export default function Financial() {
                   <th className="px-5 py-3 font-medium">Data</th>
                   <th className="px-5 py-3 font-medium">Descrição</th>
                   <th className="px-5 py-3 font-medium">Tipo</th>
+                  <th className="px-5 py-3 font-medium">Categoria</th>
                   <th className="px-5 py-3 font-medium">Forma de pagamento</th>
                   <th className="px-5 py-3 font-medium">Origem</th>
                   <th className="px-5 py-3 text-right font-medium">Valor</th>
@@ -403,17 +519,35 @@ export default function Financial() {
               <tbody>
                 {lancamentos.map((lancamento) => {
                   const receita = lancamento.tipo === "RECEITA";
+                  const estornado = lancamento.estornado;
                   return (
                     <tr
                       key={lancamento.id}
-                      className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
+                      className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/60 ${
+                        estornado ? "bg-gray-50/60 text-gray-400" : ""
+                      }`}
                     >
-                      <td className="px-5 py-4 text-gray-600">
+                      <td
+                        className={`px-5 py-4 ${estornado ? "line-through" : "text-gray-600"}`}
+                      >
                         {new Date(lancamento.data).toLocaleDateString("pt-BR")}
                       </td>
 
-                      <td className="px-5 py-4 font-medium text-[#1F1F1F]">
-                        {lancamento.descricao}
+                      <td className="px-5 py-4">
+                        <span
+                          className={
+                            estornado
+                              ? "line-through"
+                              : "font-medium text-[#1F1F1F]"
+                          }
+                        >
+                          {lancamento.descricao}
+                        </span>
+                        {estornado && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                            Estornado
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-5 py-4">
@@ -431,6 +565,14 @@ export default function Financial() {
                           )}
                           {receita ? "Receita" : "Despesa"}
                         </span>
+                      </td>
+
+                      <td className="px-5 py-4 text-gray-600">
+                        {lancamento.categoria ? (
+                          categoriaLabel(lancamento.categoria)
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
                       </td>
 
                       <td className="px-5 py-4 text-gray-600">
@@ -457,7 +599,11 @@ export default function Financial() {
 
                       <td
                         className={`px-5 py-4 text-right font-semibold ${
-                          receita ? "text-emerald-600" : "text-red-500"
+                          estornado
+                            ? "text-gray-400 line-through"
+                            : receita
+                              ? "text-emerald-600"
+                              : "text-red-500"
                         }`}
                       >
                         {receita ? "+" : "-"} {moeda(Number(lancamento.valor))}
@@ -473,16 +619,19 @@ export default function Financial() {
         <div className="border-t border-gray-100 px-5 py-4 text-xs text-gray-400">
           Mostrando {lancamentos.length} lançamento
           {lancamentos.length === 1 ? "" : "s"}
+          {qtdEstornados > 0 &&
+            ` (${qtdEstornados} estornado${qtdEstornados === 1 ? "" : "s"}, fora dos totais)`}
         </div>
       </div>
 
-      <FinancialEntryModal
-        open={modalAberto}
-        submitting={salvando}
-        erro={erroModal}
-        onClose={() => setModalAberto(false)}
-        onSave={handleSalvar}
-      />
+      {modalAberto && (
+        <FinancialEntryModal
+          submitting={salvando}
+          erro={erroModal}
+          onClose={() => setModalAberto(false)}
+          onSave={handleSalvar}
+        />
+      )}
     </div>
   );
 }
