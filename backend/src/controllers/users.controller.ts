@@ -1,11 +1,35 @@
 import { Request, Response } from "express";
-import { activate, deactivate, listGroupedByPerfil } from "../services/users.service";
+import {
+  activate,
+  createUser,
+  deactivate,
+  listGroupedByPerfil,
+  resetUserPassword,
+} from "../services/users.service";
 import { AppError } from "../utils/AppError";
 
 // GET /api/users
 export async function listController(_req: Request, res: Response) {
   const usuarios = await listGroupedByPerfil();
   return res.status(200).json(usuarios);
+}
+
+// POST /api/users
+export async function createController(req: Request, res: Response) {
+  const { nome, email, perfil } = req.body;
+  const resultado = await createUser({ nome, email, perfil });
+  return res.status(201).json(resultado);
+}
+
+// PATCH /api/users/:id/redefinir-senha
+export async function resetPasswordController(req: Request, res: Response) {
+  if (!req.user) {
+    throw new AppError("Não autenticado.", 401);
+  }
+
+  const id = Number(req.params.id);
+  const resultado = await resetUserPassword(id, req.user.id);
+  return res.status(200).json(resultado);
 }
 
 // PATCH /api/users/:id/deactivate

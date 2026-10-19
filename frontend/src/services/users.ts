@@ -30,6 +30,22 @@ export interface UserStatusResponse {
   ativo: boolean;
 }
 
+export interface CreateUserPayload {
+  nome: string;
+  email: string;
+  perfil: "PROPRIETARIO" | "FUNCIONARIO";
+}
+
+export interface CreateUserResponse {
+  usuario: TeamMember;
+  senha_provisoria: string;
+}
+
+export interface ResetPasswordResponse {
+  usuario: UserStatusResponse;
+  senha_provisoria: string;
+}
+
 export async function listUsers(): Promise<Mechanic[]> {
   const { data } = await api.get<UsersGroupedResponse>("/users");
   return [...data.proprietarios, ...data.funcionarios];
@@ -38,6 +54,22 @@ export async function listUsers(): Promise<Mechanic[]> {
 export async function listTeam(): Promise<TeamMember[]> {
   const { data } = await api.get<UsersGroupedResponse>("/users");
   return [...data.proprietarios, ...data.funcionarios];
+}
+
+export async function createUser(
+  payload: CreateUserPayload,
+): Promise<CreateUserResponse> {
+  const { data } = await api.post<CreateUserResponse>("/users", payload);
+  return data;
+}
+
+export async function resetUserPassword(
+  id: number,
+): Promise<ResetPasswordResponse> {
+  const { data } = await api.patch<ResetPasswordResponse>(
+    `/users/${id}/redefinir-senha`,
+  );
+  return data;
 }
 
 export async function deactivateUser(id: number): Promise<UserStatusResponse> {
