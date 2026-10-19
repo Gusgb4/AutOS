@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
+import { calcularMargemPecas } from "./serviceOrders.service";
 
 const FUSO = "-03:00";
 const TRES_HORAS_MS = 3 * 60 * 60 * 1000;
@@ -265,6 +266,7 @@ async function calcularResumo(p: Periodo) {
 
   let maoDeObra = zero();
   let pecas = zero();
+  let margemPecas = calcularMargemPecas([]);
 
   if (ordemIds.length > 0) {
     const servicos = await prisma.serviceOrderService.aggregate({
@@ -275,15 +277,16 @@ async function calcularResumo(p: Periodo) {
 
     const itens = await prisma.serviceOrderPart.findMany({
       where: { ordem_id: { in: ordemIds } },
-      select: { quantidade: true, valor_unitario: true },
+      select: { quantidade: true, valor_unitario: true, valor_custo: true },
     });
     pecas = itens.reduce(
       (acc, i) => acc.plus(i.valor_unitario.mul(i.quantidade)),
       zero(),
     );
+    margemPecas = calcularMargemPecas(itens);
   }
 
-  return { entradas, saidas, outrasReceitas, maoDeObra, pecas };
+  return { entradas, saidas, outrasReceitas, maoDeObra, pecas, margemPecas };
 }
 
 export async function resumoFinanceiro(p: Periodo) {
@@ -300,6 +303,8 @@ export async function resumoFinanceiro(p: Periodo) {
     mao_de_obra: arredondar(r.maoDeObra),
     pecas: arredondar(r.pecas),
     faturamento: arredondar(r.maoDeObra.plus(r.pecas)),
+    custo_pecas: arredondar(r.margemPecas.custo),
+    margem_pecas: arredondar(r.margemPecas.margem),
   });
   const indicadoresAtuais = indicadores(atual);
   const indicadoresAnteriores = indicadores(ant);
@@ -324,6 +329,16 @@ export async function resumoFinanceiro(p: Periodo) {
         percentual: percentual(atual.pecas),
       },
       total: arredondar(baseOS),
+    },
+    // Mesmas OS da composição (finalizadas no período); só peças com custo registrado
+    margem_pecas: {
+      receita: arredondar(atual.margemPecas.receita),
+      custo: indicadoresAtuais.custo_pecas,
+      margem: indicadoresAtuais.margem_pecas,
+      percentual: atual.margemPecas.percentual?.toNumber() ?? null,
+      pecas_com_custo: atual.margemPecas.pecas_com_custo,
+      pecas_sem_custo: atual.margemPecas.pecas_sem_custo,
+      valor_sem_custo: arredondar(atual.margemPecas.valor_sem_custo),
     },
     outras_receitas: arredondar(atual.outrasReceitas),
     anterior: indicadoresAnteriores,

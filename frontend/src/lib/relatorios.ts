@@ -257,6 +257,38 @@ export function tabelaFaturamento(
   };
 }
 
+// Mesmas OS do faturamento; só peças com custo registrado entram na margem
+export function tabelaMargemPecas(
+  resumo: ResumoFinanceiro,
+  f: Formatador,
+): TabelaRelatorio {
+  const m = resumo.margem_pecas;
+  const a = resumo.anterior;
+  const v = resumo.variacao;
+  return {
+    colunas: colunasComparativo("Margem das peças (OS finalizadas no período)"),
+    linhas: [
+      [
+        "Custo das peças",
+        f.moeda(m.custo),
+        f.moeda(a.custo_pecas),
+        f.variacao(v.custo_pecas),
+      ],
+      [
+        "Margem (R$)",
+        f.moeda(m.margem),
+        f.moeda(a.margem_pecas),
+        f.variacao(v.margem_pecas),
+      ],
+      ["Margem (%)", m.percentual === null ? null : f.percentual(m.percentual)],
+      [
+        "Peças sem custo registrado (venda, fora da margem)",
+        f.moeda(m.valor_sem_custo),
+      ],
+    ],
+  };
+}
+
 export function tabelaIndicadoresAtividade(
   atividade: AtividadeClientes,
   f: Formatador,

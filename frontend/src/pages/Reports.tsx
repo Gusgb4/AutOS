@@ -30,6 +30,7 @@ import {
   tabelaIndicadoresAtividade,
   tabelaIndicadoresConsumo,
   tabelaIndicadoresVendas,
+  tabelaMargemPecas,
   tabelaPecasConsumidas,
   tabelaPosicaoEstoque,
   tabelaVendasPorDia,
@@ -311,6 +312,8 @@ export default function Reports() {
         ...linhasCsv(tabelaCaixa(resumo, FORMATO_CSV)),
         [],
         ...linhasCsv(tabelaFaturamento(resumo, FORMATO_CSV)),
+        [],
+        ...linhasCsv(tabelaMargemPecas(resumo, FORMATO_CSV)),
       ]);
     }
 
@@ -750,9 +753,57 @@ export default function Reports() {
               ]}
               vazio=""
             />
+            <div className="border-y border-gray-100 px-5 py-3">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Margem das peças
+              </p>
+              <p className="text-xs text-gray-500">
+                Venda menos custo das peças nas mesmas OS do faturamento,
+                recebidas ou não. O custo é o do estoque no momento em que a
+                peça entrou na OS.
+              </p>
+            </div>
+            <Tabela
+              colunas={[
+                { titulo: "Indicador" },
+                { titulo: "Atual", direita: true },
+                { titulo: "Período anterior", direita: true },
+                { titulo: "Variação", direita: true },
+              ]}
+              linhas={[
+                [
+                  "Custo das peças",
+                  formatCurrency(resumo.margem_pecas.custo),
+                  formatCurrency(resumo.anterior.custo_pecas),
+                  <Variacao valor={resumo.variacao.custo_pecas} />,
+                ],
+                [
+                  "Margem (R$)",
+                  formatCurrency(resumo.margem_pecas.margem),
+                  formatCurrency(resumo.anterior.margem_pecas),
+                  <Variacao valor={resumo.variacao.margem_pecas} />,
+                ],
+                [
+                  "Margem (%)",
+                  resumo.margem_pecas.percentual === null
+                    ? "—"
+                    : formatPercent(resumo.margem_pecas.percentual),
+                  "",
+                  "",
+                ],
+                [
+                  "Peças sem custo registrado (venda, fora da margem)",
+                  formatCurrency(resumo.margem_pecas.valor_sem_custo),
+                  "",
+                  "",
+                ],
+              ]}
+              vazio=""
+            />
             <p className="border-t border-gray-100 px-5 py-4 text-xs text-gray-500">
-              A margem de lucro nas peças ainda não está disponível neste
-              resumo.
+              Só as peças com custo registrado entram na margem. Peças
+              adicionadas antes do registro de custo aparecem como sem custo
+              registrado.
             </p>
           </>
         )}

@@ -150,7 +150,9 @@ model ServiceOrderPart {
   ordem_id        Int
   item_estoque_id Int
   quantidade      Int
-  valor_unitario  Decimal @db.Decimal(10, 2)
+  valor_unitario  Decimal  @db.Decimal(10, 2)
+  // Custo da peça no momento do uso (valor_entrada do estoque). Vazio nas peças antigas
+  valor_custo     Decimal? @db.Decimal(10, 2)
 
   ordem        ServiceOrder @relation(fields: [ordem_id], references: [id], onDelete: Cascade)
   item_estoque StockItem    @relation(fields: [item_estoque_id], references: [id])

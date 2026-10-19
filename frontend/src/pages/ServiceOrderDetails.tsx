@@ -17,6 +17,7 @@ import {
   Plus,
   PackageSearch,
   AlertTriangle,
+  TrendingUp,
 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
 import { listStock, type StockItem } from "../services/stock";
@@ -35,6 +36,7 @@ import PecaRow from "../components/serviceOrders/PecaRow";
 import { buildWhatsAppLink } from "../lib/whatsapp";
 import PagamentosCard from "../components/serviceOrders/PagamentosCard";
 import { useAuth } from "../contexts/AuthContext";
+import { formatPercent } from "../lib/relatorios";
 
 const plainInputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
@@ -507,6 +509,8 @@ export default function ServiceOrderDetails() {
 
   const podeAgir = ordem.status === "ABERTA" || ordem.status === "EM_ANDAMENTO";
   const podeReabrir = ordem.status === "FINALIZADA";
+  // O backend só manda a margem para o proprietário
+  const margem = ordem.margem_pecas;
 
   return (
     <div className="space-y-6 p-8">
@@ -834,6 +838,91 @@ export default function ServiceOrderDetails() {
           </ul>
         )}
       </div>
+
+      {/* CUSTO E MARGEM DAS PEÇAS (só proprietário) */}
+      {margem && ordem.pecas.length > 0 && (
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+          <div className="flex items-center gap-3 border-b border-gray-100 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <p className="font-semibold text-[#1F1F1F]">
+                Custo e margem das peças
+              </p>
+              <p className="text-xs text-gray-500">
+                Custo do estoque no momento em que a peça entrou na OS
+              </p>
+            </div>
+          </div>
+          {margem.pecas_com_custo === 0 ? (
+            <p className="p-5 text-sm text-gray-500">
+              Sem custo registrado nas peças desta OS.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 p-5 sm:grid-cols-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400">
+                  Custo das peças
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[#1F1F1F]">
+                  {formatCurrency(margem.custo)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400">
+                  Margem (R$)
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[#1F1F1F]">
+                  {formatCurrency(margem.margem)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400">
+                  Margem (%)
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[#1F1F1F]">
+                  {margem.percentual === null
+                    ? "—"
+                    : formatPercent(Number(margem.percentual))}
+                </p>
+              </div>
+            </div>
+          )}
+          {margem.pecas_sem_custo > 0 && margem.pecas_com_custo > 0 && (
+            <p className="flex items-center gap-1.5 border-t border-amber-100 bg-amber-50 px-5 py-3 text-xs text-amber-700">
+              <AlertTriangle size={13} className="shrink-0" />
+              {margem.pecas_sem_custo === 1
+                ? "1 peça sem custo registrado ficou"
+                : `${margem.pecas_sem_custo} peças sem custo registrado ficaram`}{" "}
+              fora da margem ({formatCurrency(margem.valor_sem_custo)} em
+              venda).
+            </p>
+          )}
+          <ul className="divide-y divide-gray-50 border-t border-gray-100">
+            {ordem.pecas.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between gap-3 px-5 py-3 text-sm"
+              >
+                <span className="text-[#1F1F1F]">
+                  {p.item_estoque.nome}{" "}
+                  <span className="text-gray-400">x{p.quantidade}</span>
+                </span>
+                {p.valor_custo == null ? (
+                  <span className="text-xs text-gray-400">
+                    sem custo registrado
+                  </span>
+                ) : (
+                  <span className="text-gray-600">
+                    custo {formatCurrency(Number(p.valor_custo) * p.quantidade)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {(ordem.status === "FINALIZADA" || Number(ordem.valor_pago) > 0) && (
         <PagamentosCard
