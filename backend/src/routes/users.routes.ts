@@ -1,8 +1,10 @@
 import { Router } from "express";
 import {
   activateController,
+  createController,
   deactivateController,
   listController,
+  resetPasswordController,
   produtividadeController,
 } from "../controllers/users.controller";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -16,6 +18,15 @@ const router = Router();
 router.use(ensureAuthenticated);
 
 router.get("/", asyncHandler(listController));
+
+router.post("/", requireRole(["PROPRIETARIO"]), asyncHandler(createController));
+
+router.patch(
+  "/:id/redefinir-senha",
+  requireRole(["PROPRIETARIO"]),
+  asyncHandler(resetPasswordController),
+);
+
 router.get(
   "/produtividade",
   requireRole(["PROPRIETARIO"]),
@@ -26,6 +37,7 @@ router.patch(
   requireRole(["PROPRIETARIO"]),
   asyncHandler(deactivateController),
 );
+
 router.patch(
   "/:id/activate",
   requireRole(["PROPRIETARIO"]),

@@ -37,7 +37,15 @@ import { getUserRole } from "../lib/auth";
 
 type FiltroVeiculos = "todos" | "com" | "sem";
 type FiltroEmail = "todos" | "com" | "sem";
-type Ordenacao = "nome-asc" | "nome-desc" | "recentes" | "antigos" | "veiculos";
+type FiltroGasto = "todos" | "sem-os" | "ate-500" | "500-2000" | "acima-2000";
+type Ordenacao =
+  | "nome-asc"
+  | "nome-desc"
+  | "recentes"
+  | "antigos"
+  | "veiculos"
+  | "mais-gasto"
+  | "ultima-visita";
 
 const ORDENACOES: { value: Ordenacao; label: string }[] = [
   { value: "nome-asc", label: "Nome (A → Z)" },
@@ -45,7 +53,48 @@ const ORDENACOES: { value: Ordenacao; label: string }[] = [
   { value: "recentes", label: "Mais recentes" },
   { value: "antigos", label: "Mais antigos" },
   { value: "veiculos", label: "Mais veículos" },
+  { value: "mais-gasto", label: "Mais gasto" },
+  { value: "ultima-visita", label: "Última visita" },
 ];
+
+const FAIXAS_GASTO: { value: FiltroGasto; label: string }[] = [
+  { value: "todos", label: "Todos" },
+  { value: "sem-os", label: "Sem OS" },
+  { value: "ate-500", label: "Até R$ 500" },
+  { value: "500-2000", label: "De R$ 500 a R$ 2.000" },
+  { value: "acima-2000", label: "Acima de R$ 2.000" },
+];
+
+// "sem OS" = nenhuma OS finalizada; as faixas valem para quem já gastou algo
+function dentroDaFaixa(cliente: Client, faixa: FiltroGasto) {
+  const gasto = cliente.total_gasto ?? 0;
+  const temOs = (cliente.qtd_os ?? 0) > 0;
+  switch (faixa) {
+    case "sem-os":
+      return !temOs;
+    case "ate-500":
+      return temOs && gasto <= 500;
+    case "500-2000":
+      return temOs && gasto > 500 && gasto <= 2000;
+    case "acima-2000":
+      return temOs && gasto > 2000;
+    default:
+      return true;
+  }
+}
+
+// Compara marcas sem diferenciar maiúsculas, acentos e espaços ("FIAT" = "Fiat ")
+function chaveMarca(marca: string) {
+  return marca
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function formatCurrency(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -61,6 +110,8 @@ export default function Clients() {
   const [filtroVeiculos, setFiltroVeiculos] = useState<FiltroVeiculos>("todos");
   const [filtroEmail, setFiltroEmail] = useState<FiltroEmail>("todos");
   const [apenasRevisaoVencida, setApenasRevisaoVencida] = useState(false);
+  const [filtroGasto, setFiltroGasto] = useState<FiltroGasto>("todos");
+  const [filtroMarca, setFiltroMarca] = useState("");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("nome-asc");
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -72,21 +123,8 @@ export default function Clients() {
     setLoading(true);
     setError(null);
     try {
-      const data = await listClients(termo);
-
-      // Filtra clientes ativos e garante que apenas veículos ativos sejam contados
-      const clientesAtivos = data
-        .filter((c) => (c as { ativo?: boolean }).ativo !== false)
-        .map((c) => ({
-          ...c,
-          veiculos: c.veiculos
-            ? c.veiculos.filter(
-                (v) => (v as { ativo?: boolean }).ativo !== false,
-              )
-            : [],
-        }));
-
-      setClients(clientesAtivos);
+      // O backend já devolve só clientes e veículos ativos
+      setClients(await listClients(termo));
     } catch (err) {
       console.error(err);
       setError("Não foi possível carregar os clientes.");
@@ -192,13 +230,31 @@ export default function Clients() {
   const filtrosAtivos =
     (filtroVeiculos !== "todos" ? 1 : 0) +
     (filtroEmail !== "todos" ? 1 : 0) +
-    (apenasRevisaoVencida ? 1 : 0);
+    (apenasRevisaoVencida ? 1 : 0) +
+    (filtroGasto !== "todos" ? 1 : 0) +
+    (filtroMarca ? 1 : 0);
 
   function limparFiltros() {
     setFiltroVeiculos("todos");
     setFiltroEmail("todos");
     setApenasRevisaoVencida(false);
+    setFiltroGasto("todos");
+    setFiltroMarca("");
   }
+
+  // Marcas dos veículos carregados, sem repetir variações de escrita
+  const marcas = useMemo(() => {
+    const porChave = new Map<string, string>();
+    for (const c of clients) {
+      for (const v of c.veiculos) {
+        const chave = chaveMarca(v.marca);
+        if (chave && !porChave.has(chave)) porChave.set(chave, v.marca.trim());
+      }
+    }
+    return [...porChave.entries()]
+      .map(([chave, label]) => ({ chave, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [clients]);
 
   const clientesExibidos = useMemo(() => {
     const filtrados = clients.filter((c) => {
@@ -209,8 +265,20 @@ export default function Clients() {
       if (apenasRevisaoVencida && !c.veiculos.some(isMaintenanceOverdue)) {
         return false;
       }
+      if (!dentroDaFaixa(c, filtroGasto)) return false;
+      if (
+        filtroMarca &&
+        !c.veiculos.some((v) => chaveMarca(v.marca) === filtroMarca)
+      ) {
+        return false;
+      }
       return true;
     });
+
+    const porNome = (a: Client, b: Client) =>
+      a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+    const visita = (c: Client) =>
+      c.ultima_visita ? new Date(c.ultima_visita).getTime() : -Infinity;
 
     return [...filtrados].sort((a, b) => {
       switch (ordenacao) {
@@ -226,11 +294,24 @@ export default function Clients() {
           );
         case "veiculos":
           return b.veiculos.length - a.veiculos.length;
+        case "mais-gasto":
+          return (b.total_gasto ?? 0) - (a.total_gasto ?? 0) || porNome(a, b);
+        case "ultima-visita":
+          // Mais recente primeiro; quem nunca veio fica no fim
+          return visita(b) - visita(a) || porNome(a, b);
         default:
-          return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+          return porNome(a, b);
       }
     });
-  }, [clients, filtroVeiculos, filtroEmail, apenasRevisaoVencida, ordenacao]);
+  }, [
+    clients,
+    filtroVeiculos,
+    filtroEmail,
+    apenasRevisaoVencida,
+    filtroGasto,
+    filtroMarca,
+    ordenacao,
+  ]);
 
   const totalVeiculos = clients.reduce((acc, c) => acc + c.veiculos.length, 0);
   const agora = new Date();
@@ -243,7 +324,7 @@ export default function Clients() {
   }).length;
 
   return (
-    <div className="space-y-6 p-8">
+    <div className="space-y-6 p-4 md:p-8">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-[#1F1F1F]">Clientes</h1>
@@ -282,8 +363,8 @@ export default function Clients() {
 
       {/* Search + actions bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-3">
-          <div className="relative max-w-md flex-1">
+        <div className="relative flex flex-1 flex-wrap items-center gap-3 md:static md:flex-nowrap">
+          <div className="relative min-w-full max-w-md flex-1 md:min-w-auto">
             <Search
               size={16}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -293,7 +374,7 @@ export default function Clients() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome/placa..."
-              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#FF7518]"
+              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-base outline-none focus:border-[#FF7518] md:text-sm"
             />
           </div>
 
@@ -360,11 +441,45 @@ export default function Clients() {
                 </MenuChoice>
               </MenuGroup>
 
+              <MenuGroup label="Total gasto">
+                {FAIXAS_GASTO.map((f) => (
+                  <MenuChoice
+                    key={f.value}
+                    checked={filtroGasto === f.value}
+                    onSelect={() => setFiltroGasto(f.value)}
+                  >
+                    {f.label}
+                  </MenuChoice>
+                ))}
+              </MenuGroup>
+
+              {marcas.length > 0 && (
+                <MenuGroup label="Marca do veículo">
+                  <div className="max-h-44 space-y-0.5 overflow-y-auto">
+                    <MenuChoice
+                      checked={!filtroMarca}
+                      onSelect={() => setFiltroMarca("")}
+                    >
+                      Todas
+                    </MenuChoice>
+                    {marcas.map((m) => (
+                      <MenuChoice
+                        key={m.chave}
+                        checked={filtroMarca === m.chave}
+                        onSelect={() => setFiltroMarca(m.chave)}
+                      >
+                        {m.label}
+                      </MenuChoice>
+                    ))}
+                  </div>
+                </MenuGroup>
+              )}
+
               {filtrosAtivos > 0 && (
                 <button
                   type="button"
                   onClick={limparFiltros}
-                  className="w-full rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                  className="w-full rounded-lg border border-gray-200 py-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 md:py-2"
                 >
                   Limpar filtros
                 </button>
@@ -440,13 +555,15 @@ export default function Clients() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full whitespace-nowrap text-left text-sm md:whitespace-normal">
               <thead>
                 <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-5 py-3 font-medium">Cliente</th>
                   <th className="px-5 py-3 font-medium">Telefone</th>
                   <th className="px-5 py-3 font-medium">Email</th>
                   <th className="px-5 py-3 font-medium">Veículos</th>
+                  <th className="px-5 py-3 font-medium">Total gasto</th>
+                  <th className="px-5 py-3 font-medium">Última visita</th>
                   <th className="px-5 py-3 text-right font-medium">Ações</th>
                 </tr>
               </thead>
@@ -486,11 +603,27 @@ export default function Clients() {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-2">
+                      <p className="font-medium text-[#1F1F1F]">
+                        {formatCurrency(client.total_gasto ?? 0)}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {client.qtd_os ?? 0}{" "}
+                        {(client.qtd_os ?? 0) === 1 ? "OS finalizada" : "OS finalizadas"}
+                      </p>
+                    </td>
+                    <td className="px-5 py-4 text-gray-600">
+                      {client.ultima_visita ? (
+                        new Date(client.ultima_visita).toLocaleDateString("pt-BR")
+                      ) : (
+                        <span className="text-xs text-gray-300">Nunca</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-3 md:gap-2">
                         <Link
                           to={`/clientes/${client.id}`}
                           aria-label="Visualizar"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"
+                          className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 md:h-8 md:w-8"
                         >
                           <Eye size={14} />
                         </Link>
@@ -503,7 +636,7 @@ export default function Clients() {
                                 openEditModal(client);
                               }}
                               aria-label="Editar"
-                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
+                              className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 md:h-8 md:w-8"
                             >
                               <Pencil size={14} />
                             </button>
@@ -514,7 +647,7 @@ export default function Clients() {
                                 handleDeleteDirect(client);
                               }}
                               aria-label="Excluir"
-                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                              className="flex h-11 w-11 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 md:h-8 md:w-8"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -585,7 +718,7 @@ function MenuChoice({
     <button
       type="button"
       onClick={onSelect}
-      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${
+      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2.5 text-left text-sm hover:bg-gray-50 md:py-1.5 ${
         checked ? "font-medium text-[#1F1F1F]" : "text-gray-600"
       }`}
     >

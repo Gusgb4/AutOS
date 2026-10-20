@@ -24,6 +24,28 @@ import {
 } from "../services/stock";
 import { getUserRole } from "../lib/auth";
 import { mensagemDeErro } from "../lib/errors";
+import {
+  corPrevisaoFalta,
+  formatarDecimal,
+  textoPrevisaoFalta,
+} from "../lib/estoque";
+
+// Previsão calculada no backend com as OS finalizadas dos últimos 90 dias
+function PrevisaoFalta({ previsao }: { previsao: StockItem["previsao"] }) {
+  return (
+    <div className="whitespace-nowrap">
+      <p className={corPrevisaoFalta(previsao.situacao)}>
+        {textoPrevisaoFalta(previsao)}
+      </p>
+      {previsao.consumo_90_dias > 0 && (
+        <p className="text-xs text-gray-400">
+          {previsao.consumo_90_dias} un. em 90 dias ·{" "}
+          {formatarDecimal(previsao.media_mensal)}/mês
+        </p>
+      )}
+    </div>
+  );
+}
 
 // Margem sobre o preço de venda; negativa aparece em vermelho
 function Margem({ item }: { item: StockItem }) {
@@ -272,7 +294,7 @@ export default function Stock() {
                 : mostrarArquivados
                   ? "Nenhum item cadastrado ainda."
                   : totalArquivados > 0
-                    ? "Nenhum item ativo. Use \"Mostrar arquivados\" para ver os itens arquivados."
+                    ? 'Nenhum item ativo. Use "Mostrar arquivados" para ver os itens arquivados.'
                     : "Nenhum item cadastrado ainda."}
           </div>
         ) : (
@@ -284,6 +306,12 @@ export default function Stock() {
                   <th className="px-5 py-3 font-medium">Categoria</th>
                   <th className="px-5 py-3 font-medium">Quantidade</th>
                   <th className="px-5 py-3 font-medium">Mínimo</th>
+                  <th
+                    className="px-5 py-3 font-medium"
+                    title="Pelo consumo nas OS finalizadas dos últimos 90 dias"
+                  >
+                    Previsão de falta
+                  </th>
                   <th className="px-5 py-3 font-medium">Preço de venda</th>
                   {podeEditar && (
                     <>
@@ -336,6 +364,14 @@ export default function Stock() {
 
                     <td className="px-5 py-4 text-gray-600">
                       {item.quantidade_minima}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      {item.ativo ? (
+                        <PrevisaoFalta previsao={item.previsao} />
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
                     </td>
 
                     <td className="px-5 py-4 font-medium text-[#1F1F1F]">
@@ -399,7 +435,7 @@ export default function Stock() {
                       </div>
                     </td>
 
-                     {podeEditar && (
+                    {podeEditar && (
                       <td className="px-5 py-4">
                         <div className="flex items-center justify-end gap-2">
                           <Link

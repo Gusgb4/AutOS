@@ -12,7 +12,7 @@ import {
 } from "../../services/serviceOrders";
 
 const plainInputClass =
-  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
+  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
 
 const FORMAS: { value: FormaPagamento; label: string }[] = [
   { value: "PIX", label: "Pix" },
@@ -134,7 +134,7 @@ export default function PagamentosCard({
 
   return (
     <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b border-gray-100 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5 md:flex-nowrap md:gap-0">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
             <Wallet size={18} />
@@ -151,7 +151,7 @@ export default function PagamentosCard({
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-4 border-b border-gray-100 p-5">
+      <div className="grid grid-cols-1 gap-3 border-b border-gray-100 p-5 md:grid-cols-3 md:gap-4">
         <div>
           <p className="text-xs uppercase tracking-wide text-gray-400">
             Total da OS
@@ -263,7 +263,7 @@ export default function PagamentosCard({
               </div>
               <div className="flex items-center gap-2">
                 <span
-                  className={`font-medium ${p.estornado ? "text-gray-400 line-through" : "text-[#1F1F1F]"}`}
+                  className={`whitespace-nowrap font-medium md:whitespace-normal ${p.estornado ? "text-gray-400 line-through" : "text-[#1F1F1F]"}`}
                 >
                   {formatCurrency(p.valor)}
                 </span>
@@ -274,7 +274,7 @@ export default function PagamentosCard({
                     disabled={estornandoId === p.id}
                     aria-label="Estornar pagamento"
                     title="Estornar pagamento"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-60"
+                    className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-60 md:h-8 md:w-8"
                   >
                     {estornandoId === p.id ? (
                       <Loader2 size={15} className="animate-spin" />

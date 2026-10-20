@@ -5,6 +5,7 @@ import {
   Wallet,
   Users,
   Download,
+  FileDown,
   Loader2,
   DollarSign,
   ClipboardList,
@@ -18,6 +19,28 @@ import {
 } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
 import { downloadCsv } from "../lib/csv";
+import {
+  FORMATO_CSV,
+  formatDate,
+  formatPercent,
+  linhasCsv,
+  tabelaCaixa,
+  tabelaClientes,
+  tabelaFaturamento,
+  tabelaIndicadoresAtividade,
+  tabelaIndicadoresConsumo,
+  tabelaIndicadoresVendas,
+  tabelaMargemPecas,
+  tabelaPecasConsumidas,
+  tabelaPosicaoEstoque,
+  tabelaPrevisaoFalta,
+  tabelaVendasPorDia,
+} from "../lib/relatorios";
+import {
+  corPrevisaoFalta,
+  formatarDecimal,
+  textoPrevisaoFalta,
+} from "../lib/estoque";
 import {
   getVendasPorPeriodo,
   getStatusInventario,
@@ -65,15 +88,6 @@ function formatCurrency(valor: number) {
   return valor
     .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     .replace(/\u00A0/g, " ");
-}
-
-function formatPercent(valor: number) {
-  return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
-}
-
-function formatDate(iso: string) {
-  const [ano, mes, dia] = iso.split("-");
-  return `${dia}/${mes}/${ano}`;
 }
 
 function toIso(data: Date) {
@@ -225,6 +239,8 @@ export default function Reports() {
   const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
   const [atividade, setAtividade] = useState<AtividadeClientes | null>(null);
   const [apenasAbaixoMinimo, setApenasAbaixoMinimo] = useState(false);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [erroPdf, setErroPdf] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     if (inicio > fim) {
@@ -273,158 +289,73 @@ export default function Reports() {
           `${formatDate(vendas.periodo_anterior.inicio)} a ${formatDate(vendas.periodo_anterior.fim)}`,
         ],
         [],
-        ["Indicador", "Atual", "Período anterior", "Variação (%)"],
-        [
-          "Faturamento",
-          vendas.atual.total,
-          vendas.anterior.total,
-          vendas.variacao.total,
-        ],
-        [
-          "OS finalizadas",
-          vendas.atual.ordens,
-          vendas.anterior.ordens,
-          vendas.variacao.ordens,
-        ],
-        [
-          "Ticket médio",
-          vendas.atual.ticket_medio,
-          vendas.anterior.ticket_medio,
-          vendas.variacao.ticket_medio,
-        ],
+        ...linhasCsv(tabelaIndicadoresVendas(vendas, FORMATO_CSV)),
         [],
-        ["Data", "OS finalizadas", "Faturamento"],
-        ...vendas.por_dia.map((d) => [formatDate(d.data), d.ordens, d.total]),
+        ...linhasCsv(tabelaVendasPorDia(vendas, FORMATO_CSV)),
       ]);
     }
 
     if (tipo === "inventario" && inventario) {
-      const c = inventario.consumo;
       downloadCsv(`inventario-${inicio}-a-${fim}.csv`, [
         ["Relatório", "Status do inventário"],
         ["Período", periodo],
-        ["Período anterior", periodoCsv(c.periodo_anterior)],
+        ["Período anterior", periodoCsv(inventario.consumo.periodo_anterior)],
         [],
-        [
-          "Consumo de peças (OS finalizadas)",
-          "Atual",
-          "Período anterior",
-          "Variação (%)",
-        ],
-        [
-          "Quantidade",
-          c.atual.quantidade,
-          c.anterior.quantidade,
-          c.variacao.quantidade,
-        ],
-        ["Valor de venda", c.atual.valor, c.anterior.valor, c.variacao.valor],
+        ...linhasCsv(tabelaIndicadoresConsumo(inventario, FORMATO_CSV)),
         [],
-        ["Peça consumida", "Categoria", "Quantidade", "Valor de venda"],
-        ...c.itens.map((i) => [i.nome, i.categoria, i.quantidade, i.valor]),
+        ...linhasCsv(tabelaPecasConsumidas(inventario, FORMATO_CSV)),
         [],
-        ["Posição atual do estoque"],
-        [
-          "Item",
-          "Categoria",
-          "Fornecedor",
-          "Quantidade",
-          "Mínimo",
-          "Preço de venda",
-          "Valor em estoque",
-          "Situação",
-        ],
-        ...inventario.itens.map((i) => [
-          i.nome,
-          i.categoria,
-          i.fornecedor,
-          i.quantidade,
-          i.quantidade_minima,
-          i.valor_final,
-          i.valor_em_estoque,
-          i.abaixo_minimo ? "Abaixo do mínimo" : "Em estoque",
-        ]),
+        ...linhasCsv(tabelaPosicaoEstoque(inventario, FORMATO_CSV)),
+        [],
+        ...linhasCsv(tabelaPrevisaoFalta(inventario, FORMATO_CSV)),
       ]);
     }
 
     if (tipo === "resumo" && resumo) {
-      const c = resumo.composicao_receita_os;
-      const a = resumo.anterior;
-      const v = resumo.variacao;
       downloadCsv(`resumo-financeiro-${inicio}-a-${fim}.csv`, [
         ["Relatório", "Resumo financeiro"],
         ["Período", periodo],
         ["Período anterior", periodoCsv(resumo.periodo_anterior)],
         [],
-        [
-          "Caixa (lançamentos no período)",
-          "Atual",
-          "Período anterior",
-          "Variação (%)",
-        ],
-        ["Entradas", resumo.entradas, a.entradas, v.entradas],
-        ["Saídas", resumo.saidas, a.saidas, v.saidas],
-        ["Saldo", resumo.saldo, a.saldo, v.saldo],
-        ["Outras receitas (lançamentos sem OS)", resumo.outras_receitas],
+        ...linhasCsv(tabelaCaixa(resumo, FORMATO_CSV)),
         [],
-        [
-          "Faturamento (OS finalizadas no período)",
-          "Atual",
-          "Percentual (%)",
-          "Período anterior",
-          "Variação (%)",
-        ],
-        [
-          "Mão de obra",
-          c.mao_de_obra.valor,
-          c.mao_de_obra.percentual,
-          a.mao_de_obra,
-          v.mao_de_obra,
-        ],
-        ["Peças", c.pecas.valor, c.pecas.percentual, a.pecas, v.pecas],
-        ["Total faturado", c.total, "", a.faturamento, v.faturamento],
+        ...linhasCsv(tabelaFaturamento(resumo, FORMATO_CSV)),
+        [],
+        ...linhasCsv(tabelaMargemPecas(resumo, FORMATO_CSV)),
       ]);
     }
 
     if (tipo === "atividade" && atividade) {
-      const r = atividade.resumo;
-      const a = atividade.anterior;
-      const v = atividade.variacao;
       downloadCsv(`atividade-clientes-${inicio}-a-${fim}.csv`, [
         ["Relatório", "Atividade do cliente"],
         ["Período", periodo],
         ["Período anterior", periodoCsv(atividade.periodo_anterior)],
         [],
-        ["Indicador", "Atual", "Período anterior", "Variação (%)"],
-        [
-          "Clientes atendidos",
-          r.clientes_atendidos,
-          a.clientes_atendidos,
-          v.clientes_atendidos,
-        ],
-        [
-          "Clientes novos",
-          r.clientes_novos,
-          a.clientes_novos,
-          v.clientes_novos,
-        ],
-        ["OS finalizadas", r.ordens, a.ordens, v.ordens],
-        ["Total faturado", r.total, a.total, v.total],
+        ...linhasCsv(tabelaIndicadoresAtividade(atividade, FORMATO_CSV)),
         [],
-        [
-          "Cliente",
-          "OS finalizadas",
-          "Total faturado",
-          "Ticket médio",
-          "Última finalização",
-        ],
-        ...atividade.clientes.map((c) => [
-          c.nome,
-          c.ordens,
-          c.total,
-          c.ticket_medio,
-          formatDate(c.ultima_os),
-        ]),
+        ...linhasCsv(tabelaClientes(atividade, FORMATO_CSV)),
       ]);
+    }
+  }
+
+  async function exportarPdf() {
+    setGerandoPdf(true);
+    setErroPdf(null);
+    try {
+      // O jspdf é pesado: só é carregado quando alguém pede o PDF
+      const pdf = await import("../lib/pdfRelatorios");
+      if (tipo === "vendas" && vendas) pdf.baixarPdfVendas(vendas, inicio, fim);
+      if (tipo === "inventario" && inventario)
+        pdf.baixarPdfInventario(inventario, inicio, fim);
+      if (tipo === "resumo" && resumo)
+        pdf.baixarPdfResumoFinanceiro(resumo, inicio, fim);
+      if (tipo === "atividade" && atividade)
+        pdf.baixarPdfAtividadeClientes(atividade, inicio, fim);
+    } catch (err) {
+      console.error(err);
+      setErroPdf("Não foi possível gerar o PDF.");
+    } finally {
+      setGerandoPdf(false);
     }
   }
 
@@ -446,7 +377,7 @@ export default function Reports() {
       <div>
         <h1 className="text-2xl font-semibold text-[#1F1F1F]">Relatórios</h1>
         <p className="text-sm text-gray-500">
-          Consulte o desempenho da oficina e exporte os dados em CSV.
+          Consulte o desempenho da oficina e exporte os dados em CSV ou PDF.
         </p>
       </div>
 
@@ -529,22 +460,38 @@ export default function Reports() {
 
       {/* Resultado */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5">
           <div>
             <p className="font-semibold text-[#1F1F1F]">{tipoAtual.titulo}</p>
             <p className="text-xs text-gray-500">
               {formatDate(inicio)} a {formatDate(fim)}
             </p>
+            {erroPdf && <p className="text-xs text-red-500">{erroPdf}</p>}
           </div>
-          <button
-            type="button"
-            onClick={exportarCsv}
-            disabled={!podeExportar}
-            className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f] disabled:opacity-50"
-          >
-            <Download size={15} />
-            Exportar CSV
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={exportarPdf}
+              disabled={!podeExportar || gerandoPdf}
+              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {gerandoPdf ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <FileDown size={15} />
+              )}
+              Exportar PDF
+            </button>
+            <button
+              type="button"
+              onClick={exportarCsv}
+              disabled={!podeExportar}
+              className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f] disabled:opacity-50"
+            >
+              <Download size={15} />
+              Exportar CSV
+            </button>
+          </div>
         </div>
 
         {loading && (
@@ -722,6 +669,40 @@ export default function Reports() {
               ])}
               vazio="Nenhum item para mostrar."
             />
+            <div className="border-y border-gray-100 px-5 py-3">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Previsão de falta
+              </p>
+              <p className="text-xs text-gray-500">
+                Consumo nas OS finalizadas de{" "}
+                {formatDate(inventario.previsao_falta.periodo.inicio)} a{" "}
+                {formatDate(inventario.previsao_falta.periodo.fim)} (últimos 90
+                dias), independente do período escolhido. A média por mês é o
+                consumo dividido por 3. Itens sem consumo nesses 90 dias não
+                entram.
+              </p>
+            </div>
+            <Tabela
+              colunas={[
+                { titulo: "Item" },
+                { titulo: "Categoria" },
+                { titulo: "Quantidade", direita: true },
+                { titulo: "Consumo (90 dias)", direita: true },
+                { titulo: "Média por mês", direita: true },
+                { titulo: "Previsão" },
+              ]}
+              linhas={inventario.previsao_falta.itens.map((i) => [
+                <span className="font-medium">{i.nome}</span>,
+                i.categoria ?? "—",
+                i.quantidade,
+                i.consumo_90_dias,
+                formatarDecimal(i.media_mensal),
+                <span className={corPrevisaoFalta(i.situacao)}>
+                  {textoPrevisaoFalta(i)}
+                </span>,
+              ])}
+              vazio="Nenhum item com consumo em OS finalizadas nos últimos 90 dias."
+            />
           </>
         )}
 
@@ -814,9 +795,57 @@ export default function Reports() {
               ]}
               vazio=""
             />
+            <div className="border-y border-gray-100 px-5 py-3">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Margem das peças
+              </p>
+              <p className="text-xs text-gray-500">
+                Venda menos custo das peças nas mesmas OS do faturamento,
+                recebidas ou não. O custo é o do estoque no momento em que a
+                peça entrou na OS.
+              </p>
+            </div>
+            <Tabela
+              colunas={[
+                { titulo: "Indicador" },
+                { titulo: "Atual", direita: true },
+                { titulo: "Período anterior", direita: true },
+                { titulo: "Variação", direita: true },
+              ]}
+              linhas={[
+                [
+                  "Custo das peças",
+                  formatCurrency(resumo.margem_pecas.custo),
+                  formatCurrency(resumo.anterior.custo_pecas),
+                  <Variacao valor={resumo.variacao.custo_pecas} />,
+                ],
+                [
+                  "Margem (R$)",
+                  formatCurrency(resumo.margem_pecas.margem),
+                  formatCurrency(resumo.anterior.margem_pecas),
+                  <Variacao valor={resumo.variacao.margem_pecas} />,
+                ],
+                [
+                  "Margem (%)",
+                  resumo.margem_pecas.percentual === null
+                    ? "—"
+                    : formatPercent(resumo.margem_pecas.percentual),
+                  "",
+                  "",
+                ],
+                [
+                  "Peças sem custo registrado (venda, fora da margem)",
+                  formatCurrency(resumo.margem_pecas.valor_sem_custo),
+                  "",
+                  "",
+                ],
+              ]}
+              vazio=""
+            />
             <p className="border-t border-gray-100 px-5 py-4 text-xs text-gray-500">
-              A margem de lucro nas peças ainda não está disponível neste
-              resumo.
+              Só as peças com custo registrado entram na margem. Peças
+              adicionadas antes do registro de custo aparecem como sem custo
+              registrado.
             </p>
           </>
         )}

@@ -14,6 +14,17 @@ export interface Pagamento {
   estornado: boolean;
 }
 
+// Só peças com custo registrado entram na margem
+export interface MargemPecas {
+  receita: string;
+  custo: string;
+  margem: string;
+  percentual: string | null;
+  pecas_com_custo: number;
+  pecas_sem_custo: number;
+  valor_sem_custo: string;
+}
+
 export interface ServiceOrder {
   id: number;
   cliente_id: number;
@@ -41,6 +52,8 @@ export interface ServiceOrder {
     id: number;
     quantidade: number;
     valor_unitario: string;
+    // Só vem para o proprietário; null nas peças sem custo registrado
+    valor_custo?: string | null;
     item_estoque: {
       id: number;
       nome: string;
@@ -48,6 +61,8 @@ export interface ServiceOrder {
       quantidade_minima: number;
     };
   }[];
+  // Só vem para o proprietário
+  margem_pecas?: MargemPecas;
 }
 
 export async function listServiceOrders(

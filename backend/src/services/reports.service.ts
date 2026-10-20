@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
+import { calcularMargemPecas } from "./serviceOrders.service";
 
 const FUSO = "-03:00";
 const TRES_HORAS_MS = 3 * 60 * 60 * 1000;
@@ -173,15 +174,65 @@ export async function consumoPecas(p: Periodo) {
   };
 }
 
+// ---------- Giro de estoque (previsão de falta) ----------
+const DIAS_GIRO = 90;
+const MESES_GIRO = 3; // 90 dias = 3 meses de 30 dias
+const SEMANAS_NO_ANO = 52;
+
+export type SituacaoPrevisao =
+  | "ESGOTADO"
+  | "SEM_CONSUMO"
+  | "MENOS_DE_1_SEMANA"
+  | "SEMANAS"
+  | "MAIS_DE_1_ANO";
+
+// Últimos 90 dias até hoje (inclusive), no fuso de Brasília
+export function periodoGiro(): Periodo {
+  const agora = Date.now();
+  return parsePeriodo(
+    diaBrasilia(new Date(agora - (DIAS_GIRO - 1) * UM_DIA_MS)),
+    diaBrasilia(new Date(agora)),
+  );
+}
+
+// Unidades de cada item usadas nas OS finalizadas do período (id do item → quantidade)
+export async function consumoPorItem(p: Periodo) {
+  const { itens } = await consumoPecas(p);
+  return new Map(itens.map((i) => [i.id, i.quantidade]));
+}
+
+// Só quantidades: vai também para o funcionário, então nada de valor, custo ou margem
+export function preverFalta(quantidade: number, consumo: number) {
+  const base = {
+    consumo_90_dias: consumo,
+    media_mensal: Math.round((consumo / MESES_GIRO) * 10) / 10,
+  };
+  const previsao = (situacao: SituacaoPrevisao, semanas: number | null = null) => ({
+    ...base,
+    situacao,
+    semanas,
+  });
+
+  if (quantidade <= 0) return previsao("ESGOTADO");
+  if (consumo === 0) return previsao("SEM_CONSUMO");
+
+  const semanas = (quantidade * DIAS_GIRO) / (consumo * 7);
+  if (semanas < 1) return previsao("MENOS_DE_1_SEMANA");
+  if (semanas > SEMANAS_NO_ANO) return previsao("MAIS_DE_1_ANO");
+  return previsao("SEMANAS", Math.round(semanas));
+}
+
 export async function statusInventario(p: Periodo) {
   const anterior = periodoAnterior(p);
-  const [itens, consumoAtual, consumoAnterior] = await Promise.all([
+  const giro = periodoGiro();
+  const [itens, consumoAtual, consumoAnterior, consumoGiro] = await Promise.all([
     prisma.stockItem.findMany({
       where: { ativo: true },
       orderBy: { nome: "asc" },
     }),
     consumoPecas(p),
     consumoPecas(anterior),
+    consumoPorItem(giro),
   ]);
 
   let valorTotal = zero();
@@ -200,6 +251,25 @@ export async function statusInventario(p: Periodo) {
       abaixo_minimo: i.quantidade <= i.quantidade_minima,
     };
   });
+
+  // Itens ativos com consumo nos últimos 90 dias, do que acaba primeiro ao último
+  const previsaoFalta = itens
+    .filter((i) => (consumoGiro.get(i.id) ?? 0) > 0)
+    .map((i) => {
+      const consumo = consumoGiro.get(i.id)!;
+      return {
+        ordem: i.quantidade / consumo,
+        item: {
+          id: i.id,
+          nome: i.nome,
+          categoria: i.categoria,
+          quantidade: i.quantidade,
+          ...preverFalta(i.quantidade, consumo),
+        },
+      };
+    })
+    .sort((a, b) => a.ordem - b.ordem || a.item.nome.localeCompare(b.item.nome))
+    .map((linha) => linha.item);
 
   return {
     resumo: {
@@ -224,6 +294,11 @@ export async function statusInventario(p: Periodo) {
         },
       ),
       itens: consumoAtual.itens,
+    },
+    // Independente do período escolhido: sempre os últimos 90 dias até hoje
+    previsao_falta: {
+      periodo: descreverPeriodo(giro),
+      itens: previsaoFalta,
     },
   };
 }
@@ -265,6 +340,7 @@ async function calcularResumo(p: Periodo) {
 
   let maoDeObra = zero();
   let pecas = zero();
+  let margemPecas = calcularMargemPecas([]);
 
   if (ordemIds.length > 0) {
     const servicos = await prisma.serviceOrderService.aggregate({
@@ -275,15 +351,16 @@ async function calcularResumo(p: Periodo) {
 
     const itens = await prisma.serviceOrderPart.findMany({
       where: { ordem_id: { in: ordemIds } },
-      select: { quantidade: true, valor_unitario: true },
+      select: { quantidade: true, valor_unitario: true, valor_custo: true },
     });
     pecas = itens.reduce(
       (acc, i) => acc.plus(i.valor_unitario.mul(i.quantidade)),
       zero(),
     );
+    margemPecas = calcularMargemPecas(itens);
   }
 
-  return { entradas, saidas, outrasReceitas, maoDeObra, pecas };
+  return { entradas, saidas, outrasReceitas, maoDeObra, pecas, margemPecas };
 }
 
 export async function resumoFinanceiro(p: Periodo) {
@@ -300,6 +377,8 @@ export async function resumoFinanceiro(p: Periodo) {
     mao_de_obra: arredondar(r.maoDeObra),
     pecas: arredondar(r.pecas),
     faturamento: arredondar(r.maoDeObra.plus(r.pecas)),
+    custo_pecas: arredondar(r.margemPecas.custo),
+    margem_pecas: arredondar(r.margemPecas.margem),
   });
   const indicadoresAtuais = indicadores(atual);
   const indicadoresAnteriores = indicadores(ant);
@@ -324,6 +403,16 @@ export async function resumoFinanceiro(p: Periodo) {
         percentual: percentual(atual.pecas),
       },
       total: arredondar(baseOS),
+    },
+    // Mesmas OS da composição (finalizadas no período); só peças com custo registrado
+    margem_pecas: {
+      receita: arredondar(atual.margemPecas.receita),
+      custo: indicadoresAtuais.custo_pecas,
+      margem: indicadoresAtuais.margem_pecas,
+      percentual: atual.margemPecas.percentual?.toNumber() ?? null,
+      pecas_com_custo: atual.margemPecas.pecas_com_custo,
+      pecas_sem_custo: atual.margemPecas.pecas_sem_custo,
+      valor_sem_custo: arredondar(atual.margemPecas.valor_sem_custo),
     },
     outras_receitas: arredondar(atual.outrasReceitas),
     anterior: indicadoresAnteriores,

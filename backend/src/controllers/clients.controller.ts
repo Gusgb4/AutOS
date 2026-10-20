@@ -9,11 +9,23 @@ import {
   update,
 } from "../services/clients.service";
 
-//filtro de clientes
+const listClientsSchema = z.object({
+  busca: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v === "" ? undefined : v)),
+  arquivados: z
+    .enum(["true", "false"], { message: "arquivados deve ser true ou false." })
+    .optional()
+    .transform((v) => v === "true"),
+});
+
+// GET /api/clients?busca=termo&arquivados=true
+// Por padrão só clientes ativos; com arquivados=true, só os arquivados
 export async function listController(req: Request, res: Response) {
-  const termo =
-    typeof req.query.busca === "string" ? req.query.busca : undefined;
-  const clientes = await search(termo);
+  const { busca, arquivados } = listClientsSchema.parse(req.query);
+  const clientes = await search({ termo: busca, arquivados });
   return res.status(200).json(clientes);
 }
 

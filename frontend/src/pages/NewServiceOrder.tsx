@@ -27,9 +27,9 @@ import ServicoRow from "../components/serviceOrders/ServicoRow";
 import PecaRow from "../components/serviceOrders/PecaRow";
 
 const inputClass =
-  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] py-2.5 pl-9 pr-3 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
+  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] py-2.5 pl-9 pr-3 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
 const plainInputClass =
-  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
+  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
 
 function formatCurrency(value: string | number) {
   return Number(value)
@@ -101,17 +101,8 @@ export default function NewServiceOrder() {
           listUsers(),
           listStock(),
         ]);
-        // Cliente ou veículo arquivado não aparece pra abrir OS nova
-        setClientes(
-          clientesData
-            .filter((c: any) => c.ativo !== false)
-            .map((c: any) => ({
-              ...c,
-              veiculos: (c.veiculos ?? []).filter(
-                (v: any) => v.ativo !== false,
-              ),
-            })),
-        );
+        // O backend já devolve só clientes e veículos ativos
+        setClientes(clientesData);
         setMecanicos(Array.isArray(mecanicosData) ? mecanicosData : []);
         setStockItems(stockData);
       } catch (err) {
@@ -406,8 +397,8 @@ export default function NewServiceOrder() {
   }
 
   return (
-    <div className="space-y-6 p-8">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 p-4 md:p-8">
+      <div className="flex flex-col items-start gap-3 md:flex-row md:justify-between md:gap-0">
         <div>
           <h1 className="text-2xl font-semibold text-[#1F1F1F]">
             Nova Ordem de Serviço
@@ -736,7 +727,7 @@ export default function NewServiceOrder() {
             )}
           </div>
 
-          <div className="flex items-center justify-between rounded-2xl bg-white p-5 shadow-sm">
+          <div className="flex flex-col items-start gap-4 rounded-2xl bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between md:gap-0">
             <div>
               <p className="text-xs uppercase tracking-wide text-gray-400">
                 Valor total da OS

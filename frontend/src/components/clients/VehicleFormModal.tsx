@@ -73,8 +73,8 @@ export default function VehicleFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-16 backdrop-blur-sm">
-      <div className="flex max-h-[calc(100vh-8rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-4 backdrop-blur-sm md:py-16">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl md:max-h-[calc(100vh-8rem)]">
         {/* Header */}
         <div className="flex items-start gap-3.5 border-b border-gray-100 p-5">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
@@ -94,7 +94,7 @@ export default function VehicleFormModal({
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 md:h-8 md:w-8"
           >
             <X size={15} />
           </button>
@@ -244,7 +244,7 @@ export default function VehicleFormModal({
         </form>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 border-t border-gray-100 bg-gray-50/60 p-4">
+        <div className="flex flex-wrap items-center gap-3 border-t border-gray-100 bg-gray-50/60 p-4 md:flex-nowrap">
           {isEdit && onDelete && (
             <button
               type="button"
@@ -284,7 +284,7 @@ export default function VehicleFormModal({
       <style>{`
         .input-field {
           width: 100%;
-          font-size: 13.5px;
+          font-size: 16px;
           color: #1B2130;
           border: 1.5px solid #E7E9EE;
           border-radius: 7px;
@@ -297,6 +297,12 @@ export default function VehicleFormModal({
           border-color: #FF7518;
           background: #fff;
           box-shadow: 0 0 0 3px #FDE7DA;
+        }
+        /* 16px no celular evita o zoom do iPhone; a partir de 768px volta ao tamanho original */
+        @media (min-width: 48rem) {
+          .input-field {
+            font-size: 13.5px;
+          }
         }
       `}</style>
     </div>

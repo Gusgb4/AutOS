@@ -7,6 +7,8 @@ export interface User {
   nome: string;
   email: string;
   perfil: Perfil;
+  ativo?: boolean;
+  trocar_senha?: boolean;
 }
 
 export interface LoginPayload {
@@ -14,11 +16,9 @@ export interface LoginPayload {
   senha: string;
 }
 
-export interface RegisterPayload {
-  nome: string;
-  email: string;
-  senha: string;
-  perfil?: Perfil;
+export interface ChangePasswordPayload {
+  senha_atual: string;
+  nova_senha: string;
 }
 
 export interface LoginResponse {
@@ -31,12 +31,14 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
   return data;
 }
 
-export async function register(payload: RegisterPayload): Promise<User> {
-  const { data } = await api.post<User>("/auth/register", payload);
+export async function getMe(): Promise<User> {
+  const { data } = await api.get<User>("/auth/me");
   return data;
 }
 
-export async function getMe(): Promise<User> {
-  const { data } = await api.get<User>("/auth/me");
+export async function trocarSenha(
+  payload: ChangePasswordPayload,
+): Promise<{ message: string }> {
+  const { data } = await api.patch<{ message: string }>("/auth/senha", payload);
   return data;
 }

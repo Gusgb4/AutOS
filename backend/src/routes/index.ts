@@ -7,6 +7,7 @@ import serviceOrdersRoutes from "./serviceOrders.routes";
 import usersRoutes from "./users.routes";
 import financialRoutes from "./financial.routes";
 import reportsRoutes from "./reports.routes";
+import notificacoesRoutes from "./notificacoes.routes";
 
 const router = Router();
 
@@ -18,5 +19,6 @@ router.use("/service-orders", serviceOrdersRoutes);
 router.use("/users", usersRoutes);
 router.use("/financial", financialRoutes);
 router.use("/reports", reportsRoutes);
+router.use("/notificacoes", notificacoesRoutes);
 
 export default router;
