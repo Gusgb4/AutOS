@@ -9,6 +9,7 @@ import {
   inventarioController,
   resumoController,
   atividadeController,
+  evolucaoController,
 } from "../controllers/reports.controller";
 
 const router = Router();
@@ -20,5 +21,6 @@ router.get("/sales", asyncHandler(vendasController));
 router.get("/inventory", asyncHandler(inventarioController));
 router.get("/financial-summary", asyncHandler(resumoController));
 router.get("/client-activity", asyncHandler(atividadeController));
+router.get("/evolucao", asyncHandler(evolucaoController));
 
 export default router;
