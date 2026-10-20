@@ -6,9 +6,15 @@ import {
   Check,
   DollarSign,
   FileText,
+  Tag,
   X,
 } from "lucide-react";
-import type { FinancialEntryPayload, TipoLancamento } from "../../services/financial";
+import {
+  CATEGORIA_LABEL,
+  type CategoriaDespesa,
+  type FinancialEntryPayload,
+  type TipoLancamento,
+} from "../../services/financial";
 
 interface FinancialEntryModalProps {
   open: boolean;
@@ -23,6 +29,7 @@ const emptyForm = {
   descricao: "",
   valor: "",
   data: "",
+  categoria: "" as CategoriaDespesa | "",
 };
 
 export default function FinancialEntryModal({
@@ -49,11 +56,19 @@ export default function FinancialEntryModal({
       return;
     }
 
+    // O select já é obrigatório na despesa, mas confere de novo por garantia
+    if (form.tipo === "DESPESA" && !form.categoria) {
+      alert("Escolha a categoria da despesa.");
+      return;
+    }
+
     onSave({
       tipo: form.tipo,
       descricao: form.descricao.trim(),
       valor,
       data: form.data || undefined,
+      categoria:
+        form.tipo === "DESPESA" && form.categoria ? form.categoria : undefined,
     });
   }
 
@@ -118,6 +133,40 @@ export default function FinancialEntryModal({
               </button>
             </div>
           </div>
+
+          {!isReceita && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-[#1B2130]">
+                Categoria
+              </label>
+              <div className="relative">
+                <Tag
+                  size={15}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <select
+                  value={form.categoria}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      categoria: e.target.value as CategoriaDespesa | "",
+                    }))
+                  }
+                  required
+                  className="entry-input"
+                >
+                  <option value="">Escolha a categoria</option>
+                  {(Object.keys(CATEGORIA_LABEL) as CategoriaDespesa[]).map(
+                    (c) => (
+                      <option key={c} value={c}>
+                        {CATEGORIA_LABEL[c]}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-[#1B2130]">

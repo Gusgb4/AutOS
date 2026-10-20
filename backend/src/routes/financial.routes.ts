@@ -14,5 +14,6 @@ router.get("/", financialController.list);
 router.get("/a-receber", financialController.aReceber);
 router.get("/resumo", financialController.resumo);
 router.post("/", financialController.create);
+router.patch("/:id/estornar", financialController.estornar);
 
 export default router;

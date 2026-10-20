@@ -1,5 +1,6 @@
-import { Prisma } from "@prisma/client";
+import { CategoriaDespesa, Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
+import { AppError } from "../utils/AppError";
 import { comPagamento, pagamentosAtivos } from "./serviceOrders.service";
 import {
   Periodo,
@@ -11,47 +12,118 @@ import {
   variacao,
 } from "./reports.service";
 
+export type TipoLancamento = "RECEITA" | "DESPESA";
+
 interface Filtros {
-  tipo?: string;
-  inicio?: string;
-  fim?: string;
+  tipo?: TipoLancamento;
+  categoria?: CategoriaDespesa;
+  inicio?: string; // "2026-10-01"
+  fim?: string; // "2026-10-31" (inclusivo)
+  estornados?: boolean;
+}
+
+// Datas no fuso de Brasília; o fim conta o dia inteiro
+function filtroData(inicio?: string, fim?: string) {
+  if (!inicio && !fim) return undefined;
+  return {
+    gte: inicio ? parsePeriodo(inicio, inicio).inicio : undefined,
+    lt: fim ? parsePeriodo(fim, fim).fimExclusivo : undefined,
+  };
 }
 
 export async function listEntries(filtros: Filtros) {
-  // Garante por padrão que apenas lançamentos não estornados sejam listados
-  const onde: any = {
-    estornado: false,
-  };
-
-  if (filtros.tipo) onde.tipo = filtros.tipo;
-
-  if (filtros.inicio || filtros.fim) {
-    onde.data = {};
-    if (filtros.inicio) onde.data.gte = new Date(filtros.inicio);
-    if (filtros.fim) onde.data.lte = new Date(filtros.fim);
-  }
-
   return prisma.financialEntry.findMany({
-    where: onde,
+    where: {
+      // Por padrão só os ativos; com estornados=true vêm os dois
+      estornado: filtros.estornados ? undefined : false,
+      tipo: filtros.tipo,
+      categoria: filtros.categoria,
+      data: filtroData(filtros.inicio, filtros.fim),
+    },
     orderBy: { data: "desc" },
   });
 }
 
 export async function createEntry(dados: {
-  tipo: string;
+  tipo: TipoLancamento;
   descricao: string;
   valor: number;
   data?: string;
+  categoria?: CategoriaDespesa;
 }) {
   return prisma.financialEntry.create({
     data: {
       tipo: dados.tipo,
       descricao: dados.descricao,
       valor: dados.valor,
-      data: dados.data ? new Date(dados.data) : new Date(),
+      // Meio-dia de Brasília, pra data não "voltar" um dia por causa do fuso
+      data: dados.data ? new Date(`${dados.data}T12:00:00-03:00`) : new Date(),
+      // Categoria só faz sentido em despesa
+      categoria: dados.tipo === "DESPESA" ? dados.categoria : null,
       estornado: false,
     },
   });
+}
+
+// Lançamento errado não é apagado nem editado: é estornado (fica no histórico,
+// mas sai dos totais) e o certo é lançado de novo.
+// Só vale pra lançamento manual. Pagamento de OS é estornado pela tela da OS,
+// porque lá o estorno também recalcula o status de pagamento.
+export async function estornarLancamento(id: string) {
+  const lancamento = await prisma.financialEntry.findUnique({ where: { id } });
+
+  if (!lancamento) {
+    throw new AppError("Lançamento não encontrado.", 404);
+  }
+  if (lancamento.ordemId !== null) {
+    throw new AppError(
+      "Pagamento de OS é estornado na tela da própria OS.",
+      409,
+    );
+  }
+
+  // updateMany com estornado: false evita estornar duas vezes ao mesmo tempo
+  const { count } = await prisma.financialEntry.updateMany({
+    where: { id, estornado: false },
+    data: { estornado: true },
+  });
+
+  if (count === 0) {
+    throw new AppError("Este lançamento já foi estornado.", 409);
+  }
+
+  return prisma.financialEntry.findUniqueOrThrow({ where: { id } });
+}
+
+// Despesas ativas do período, agrupadas por categoria (da maior pra menor)
+async function despesasPorCategoria(p: Periodo) {
+  const grupos = await prisma.financialEntry.groupBy({
+    by: ["categoria"],
+    where: {
+      tipo: "DESPESA",
+      estornado: false,
+      data: { gte: p.inicio, lt: p.fimExclusivo },
+    },
+    _sum: { valor: true },
+  });
+
+  const total = grupos.reduce(
+    (acc, g) => acc.plus(g._sum?.valor ?? 0),
+    new Prisma.Decimal(0),
+  );
+
+  return grupos
+    .map((g) => {
+      const valor = g._sum?.valor ?? new Prisma.Decimal(0);
+      return {
+        categoria: g.categoria ?? "OUTROS",
+        valor: arredondar(valor),
+        percentual: total.isZero()
+          ? 0
+          : valor.div(total).mul(100).toDecimalPlaces(1).toNumber(),
+      };
+    })
+    .sort((a, b) => b.valor - a.valor);
 }
 
 export async function contasAReceber() {
@@ -132,9 +204,10 @@ export async function resumoComparativo(inicio?: string, fim?: string) {
     anterior = parseMes(mesAnterior(mes));
   }
 
-  const [totaisAtual, totaisAnterior] = await Promise.all([
+  const [totaisAtual, totaisAnterior, porCategoria] = await Promise.all([
     totaisDoPeriodo(atual),
     totaisDoPeriodo(anterior),
+    despesasPorCategoria(atual),
   ]);
 
   return {
@@ -147,5 +220,6 @@ export async function resumoComparativo(inicio?: string, fim?: string) {
       saidas: variacao(totaisAtual.saidas, totaisAnterior.saidas),
       saldo: variacao(totaisAtual.saldo, totaisAnterior.saldo),
     },
+    despesas_por_categoria: porCategoria,
   };
 }
