@@ -186,6 +186,14 @@ enum FormaPagamento {
   OUTRO
 }
 
+enum CategoriaDespesa {
+  ALUGUEL
+  SALARIO
+  PECAS
+  ENERGIA
+  OUTROS
+}
+
 model FinancialEntry {
   id           String        @id @default(uuid())
   tipo         String        // Ex: "RECEITA", "DESPESA"
@@ -194,7 +202,9 @@ model FinancialEntry {
   data         DateTime      @default(now())
   estornado    Boolean       @default(false)
   forma_pagamento FormaPagamento?
-  
+  // Obrigatória em despesa; fica vazia em receita
+  categoria    CategoriaDespesa?
+
   ordemId      Int?          // Alterado de String? para Int? para bater com o ID de ServiceOrder
   ordemServico ServiceOrder? @relation(fields: [ordemId], references: [id], onDelete: SetNull)
 

@@ -11,17 +11,23 @@ import {
   Eye,
   EyeOff,
   HandCoins,
+  RotateCcw,
 } from "lucide-react";
+import { mensagemDeErro } from "../lib/errors";
 import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
 import PagamentoBadge from "../components/ui/PagamentoBadge";
 import FinancialEntryModal from "../components/financial/FinancialEntryModal";
 import EvolucaoChart from "../components/financial/EvolucaoChart";
+import DespesasPorCategoria from "../components/financial/DespesasPorCategoria";
 import {
+  CATEGORIA_LABEL,
   createFinancialEntry,
+  estornarFinancialEntry,
   getContasAReceber,
   getResumoFinanceiro,
   listFinancialEntries,
+  type CategoriaDespesa,
   type ContasAReceber,
   type FinancialEntry,
   type FinancialEntryPayload,
@@ -31,11 +37,19 @@ import {
 
 interface Filtros {
   tipo: TipoLancamento | "";
+  categoria: CategoriaDespesa | "";
   inicio: string;
   fim: string;
+  estornados: boolean;
 }
 
-const filtrosVazios: Filtros = { tipo: "", inicio: "", fim: "" };
+const filtrosVazios: Filtros = {
+  tipo: "",
+  categoria: "",
+  inicio: "",
+  fim: "",
+  estornados: false,
+};
 
 const moeda = (valor: number) =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -68,14 +82,23 @@ export default function Financial() {
   const [salvando, setSalvando] = useState(false);
   const [erroModal, setErroModal] = useState<string | null>(null);
 
+  // Estorno pede confirmação na própria linha, sem o confirm() do navegador
+  const [confirmandoEstorno, setConfirmandoEstorno] = useState<string | null>(
+    null,
+  );
+  const [estornando, setEstornando] = useState(false);
+  const [erroEstorno, setErroEstorno] = useState<string | null>(null);
+
   async function carregar(alvo: Filtros) {
     try {
       setLoading(true);
       setErro(null);
       const data = await listFinancialEntries({
         tipo: alvo.tipo || undefined,
+        categoria: alvo.categoria || undefined,
         inicio: alvo.inicio || undefined,
-        fim: alvo.fim ? `${alvo.fim}T23:59:59` : undefined,
+        fim: alvo.fim || undefined,
+        estornados: alvo.estornados,
       });
       setLancamentos(data);
 
@@ -139,6 +162,8 @@ export default function Financial() {
 
   function aplicarFiltro(patch: Partial<Filtros>) {
     const novos = { ...filtros, ...patch };
+    // Receita não tem categoria: ao filtrar só receitas, limpa a categoria
+    if (novos.tipo === "RECEITA") novos.categoria = "";
     setFiltros(novos);
     carregar(novos);
   }
@@ -165,12 +190,33 @@ export default function Financial() {
     }
   }
 
+  async function handleEstornar(id: string) {
+    try {
+      setEstornando(true);
+      setErroEstorno(null);
+      await estornarFinancialEntry(id);
+      setConfirmandoEstorno(null);
+      // Recarrega lista e cards: o estornado sai dos totais
+      await carregar(filtros);
+    } catch (e) {
+      setErroEstorno(mensagemDeErro(e, "Não foi possível estornar o lançamento."));
+    } finally {
+      setEstornando(false);
+    }
+  }
+
   function limparFiltros() {
     setFiltros(filtrosVazios);
     carregar(filtrosVazios);
   }
 
-  const temFiltro = Boolean(filtros.tipo || filtros.inicio || filtros.fim);
+  const temFiltro = Boolean(
+    filtros.tipo ||
+      filtros.categoria ||
+      filtros.inicio ||
+      filtros.fim ||
+      filtros.estornados,
+  );
 
   return (
     <div className="space-y-6 p-8">
@@ -237,6 +283,13 @@ export default function Financial() {
       )}
 
       <EvolucaoChart ocultarValores={!showValues} />
+
+      {resumo && (
+        <DespesasPorCategoria
+          itens={resumo.despesas_por_categoria}
+          ocultarValores={!showValues}
+        />
+      )}
 
       {aReceber && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
@@ -335,6 +388,27 @@ export default function Financial() {
               <option value="DESPESA">Despesas</option>
             </select>
 
+            {filtros.tipo !== "RECEITA" && (
+              <select
+                value={filtros.categoria}
+                onChange={(e) =>
+                  aplicarFiltro({
+                    categoria: e.target.value as CategoriaDespesa | "",
+                  })
+                }
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#FF7518]"
+              >
+                <option value="">Todas as categorias</option>
+                {(Object.keys(CATEGORIA_LABEL) as CategoriaDespesa[]).map(
+                  (c) => (
+                    <option key={c} value={c}>
+                      {CATEGORIA_LABEL[c]}
+                    </option>
+                  ),
+                )}
+              </select>
+            )}
+
             <input
               type="date"
               value={filtros.inicio}
@@ -347,6 +421,18 @@ export default function Financial() {
               onChange={(e) => aplicarFiltro({ fim: e.target.value })}
               className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#FF7518]"
             />
+
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={filtros.estornados}
+                onChange={(e) =>
+                  aplicarFiltro({ estornados: e.target.checked })
+                }
+                className="h-4 w-4 accent-[#FF7518]"
+              />
+              Mostrar estornados
+            </label>
 
             {temFiltro && (
               <button
@@ -372,6 +458,12 @@ export default function Financial() {
           </div>
         </div>
 
+        {erroEstorno && (
+          <p className="border-b border-red-100 bg-red-50 px-5 py-3 text-sm text-red-600">
+            {erroEstorno}
+          </p>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center gap-2 p-10 text-sm text-gray-500">
             <Loader2 size={16} className="animate-spin" />
@@ -395,22 +487,37 @@ export default function Financial() {
                   <th className="px-5 py-3 font-medium">Tipo</th>
                   <th className="px-5 py-3 font-medium">Origem</th>
                   <th className="px-5 py-3 text-right font-medium">Valor</th>
+                  <th className="px-5 py-3 text-right font-medium">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {lancamentos.map((lancamento) => {
                   const receita = lancamento.tipo === "RECEITA";
+                  // Estornado continua na lista (com o filtro ligado), com fundo
+                  // amarelo clarinho pra se destacar dos lançamentos ativos
+                  const estornado = lancamento.estornado;
                   return (
                     <tr
                       key={lancamento.id}
-                      className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
+                      className={`border-b border-gray-50 last:border-0 ${
+                        estornado
+                          ? "bg-amber-50 text-gray-500 hover:bg-amber-100/60"
+                          : "hover:bg-gray-50/60"
+                      }`}
                     >
                       <td className="px-5 py-4 text-gray-600">
                         {new Date(lancamento.data).toLocaleDateString("pt-BR")}
                       </td>
 
                       <td className="px-5 py-4 font-medium text-[#1F1F1F]">
-                        {lancamento.descricao}
+                        <span className={estornado ? "line-through" : ""}>
+                          {lancamento.descricao}
+                        </span>
+                        {estornado && (
+                          <span className="ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                            Estornado
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-5 py-4">
@@ -428,6 +535,11 @@ export default function Financial() {
                           )}
                           {receita ? "Receita" : "Despesa"}
                         </span>
+                        {lancamento.categoria && (
+                          <p className="mt-1 text-xs text-gray-500">
+                            {CATEGORIA_LABEL[lancamento.categoria]}
+                          </p>
+                        )}
                       </td>
 
                       <td className="px-5 py-4 text-gray-600">
@@ -443,9 +555,51 @@ export default function Financial() {
                       <td
                         className={`px-5 py-4 text-right font-semibold ${
                           receita ? "text-emerald-600" : "text-red-500"
-                        }`}
+                        } ${estornado ? "line-through" : ""}`}
                       >
                         {receita ? "+" : "-"} {moeda(Number(lancamento.valor))}
+                      </td>
+
+                      <td className="px-5 py-4 text-right">
+                        {/* Só lançamento manual e ativo; pagamento de OS se estorna na OS */}
+                        {!lancamento.ordemId && !estornado && (
+                          confirmandoEstorno === lancamento.id ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-xs text-gray-500">
+                                Estornar?
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleEstornar(lancamento.id)}
+                                disabled={estornando}
+                                className="rounded-lg bg-red-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-60"
+                              >
+                                {estornando ? "..." : "Sim"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmandoEstorno(null)}
+                                disabled={estornando}
+                                className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                              >
+                                Não
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setErroEstorno(null);
+                                setConfirmandoEstorno(lancamento.id);
+                              }}
+                              title="Lançou errado? Estorne e lance de novo com os dados certos."
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-200"
+                            >
+                              <RotateCcw size={12} />
+                              Estornar
+                            </button>
+                          )
+                        )}
                       </td>
                     </tr>
                   );
