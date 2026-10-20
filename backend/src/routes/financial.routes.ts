@@ -12,6 +12,7 @@ router.use(requireRole(["PROPRIETARIO"]));
 
 router.get("/", financialController.list);
 router.get("/a-receber", financialController.aReceber);
+router.get("/resumo", financialController.resumo);
 router.post("/", financialController.create);
 
 export default router;

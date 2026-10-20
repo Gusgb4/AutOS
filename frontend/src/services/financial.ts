@@ -69,3 +69,29 @@ export async function getContasAReceber() {
   const { data } = await api.get<ContasAReceber>("/financial/a-receber");
   return data;
 }
+
+export interface TotaisFinanceiros {
+  entradas: number;
+  saidas: number;
+  saldo: number;
+}
+
+export interface ResumoFinanceiro {
+  periodo: { inicio: string; fim: string };
+  periodo_anterior: { inicio: string; fim: string };
+  atual: TotaisFinanceiros;
+  anterior: TotaisFinanceiros;
+  variacao: {
+    entradas: number | null;
+    saidas: number | null;
+    saldo: number | null;
+  };
+}
+
+// Sem datas: mês atual comparado com o mês anterior
+export async function getResumoFinanceiro(inicio?: string, fim?: string) {
+  const { data } = await api.get<ResumoFinanceiro>("/financial/resumo", {
+    params: inicio && fim ? { inicio, fim } : undefined,
+  });
+  return data;
+}
