@@ -19,10 +19,12 @@ import FinancialEntryModal from "../components/financial/FinancialEntryModal";
 import {
   createFinancialEntry,
   getContasAReceber,
+  getResumoFinanceiro,
   listFinancialEntries,
   type ContasAReceber,
   type FinancialEntry,
   type FinancialEntryPayload,
+  type ResumoFinanceiro,
   type TipoLancamento,
 } from "../services/financial";
 
@@ -37,11 +39,24 @@ const filtrosVazios: Filtros = { tipo: "", inicio: "", fim: "" };
 const moeda = (valor: number) =>
   valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+const dataBR = (iso: string) => iso.split("-").reverse().join("/");
+
+// Variação em %; nas despesas, subir é ruim (vermelho)
+function tendencia(valor: number | null | undefined, subirEhBom = true) {
+  if (valor === null || valor === undefined) return undefined;
+  const sinal = valor > 0 ? "+" : "";
+  return {
+    value: `${sinal}${valor.toLocaleString("pt-BR")}% vs período anterior`,
+    positive: subirEhBom ? valor >= 0 : valor <= 0,
+  };
+}
+
 export default function Financial() {
   const navigate = useNavigate();
   const [showValues, setShowValues] = useState(true);
   const [aReceber, setAReceber] = useState<ContasAReceber | null>(null);
-  
+  const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
+
   const [lancamentos, setLancamentos] = useState<FinancialEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -62,6 +77,14 @@ export default function Financial() {
         fim: alvo.fim ? `${alvo.fim}T23:59:59` : undefined,
       });
       setLancamentos(data);
+
+      const temPeriodo = Boolean(alvo.inicio && alvo.fim);
+      setResumo(
+        await getResumoFinanceiro(
+          temPeriodo ? alvo.inicio : undefined,
+          temPeriodo ? alvo.fim : undefined,
+        ),
+      );
     } catch (e) {
       setErro(
         (isAxiosError(e) ? e.response?.data?.erro : undefined) ??
@@ -92,6 +115,14 @@ export default function Financial() {
         if (ativo) setLoading(false);
       });
 
+    getResumoFinanceiro()
+      .then((data) => {
+        if (ativo) setResumo(data);
+      })
+      .catch(() => {
+        if (ativo) setResumo(null);
+      });
+
     getContasAReceber()
       .then((data) => {
         if (ativo) setAReceber(data);
@@ -111,13 +142,10 @@ export default function Financial() {
     carregar(novos);
   }
 
-  const totalReceitas = lancamentos
-    .filter((l) => l.tipo === "RECEITA")
-    .reduce((soma, l) => soma + Number(l.valor), 0);
-  const totalDespesas = lancamentos
-    .filter((l) => l.tipo === "DESPESA")
-    .reduce((soma, l) => soma + Number(l.valor), 0);
-  const saldo = totalReceitas - totalDespesas;
+  // Os cards mostram o período (filtro ou mes atual), o mesmo da comparação
+  const totalReceitas = resumo?.atual.entradas ?? 0;
+  const totalDespesas = resumo?.atual.saidas ?? 0;
+  const saldo = resumo?.atual.saldo ?? 0;
 
   async function handleSalvar(payload: FinancialEntryPayload) {
     try {
@@ -168,6 +196,7 @@ export default function Financial() {
           icon={ArrowUpCircle}
           accentColor="#10B981"
           valueColor
+          trend={showValues ? tendencia(resumo?.variacao.entradas) : undefined}
         />
         <StatCard
           label="DESPESAS"
@@ -175,6 +204,9 @@ export default function Financial() {
           icon={ArrowDownCircle}
           accentColor="#EF4444"
           valueColor
+          trend={
+            showValues ? tendencia(resumo?.variacao.saidas, false) : undefined
+          }
         />
         <StatCard
           label="SALDO"
@@ -182,7 +214,9 @@ export default function Financial() {
           icon={Wallet}
           accentColor={saldo >= 0 ? "#10B981" : "#EF4444"}
           valueColor
+          trend={showValues ? tendencia(resumo?.variacao.saldo) : undefined}
         />
+
         <StatCard
           label="LANÇAMENTOS"
           value={lancamentos.length}
@@ -190,6 +224,16 @@ export default function Financial() {
           accentColor="#FF7518"
         />
       </div>
+
+      {resumo && (
+        <p className="-mt-2 text-xs text-gray-500">
+          Período: {dataBR(resumo.periodo.inicio)} a{" "}
+          {dataBR(resumo.periodo.fim)} · comparado com{" "}
+          {dataBR(resumo.periodo_anterior.inicio)} a{" "}
+          {dataBR(resumo.periodo_anterior.fim)}
+          {!(filtros.inicio && filtros.fim) && " (mês atual)"}
+        </p>
+      )}
 
       {aReceber && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm">

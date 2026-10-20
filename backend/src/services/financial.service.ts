@@ -1,6 +1,15 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { comPagamento, pagamentosAtivos } from "./serviceOrders.service";
+import {
+  Periodo,
+  arredondar,
+  descreverPeriodo,
+  parseMes,
+  parsePeriodo,
+  periodoAnterior,
+  variacao,
+} from "./reports.service";
 
 interface Filtros {
   tipo?: string;
@@ -75,5 +84,68 @@ export async function contasAReceber() {
       status_pagamento: o.status_pagamento,
       finalizada_em: o.finalizada_em,
     })),
+  };
+}
+
+// Entradas, saídas e saldo do período (lançamentos não estornados)
+async function totaisDoPeriodo(p: Periodo) {
+  const grupos = await prisma.financialEntry.groupBy({
+    by: ["tipo"],
+    where: { estornado: false, data: { gte: p.inicio, lt: p.fimExclusivo } },
+    _sum: { valor: true },
+  });
+
+  const soma = (tipo: string) =>
+    grupos.find((g) => g.tipo === tipo)?._sum.valor ?? new Prisma.Decimal(0);
+  const entradas = soma("RECEITA");
+  const saidas = soma("DESPESA");
+
+  return {
+    entradas: arredondar(entradas),
+    saidas: arredondar(saidas),
+    saldo: arredondar(entradas.minus(saidas)),
+  };
+}
+
+// "2026-10" no fuso de Brasília
+function mesAtual() {
+  return new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 7);
+}
+
+function mesAnterior(mes: string) {
+  const [ano, numero] = mes.split("-").map(Number);
+  return new Date(Date.UTC(ano, numero - 2, 1)).toISOString().slice(0, 7);
+}
+
+// Com período: compara com o anterior de mesma duração.
+// Sem período: mês atual contra o mês anterior.
+export async function resumoComparativo(inicio?: string, fim?: string) {
+  let atual: Periodo;
+  let anterior: Periodo;
+
+  if (inicio && fim) {
+    atual = parsePeriodo(inicio, fim);
+    anterior = periodoAnterior(atual);
+  } else {
+    const mes = mesAtual();
+    atual = parseMes(mes);
+    anterior = parseMes(mesAnterior(mes));
+  }
+
+  const [totaisAtual, totaisAnterior] = await Promise.all([
+    totaisDoPeriodo(atual),
+    totaisDoPeriodo(anterior),
+  ]);
+
+  return {
+    periodo: descreverPeriodo(atual),
+    periodo_anterior: descreverPeriodo(anterior),
+    atual: totaisAtual,
+    anterior: totaisAnterior,
+    variacao: {
+      entradas: variacao(totaisAtual.entradas, totaisAnterior.entradas),
+      saidas: variacao(totaisAtual.saidas, totaisAnterior.saidas),
+      saldo: variacao(totaisAtual.saldo, totaisAnterior.saldo),
+    },
   };
 }

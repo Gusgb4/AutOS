@@ -29,7 +29,7 @@ export function parseMes(mes: string): Periodo {
   return parsePeriodo(`${mes}-01`, `${mes}-${ultimoDia}`);
 }
 
-function periodoAnterior(p: Periodo): Periodo {
+export function periodoAnterior(p: Periodo): Periodo {
   const duracao = p.fimExclusivo.getTime() - p.inicio.getTime();
   return {
     inicio: new Date(p.inicio.getTime() - duracao),
@@ -52,7 +52,7 @@ export function arredondar(valor: Prisma.Decimal): number {
   return valor.toDecimalPlaces(2).toNumber();
 }
 
-function variacao(atual: number, anterior: number): number | null {
+export function variacao(atual: number, anterior: number): number | null {
   if (anterior === 0) return null;
   return Math.round(((atual - anterior) / Math.abs(anterior)) * 1000) / 10;
 }
