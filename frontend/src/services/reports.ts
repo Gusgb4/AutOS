@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { PrevisaoFalta } from "./stock";
 
 export interface PeriodoDatas {
   inicio: string;
@@ -24,8 +25,27 @@ export interface VendasPorPeriodo {
   por_dia: { data: string; ordens: number; total: number }[];
 }
 
+export interface ResumoConsumo {
+  quantidade: number;
+  valor: number;
+}
+
 export interface StatusInventario {
   resumo: { total_itens: number; abaixo_minimo: number; valor_total: number };
+  consumo: {
+    periodo: PeriodoDatas;
+    periodo_anterior: PeriodoDatas;
+    atual: ResumoConsumo;
+    anterior: ResumoConsumo;
+    variacao: Record<keyof ResumoConsumo, number | null>;
+    itens: {
+      id: number;
+      nome: string;
+      categoria: string | null;
+      quantidade: number;
+      valor: number;
+    }[];
+  };
   itens: {
     id: number;
     nome: string;
@@ -37,10 +57,34 @@ export interface StatusInventario {
     valor_em_estoque: number;
     abaixo_minimo: boolean;
   }[];
+  // Últimos 90 dias até hoje, independente do período; itens com consumo, do que acaba primeiro
+  previsao_falta: {
+    periodo: PeriodoDatas;
+    itens: ({
+      id: number;
+      nome: string;
+      categoria: string | null;
+      quantidade: number;
+    } & PrevisaoFalta)[];
+  };
+}
+
+export interface IndicadoresFinanceiros {
+  entradas: number;
+  saidas: number;
+  saldo: number;
+  mao_de_obra: number;
+  pecas: number;
+  faturamento: number;
+  custo_pecas: number;
+  margem_pecas: number;
 }
 
 export interface ResumoFinanceiro {
   periodo: PeriodoDatas;
+  periodo_anterior: PeriodoDatas;
+  anterior: IndicadoresFinanceiros;
+  variacao: Record<keyof IndicadoresFinanceiros, number | null>;
   entradas: number;
   saidas: number;
   saldo: number;
@@ -49,12 +93,32 @@ export interface ResumoFinanceiro {
     pecas: { valor: number; percentual: number };
     total: number;
   };
+  // Mesmas OS da composição; só peças com custo registrado entram na margem
+  margem_pecas: {
+    receita: number;
+    custo: number;
+    margem: number;
+    percentual: number | null;
+    pecas_com_custo: number;
+    pecas_sem_custo: number;
+    valor_sem_custo: number;
+  };
   outras_receitas: number;
+}
+
+export interface ResumoAtividade {
+  clientes_atendidos: number;
+  clientes_novos: number;
+  ordens: number;
+  total: number;
 }
 
 export interface AtividadeClientes {
   periodo: PeriodoDatas;
-  resumo: { clientes_atendidos: number; ordens: number; total: number };
+  periodo_anterior: PeriodoDatas;
+  resumo: ResumoAtividade;
+  anterior: ResumoAtividade;
+  variacao: Record<keyof ResumoAtividade, number | null>;
   clientes: {
     cliente_id: number;
     nome: string;
@@ -72,8 +136,10 @@ export async function getVendasPorPeriodo(inicio: string, fim: string) {
   return data;
 }
 
-export async function getStatusInventario() {
-  const { data } = await api.get<StatusInventario>("/reports/inventory");
+export async function getStatusInventario(inicio: string, fim: string) {
+  const { data } = await api.get<StatusInventario>("/reports/inventory", {
+    params: { inicio, fim },
+  });
   return data;
 }
 

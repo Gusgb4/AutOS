@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { StatusPagamento } from "./serviceOrders";
 
 export type TipoLancamento = "RECEITA" | "DESPESA";
 
@@ -48,5 +49,23 @@ export async function listFinancialEntries(
 
 export async function createFinancialEntry(payload: FinancialEntryPayload) {
   const { data } = await api.post<FinancialEntry>("/financial", payload);
+  return data;
+}
+
+export interface ContasAReceber {
+  total: string;
+  ordens: {
+    id: number;
+    cliente: { id: number; nome: string };
+    valor_total: string;
+    valor_pago: string;
+    saldo: string;
+    status_pagamento: StatusPagamento;
+    finalizada_em: string;
+  }[];
+}
+
+export async function getContasAReceber() {
+  const { data } = await api.get<ContasAReceber>("/financial/a-receber");
   return data;
 }

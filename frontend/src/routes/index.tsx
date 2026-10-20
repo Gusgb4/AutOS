@@ -14,7 +14,6 @@ import ServiceOrders from "../pages/ServiceOrders";
 import NewServiceOrder from "../pages/NewServiceOrder";
 import ServiceOrderDetails from "../pages/ServiceOrderDetails";
 import NotFound from "../pages/NotFound";
-import Productivity from "../pages/Productivity";
 import TermsOfUse from "../pages/TermsOfSerivce";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
 import Team from "../pages/Team";
@@ -58,7 +57,6 @@ export const router = createBrowserRouter([
             ],
           },
           { path: "ordens-servico/novo", element: <NewServiceOrder /> },
-          { path: "produtividade", element: <Productivity /> },
           { path: "relatorios", element: <Reports /> },
         ],
       },

@@ -9,6 +9,7 @@ import {
   Wrench,
   Loader2,
   MessageCircle,
+  FileDown,
   CheckCircle2,
   Ban,
   Check,
@@ -16,7 +17,7 @@ import {
   Plus,
   PackageSearch,
   AlertTriangle,
-  Trash2,
+  TrendingUp,
 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
 import { listStock, type StockItem } from "../services/stock";
@@ -30,9 +31,15 @@ import {
   removePartFromOrder,
   type ServiceOrder,
 } from "../services/serviceOrders";
+import ServicoRow from "../components/serviceOrders/ServicoRow";
+import PecaRow from "../components/serviceOrders/PecaRow";
+import { buildWhatsAppLink } from "../lib/whatsapp";
+import PagamentosCard from "../components/serviceOrders/PagamentosCard";
+import { useAuth } from "../contexts/AuthContext";
+import { formatPercent } from "../lib/relatorios";
 
 const plainInputClass =
-  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
+  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
 
 type ServicoItem = ServiceOrder["servicos"][number];
 type PecaItem = ServiceOrder["pecas"][number];
@@ -65,25 +72,25 @@ function apiErrorMessage(err: any, fallback: string) {
   );
 }
 
-function buildWhatsAppLink(order: ServiceOrder) {
-  const digits = (order.cliente?.telefone || "").replace(/\D/g, "");
-  const comDDI = digits.length > 11 ? digits : `55${digits}`;
+// function buildWhatsAppLink(order: ServiceOrder) {
+//   const digits = (order.cliente?.telefone || "").replace(/\D/g, "");
+//   const comDDI = digits.length > 11 ? digits : `55${digits}`;
 
-  const linhasServicos = order.servicos
-    .map((s) => `- ${s.descricao}: ${formatCurrency(s.valor)}`)
-    .join("\n");
+//   const linhasServicos = order.servicos
+//     .map((s) => `- ${s.descricao}: ${formatCurrency(s.valor)}`)
+//     .join("\n");
 
-  const linhasPecas = order.pecas
-    .map(
-      (p) =>
-        `- ${p.item_estoque.nome} (x${p.quantidade}): ${formatCurrency(Number(p.valor_unitario) * p.quantidade)}`,
-    )
-    .join("\n");
+//   const linhasPecas = order.pecas
+//     .map(
+//       (p) =>
+//         `- ${p.item_estoque.nome} (x${p.quantidade}): ${formatCurrency(Number(p.valor_unitario) * p.quantidade)}`,
+//     )
+//     .join("\n");
 
-  const mensagem = `Olá ${order.cliente?.nome}!\n\nSegue o orçamento da sua *OS #${order.id}*.\nVeículo: *${order.veiculo?.marca} ${order.veiculo?.modelo}*.\n\n*Serviços:*\n${linhasServicos || "Nenhum serviço."}\n\n*Peças:*\n${linhasPecas || "Nenhuma peça."}\n\n*Valor total: ${formatCurrency(order.valor_total)}*`;
+//   const mensagem = `Olá ${order.cliente?.nome}!\n\nSegue o orçamento da sua *OS #${order.id}*.\nVeículo: *${order.veiculo?.marca} ${order.veiculo?.modelo}*.\n\n*Serviços:*\n${linhasServicos || "Nenhum serviço."}\n\n*Peças:*\n${linhasPecas || "Nenhuma peça."}\n\n*Valor total: ${formatCurrency(order.valor_total)}*`;
 
-  return `https://wa.me/${comDDI}?text=${encodeURIComponent(mensagem)}`;
-}
+//   return `https://wa.me/${comDDI}?text=${encodeURIComponent(mensagem)}`;
+// }
 
 function Field({
   label,
@@ -100,237 +107,12 @@ function Field({
   );
 }
 
-function ServicoRow({
-  servico,
-  saving,
-  onSave,
-  onRemove,
-}: {
-  servico: ServicoItem;
-  saving: boolean;
-  onSave: (descricao: string, valor: number) => void;
-  onRemove: () => void;
-}) {
-  const [descricao, setDescricao] = useState(servico.descricao);
-  const [valorTexto, setValorTexto] = useState(String(servico.valor));
-
-  useEffect(() => {
-    setDescricao(servico.descricao);
-    setValorTexto(String(servico.valor));
-  }, [servico.id, servico.descricao, servico.valor]);
-
-  const dirty =
-    descricao.trim() !== servico.descricao ||
-    Number(valorTexto.replace(",", ".")) !== Number(servico.valor);
-
-  function handleSave() {
-    const valorNumero = Number(valorTexto.replace(",", "."));
-    if (!descricao.trim() || !valorNumero || valorNumero <= 0) {
-      alert("Descrição e valor válidos são obrigatórios.");
-      return;
-    }
-    onSave(descricao.trim(), valorNumero);
-  }
-
-  function handleCancelar() {
-    setDescricao(servico.descricao);
-    setValorTexto(String(servico.valor));
-  }
-
-  return (
-    <li className="flex flex-col bg-gray-50/50">
-      <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
-        <div className="flex flex-1 flex-col gap-1.5 sm:flex-[2]">
-          <label className="text-xs font-semibold text-[#1B2130]">
-            Descrição do serviço
-          </label>
-          <input
-            type="text"
-            value={descricao}
-            disabled={saving}
-            onChange={(e) => setDescricao(e.target.value)}
-            className={plainInputClass}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-[#1B2130]">
-            Valor (R$)
-          </label>
-          <input
-            type="text"
-            inputMode="decimal"
-            value={valorTexto}
-            disabled={saving}
-            onChange={(e) => setValorTexto(e.target.value)}
-            className={`${plainInputClass} text-right sm:w-32`}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          disabled={saving}
-          className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
-        >
-          {saving ? (
-            <Loader2 size={15} className="animate-spin" />
-          ) : (
-            <Trash2 size={15} />
-          )}
-          Remover
-        </button>
-      </div>
-
-      {dirty && (
-        <div className="flex flex-col items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 px-5 py-3 sm:flex-row">
-          <p className="text-xs text-amber-800">
-            Serviço alterado. Confirme para aplicar.
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleCancelar}
-              disabled={saving}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {saving ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <Check size={13} />
-              )}
-              Confirmar alteração
-            </button>
-          </div>
-        </div>
-      )}
-    </li>
-  );
-}
-
-function PecaRow({
-  peca,
-  saving,
-  onSaveQuantidade,
-  onRemove,
-}: {
-  peca: PecaItem;
-  saving: boolean;
-  onSaveQuantidade: (novaQuantidade: number) => void;
-  onRemove: () => void;
-}) {
-  const [quantidadeTexto, setQuantidadeTexto] = useState(
-    String(peca.quantidade),
-  );
-
-  useEffect(() => {
-    setQuantidadeTexto(String(peca.quantidade));
-  }, [peca.id, peca.quantidade]);
-
-  const dirty = Number(quantidadeTexto) !== peca.quantidade;
-
-  function handleSave() {
-    const novaQuantidade = Number(quantidadeTexto);
-    if (!novaQuantidade || novaQuantidade <= 0) {
-      alert("Informe uma quantidade válida maior que zero.");
-      return;
-    }
-    onSaveQuantidade(novaQuantidade);
-  }
-
-  function handleCancelar() {
-    setQuantidadeTexto(String(peca.quantidade));
-  }
-
-  return (
-    <li className="flex flex-col bg-gray-50/50">
-      <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
-        <div className="flex flex-1 flex-col gap-1.5 sm:flex-[2]">
-          <label className="text-xs font-semibold text-[#1B2130]">Peça</label>
-          <span className={`${plainInputClass} bg-white`}>
-            {peca.item_estoque.nome}
-          </span>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-[#1B2130]">
-            Quantidade
-          </label>
-          <input
-            type="number"
-            min={1}
-            value={quantidadeTexto}
-            disabled={saving}
-            onChange={(e) => setQuantidadeTexto(e.target.value)}
-            className={`${plainInputClass} text-right sm:w-24`}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-[#1B2130]">Valor</label>
-          <span
-            className={`${plainInputClass} bg-white text-right font-medium sm:w-32`}
-          >
-            {formatCurrency(Number(peca.valor_unitario) * peca.quantidade)}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onRemove}
-          disabled={saving}
-          className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
-        >
-          {saving ? (
-            <Loader2 size={15} className="animate-spin" />
-          ) : (
-            <Trash2 size={15} />
-          )}
-          Remover
-        </button>
-      </div>
-
-      {dirty && (
-        <div className="flex flex-col items-center justify-between gap-3 border-t border-amber-200 bg-amber-50 px-5 py-3 sm:flex-row">
-          <p className="text-xs text-amber-800">
-            Quantidade alterada para <strong>{quantidadeTexto || 0}</strong>.
-            Confirme para aplicar.
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleCancelar}
-              disabled={saving}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-            >
-              {saving ? (
-                <Loader2 size={13} className="animate-spin" />
-              ) : (
-                <Check size={13} />
-              )}
-              Confirmar alteração
-            </button>
-          </div>
-        </div>
-      )}
-    </li>
-  );
-}
+/// AQUI JAZ A FUNCAO SERVICOROW E PECAROW
 
 export default function ServiceOrderDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const orderId = Number(id);
 
   const [ordem, setOrdem] = useState<ServiceOrder | null>(null);
@@ -338,6 +120,7 @@ export default function ServiceOrderDetails() {
   const [error, setError] = useState<string | null>(null);
   const [processando, setProcessando] = useState(false);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
+  const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
 
@@ -371,6 +154,14 @@ export default function ServiceOrderDetails() {
       setLoading(false);
     }
   }, [orderId]);
+
+  async function atualizarOrdem() {
+    try {
+      setOrdem(await getServiceOrderById(orderId));
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   useEffect(() => {
     if (!Number.isNaN(orderId)) {
@@ -656,7 +447,12 @@ export default function ServiceOrderDetails() {
 
   async function handleReabrir() {
     if (!ordem) return;
-    if (!confirm("Reabrir esta ordem de serviço?")) return;
+    if (
+      !confirm(
+        "Reabrir esta ordem de serviço? Os pagamentos registrados continuam valendo.",
+      )
+    )
+      return;
     setProcessando(true);
     setErroAcao(null);
     try {
@@ -666,6 +462,22 @@ export default function ServiceOrderDetails() {
       setErroAcao(apiErrorMessage(err, "Erro ao reabrir a ordem de serviço."));
     } finally {
       setProcessando(false);
+    }
+  }
+
+  async function handleBaixarPdf() {
+    if (!ordem) return;
+    setGerandoPdf(true);
+    setErroAcao(null);
+    try {
+      // O jspdf é pesado: só é carregado quando alguém pede o PDF
+      const { baixarPdfOrdemServico } = await import("../lib/pdfOrdemServico");
+      baixarPdfOrdemServico(ordem);
+    } catch (err) {
+      console.error(err);
+      setErroAcao("Não foi possível gerar o PDF.");
+    } finally {
+      setGerandoPdf(false);
     }
   }
 
@@ -697,10 +509,12 @@ export default function ServiceOrderDetails() {
 
   const podeAgir = ordem.status === "ABERTA" || ordem.status === "EM_ANDAMENTO";
   const podeReabrir = ordem.status === "FINALIZADA";
+  // O backend só manda a margem para o proprietário
+  const margem = ordem.margem_pecas;
 
   return (
-    <div className="space-y-6 p-8">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 p-4 md:p-8">
+      <div className="flex flex-col items-start gap-3 md:flex-row md:justify-between md:gap-0">
         <div>
           <h1 className="text-2xl font-semibold text-[#1F1F1F]">
             OS #{ordem.id}
@@ -720,7 +534,7 @@ export default function ServiceOrderDetails() {
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5 md:flex-nowrap md:gap-0">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
               <User size={18} />
@@ -891,6 +705,7 @@ export default function ServiceOrderDetails() {
                   handleUpdateServico(s, descricao, valor)
                 }
                 onRemove={() => handleRemoveServico(s.id)}
+                confirmBeforeSave
               />
             ))}
           </ul>
@@ -899,10 +714,10 @@ export default function ServiceOrderDetails() {
             {ordem.servicos.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between px-5 py-3 text-sm"
+                className="flex items-center justify-between gap-3 px-5 py-3 text-sm md:gap-0"
               >
                 <span className="text-[#1F1F1F]">{s.descricao}</span>
-                <span className="font-medium text-[#1F1F1F]">
+                <span className="whitespace-nowrap font-medium text-[#1F1F1F] md:whitespace-normal">
                   {formatCurrency(s.valor)}
                 </span>
               </li>
@@ -1000,6 +815,7 @@ export default function ServiceOrderDetails() {
                   handleUpdatePecaQuantidade(p, novaQuantidade)
                 }
                 onRemove={() => handleRemovePeca(p)}
+                confirmBeforeSave
               />
             ))}
           </ul>
@@ -1008,13 +824,13 @@ export default function ServiceOrderDetails() {
             {ordem.pecas.map((p) => (
               <li
                 key={p.id}
-                className="flex items-center justify-between px-5 py-3 text-sm"
+                className="flex items-center justify-between gap-3 px-5 py-3 text-sm md:gap-0"
               >
                 <span className="text-[#1F1F1F]">
                   {p.item_estoque.nome}{" "}
                   <span className="text-gray-400">x{p.quantidade}</span>
                 </span>
-                <span className="font-medium text-[#1F1F1F]">
+                <span className="whitespace-nowrap font-medium text-[#1F1F1F] md:whitespace-normal">
                   {formatCurrency(Number(p.valor_unitario) * p.quantidade)}
                 </span>
               </li>
@@ -1023,13 +839,106 @@ export default function ServiceOrderDetails() {
         )}
       </div>
 
+      {/* CUSTO E MARGEM DAS PEÇAS (só proprietário) */}
+      {margem && ordem.pecas.length > 0 && (
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+          <div className="flex items-center gap-3 border-b border-gray-100 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <p className="font-semibold text-[#1F1F1F]">
+                Custo e margem das peças
+              </p>
+              <p className="text-xs text-gray-500">
+                Custo do estoque no momento em que a peça entrou na OS
+              </p>
+            </div>
+          </div>
+          {margem.pecas_com_custo === 0 ? (
+            <p className="p-5 text-sm text-gray-500">
+              Sem custo registrado nas peças desta OS.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 p-5 sm:grid-cols-3">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400">
+                  Custo das peças
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[#1F1F1F]">
+                  {formatCurrency(margem.custo)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400">
+                  Margem (R$)
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[#1F1F1F]">
+                  {formatCurrency(margem.margem)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400">
+                  Margem (%)
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[#1F1F1F]">
+                  {margem.percentual === null
+                    ? "—"
+                    : formatPercent(Number(margem.percentual))}
+                </p>
+              </div>
+            </div>
+          )}
+          {margem.pecas_sem_custo > 0 && margem.pecas_com_custo > 0 && (
+            <p className="flex items-center gap-1.5 border-t border-amber-100 bg-amber-50 px-5 py-3 text-xs text-amber-700">
+              <AlertTriangle size={13} className="shrink-0" />
+              {margem.pecas_sem_custo === 1
+                ? "1 peça sem custo registrado ficou"
+                : `${margem.pecas_sem_custo} peças sem custo registrado ficaram`}{" "}
+              fora da margem ({formatCurrency(margem.valor_sem_custo)} em
+              venda).
+            </p>
+          )}
+          <ul className="divide-y divide-gray-50 border-t border-gray-100">
+            {ordem.pecas.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between gap-3 px-5 py-3 text-sm"
+              >
+                <span className="text-[#1F1F1F]">
+                  {p.item_estoque.nome}{" "}
+                  <span className="text-gray-400">x{p.quantidade}</span>
+                </span>
+                {p.valor_custo == null ? (
+                  <span className="text-xs text-gray-400">
+                    sem custo registrado
+                  </span>
+                ) : (
+                  <span className="whitespace-nowrap text-gray-600 md:whitespace-normal">
+                    custo {formatCurrency(Number(p.valor_custo) * p.quantidade)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(ordem.status === "FINALIZADA" || Number(ordem.valor_pago) > 0) && (
+        <PagamentosCard
+          ordem={ordem}
+          podeGerenciar={user?.perfil === "PROPRIETARIO"}
+          onAlterado={atualizarOrdem}
+        />
+      )}
+
       {erroAcao && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-600">
           {erroAcao}
         </p>
       )}
 
-      <div className="flex flex-col items-stretch justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm sm:flex-row sm:items-center">
+      <div className="flex flex-col items-stretch justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm md:flex-row md:items-center">
         <div>
           <p className="text-xs uppercase tracking-wide text-gray-400">
             Valor total da OS
@@ -1038,22 +947,35 @@ export default function ServiceOrderDetails() {
             {formatCurrency(ordem.valor_total)}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col items-stretch gap-2 md:flex-row md:flex-wrap md:items-center">
           <a
             href={buildWhatsAppLink(ordem)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100 md:justify-start"
           >
             <MessageCircle size={16} />
             Enviar por WhatsApp
           </a>
+          <button
+            type="button"
+            onClick={handleBaixarPdf}
+            disabled={gerandoPdf}
+            className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60 md:justify-start"
+          >
+            {gerandoPdf ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <FileDown size={16} />
+            )}
+            Baixar PDF
+          </button>
           {podeAgir && (
             <button
               type="button"
               onClick={handleCancelar}
               disabled={processando}
-              className="flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+              className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 md:justify-start"
             >
               <Ban size={16} />
               Cancelar OS
@@ -1064,7 +986,7 @@ export default function ServiceOrderDetails() {
               type="button"
               onClick={handleReabrir}
               disabled={processando}
-              className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+              className="flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60 md:justify-start"
             >
               {processando ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -1079,7 +1001,7 @@ export default function ServiceOrderDetails() {
               type="button"
               onClick={handleEncerrar}
               disabled={processando}
-              className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60 md:justify-start"
             >
               {processando ? (
                 <Loader2 size={16} className="animate-spin" />

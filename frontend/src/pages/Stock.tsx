@@ -11,11 +11,41 @@ import {
   Trash2,
   Loader2,
   Clock,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
-import { listStock, deleteStockItem, type StockItem } from "../services/stock";
+import {
+  listStock,
+  deleteStockItem,
+  archiveStockItem,
+  unarchiveStockItem,
+  type StockItem,
+} from "../services/stock";
 import { getUserRole } from "../lib/auth";
+import {
+  corPrevisaoFalta,
+  formatarDecimal,
+  textoPrevisaoFalta,
+} from "../lib/estoque";
+
+// Previsão calculada no backend com as OS finalizadas dos últimos 90 dias
+function PrevisaoFalta({ previsao }: { previsao: StockItem["previsao"] }) {
+  return (
+    <div className="whitespace-nowrap">
+      <p className={corPrevisaoFalta(previsao.situacao)}>
+        {textoPrevisaoFalta(previsao)}
+      </p>
+      {previsao.consumo_90_dias > 0 && (
+        <p className="text-xs text-gray-400">
+          {previsao.consumo_90_dias} un. em 90 dias ·{" "}
+          {formatarDecimal(previsao.media_mensal)}/mês
+        </p>
+      )}
+    </div>
+  );
+}
 
 // Margem sobre o preço de venda; negativa aparece em vermelho
 function Margem({ item }: { item: StockItem }) {
@@ -41,6 +71,8 @@ export default function Stock() {
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
   const [apenasParados, setApenasParados] = useState(false);
+  const [mostrarArquivados, setMostrarArquivados] = useState(false);
+  // Item em processamento (excluir, arquivar ou desarquivar)
   const [excluindo, setExcluindo] = useState<number | null>(null);
 
   useEffect(() => {
@@ -48,7 +80,8 @@ export default function Stock() {
       try {
         setLoading(true);
         setErro(null);
-        const data = await listStock();
+        // O proprietário recebe também os arquivados e o filtro é feito na tela
+        const data = await listStock(false, podeEditar);
         setItems(data);
       } catch (e) {
         setErro(
@@ -61,21 +94,24 @@ export default function Stock() {
     }
 
     carregar();
-  }, []);
+  }, [podeEditar]);
 
-  const totalItens = items.length;
-  const estoqueBaixo = items.filter((item) => item.alerta_minimo).length;
-  const valorTotal = items.reduce(
+  // Cards e alertas consideram só os itens ativos
+  const ativos = items.filter((item) => item.ativo);
+  const totalArquivados = items.length - ativos.length;
+  const totalItens = ativos.length;
+  const estoqueBaixo = ativos.filter((item) => item.alerta_minimo).length;
+  const valorTotal = ativos.reduce(
     (soma, item) => soma + item.quantidade * Number(item.valor_final),
     0,
   );
   const totalCategorias = new Set(
-    items.map((item) => item.categoria).filter(Boolean),
+    ativos.map((item) => item.categoria).filter(Boolean),
   ).size;
-  const totalParados = items.filter((item) => item.parado).length;
+  const totalParados = ativos.filter((item) => item.parado).length;
 
   const termo = busca.trim().toLowerCase();
-  const itensFiltrados = items.filter(
+  const itensFiltrados = (mostrarArquivados ? items : ativos).filter(
     (item) =>
       (!apenasParados || item.parado) &&
       (!termo ||
@@ -99,6 +135,37 @@ export default function Stock() {
       setErro(
         (isAxiosError(e) ? e.response?.data?.error : undefined) ??
           "Não foi possível excluir o item.",
+      );
+    } finally {
+      setExcluindo(null);
+    }
+  }
+
+  async function handleArquivar(item: StockItem, arquivar: boolean) {
+    if (arquivar) {
+      const confirmado = window.confirm(
+        `Arquivar "${item.nome}"? Ele some do Estoque e da Nova OS, mas continua nas OS antigas. Você pode desarquivar depois.`,
+      );
+      if (!confirmado) return;
+    }
+
+    try {
+      setExcluindo(item.id);
+      setErro(null);
+      if (arquivar) {
+        await archiveStockItem(item.id);
+      } else {
+        await unarchiveStockItem(item.id);
+      }
+      setItems((atuais) =>
+        atuais.map((i) => (i.id === item.id ? { ...i, ativo: !arquivar } : i)),
+      );
+    } catch (e) {
+      setErro(
+        (isAxiosError(e) ? e.response?.data?.error : undefined) ??
+          (arquivar
+            ? "Não foi possível arquivar o item."
+            : "Não foi possível desarquivar o item."),
       );
     } finally {
       setExcluindo(null);
@@ -174,6 +241,22 @@ export default function Stock() {
               <Clock size={16} />
               Parados ({totalParados})
             </button>
+            {podeEditar && (
+              <button
+                type="button"
+                onClick={() => setMostrarArquivados((atual) => !atual)}
+                aria-pressed={mostrarArquivados}
+                title="Itens arquivados ficam fora do Estoque, da Nova OS e dos alertas"
+                className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                  mostrarArquivados
+                    ? "border-[#FF7518] bg-[#FF75180D] text-[#FF7518]"
+                    : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                <Archive size={16} />
+                Mostrar arquivados ({totalArquivados})
+              </button>
+            )}
             <div className="relative">
               <Search
                 size={16}
@@ -212,7 +295,11 @@ export default function Stock() {
               ? `Nenhum item encontrado para "${busca}".`
               : apenasParados
                 ? "Nenhum item parado no momento."
-                : "Nenhum item cadastrado ainda."}
+                : mostrarArquivados
+                  ? "Nenhum item cadastrado ainda."
+                  : totalArquivados > 0
+                    ? "Nenhum item ativo. Use \"Mostrar arquivados\" para ver os itens arquivados."
+                    : "Nenhum item cadastrado ainda."}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -223,6 +310,12 @@ export default function Stock() {
                   <th className="px-5 py-3 font-medium">Categoria</th>
                   <th className="px-5 py-3 font-medium">Quantidade</th>
                   <th className="px-5 py-3 font-medium">Mínimo</th>
+                  <th
+                    className="px-5 py-3 font-medium"
+                    title="Pelo consumo nas OS finalizadas dos últimos 90 dias"
+                  >
+                    Previsão de falta
+                  </th>
                   <th className="px-5 py-3 font-medium">Preço de venda</th>
                   {podeEditar && (
                     <>
@@ -240,9 +333,15 @@ export default function Stock() {
                 {itensFiltrados.map((item) => (
                   <tr
                     key={item.id}
-                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60"
+                    className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/60 ${
+                      item.ativo ? "" : "bg-gray-50/70 text-gray-400"
+                    }`}
                   >
-                    <td className="px-5 py-4 font-medium text-[#1F1F1F]">
+                    <td
+                      className={`px-5 py-4 font-medium ${
+                        item.ativo ? "text-[#1F1F1F]" : "text-gray-500"
+                      }`}
+                    >
                       {item.nome}
                     </td>
 
@@ -269,6 +368,14 @@ export default function Stock() {
 
                     <td className="px-5 py-4 text-gray-600">
                       {item.quantidade_minima}
+                    </td>
+
+                    <td className="px-5 py-4">
+                      {item.ativo ? (
+                        <PrevisaoFalta previsao={item.previsao} />
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
                     </td>
 
                     <td className="px-5 py-4 font-medium text-[#1F1F1F]">
@@ -301,6 +408,12 @@ export default function Stock() {
 
                     <td className="px-5 py-4">
                       <div className="flex flex-wrap items-center gap-1.5">
+                        {!item.ativo && (
+                          <span className="inline-flex w-max items-center gap-1 rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-600">
+                            <Archive size={12} />
+                            Arquivado
+                          </span>
+                        )}
                         <span
                           className={`inline-flex w-max items-center rounded-full px-3 py-1 text-xs font-medium ${
                             item.alerta_minimo
@@ -310,7 +423,7 @@ export default function Stock() {
                         >
                           {item.alerta_minimo ? "Estoque baixo" : "Em estoque"}
                         </span>
-                        {item.parado && (
+                        {item.ativo && item.parado && (
                           <span
                             title={
                               item.ultimo_uso
@@ -336,19 +449,51 @@ export default function Stock() {
                           >
                             <Pencil size={14} />
                           </Link>
-                          <button
-                            type="button"
-                            onClick={() => handleExcluir(item)}
-                            disabled={excluindo === item.id}
-                            aria-label="Excluir"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
-                          >
-                            {excluindo === item.id ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <Trash2 size={14} />
-                            )}
-                          </button>
+                          {!item.ativo ? (
+                            <button
+                              type="button"
+                              onClick={() => handleArquivar(item, false)}
+                              disabled={excluindo === item.id}
+                              aria-label="Desarquivar"
+                              title="Desarquivar"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50"
+                            >
+                              {excluindo === item.id ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <ArchiveRestore size={14} />
+                              )}
+                            </button>
+                          ) : item.usado_em_os ? (
+                            <button
+                              type="button"
+                              onClick={() => handleArquivar(item, true)}
+                              disabled={excluindo === item.id}
+                              aria-label="Arquivar"
+                              title="Item já usado em OS: arquive em vez de excluir"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50"
+                            >
+                              {excluindo === item.id ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <Archive size={14} />
+                              )}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleExcluir(item)}
+                              disabled={excluindo === item.id}
+                              aria-label="Excluir"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50"
+                            >
+                              {excluindo === item.id ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <Trash2 size={14} />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </td>
                     )}
@@ -360,7 +505,8 @@ export default function Stock() {
         )}
 
         <div className="border-t border-gray-100 px-5 py-4 text-xs text-gray-400">
-          Mostrando {itensFiltrados.length} de {totalItens} itens
+          Mostrando {itensFiltrados.length} de{" "}
+          {mostrarArquivados ? items.length : totalItens} itens
         </div>
       </div>
     </div>

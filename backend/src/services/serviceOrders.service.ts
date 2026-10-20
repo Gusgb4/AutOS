@@ -1,8 +1,20 @@
-import { Prisma, StatusOrdemServico } from "@prisma/client";
+import {
+  FormaPagamento,
+  Perfil,
+  Prisma,
+  StatusOrdemServico,
+} from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
 
 type Tx = Prisma.TransactionClient;
+
+export type StatusPagamento = "PENDENTE" | "PARCIAL" | "PAGO";
+
+export const pagamentosAtivos = {
+  where: { tipo: "RECEITA", estornado: false },
+  select: { valor: true },
+} satisfies Prisma.ServiceOrder$financialEntriesArgs;
 
 const ordemCompleta = {
   cliente: true,
@@ -11,7 +23,12 @@ const ordemCompleta = {
   servicos: true,
   // Preço de custo é só do proprietário, e as rotas de OS atendem os dois perfis
   pecas: { include: { item_estoque: { omit: { valor_entrada: true } } } },
+  financialEntries: pagamentosAtivos,
 } satisfies Prisma.ServiceOrderInclude;
+
+type OrdemCompleta = Prisma.ServiceOrderGetPayload<{
+  include: typeof ordemCompleta;
+}>;
 
 const STATUS_EDITAVEIS: StatusOrdemServico[] = ["ABERTA", "EM_ANDAMENTO"];
 
@@ -22,7 +39,114 @@ const TRANSICOES: Record<StatusOrdemServico, StatusOrdemServico[]> = {
   CANCELADA: [],
 };
 
-async function recalcularTotal(tx: Tx, ordemId: number) {
+export function calcularPagamento(
+  ordem: { status: StatusOrdemServico; valor_total: Prisma.Decimal },
+  pagamentos: { valor: Prisma.Decimal }[],
+) {
+  const valor_pago = pagamentos.reduce(
+    (acc, pagamento) => acc.plus(pagamento.valor),
+    new Prisma.Decimal(0),
+  );
+  const saldo = ordem.valor_total.minus(valor_pago);
+
+  let status_pagamento: StatusPagamento | null = null;
+  if (ordem.status === "FINALIZADA") {
+    if (saldo.lte(0)) status_pagamento = "PAGO";
+    else if (valor_pago.gt(0)) status_pagamento = "PARCIAL";
+    else status_pagamento = "PENDENTE";
+  }
+
+  return { valor_pago, saldo, status_pagamento };
+}
+
+export function comPagamento<
+  T extends {
+    status: StatusOrdemServico;
+    valor_total: Prisma.Decimal;
+    financialEntries: { valor: Prisma.Decimal }[];
+  },
+>({ financialEntries, ...ordem }: T) {
+  return { ...ordem, ...calcularPagamento(ordem, financialEntries) };
+}
+
+// A margem considera só as peças com custo registrado. As antigas, sem
+// valor_custo, ficam fora da conta para não inflar a margem.
+export function calcularMargemPecas(
+  pecas: {
+    quantidade: number;
+    valor_unitario: Prisma.Decimal;
+    valor_custo: Prisma.Decimal | null;
+  }[],
+) {
+  let receita = new Prisma.Decimal(0);
+  let custo = new Prisma.Decimal(0);
+  let valor_sem_custo = new Prisma.Decimal(0);
+  let pecas_com_custo = 0;
+  let pecas_sem_custo = 0;
+
+  for (const peca of pecas) {
+    const venda = peca.valor_unitario.mul(peca.quantidade);
+    if (peca.valor_custo === null) {
+      valor_sem_custo = valor_sem_custo.plus(venda);
+      pecas_sem_custo += 1;
+    } else {
+      receita = receita.plus(venda);
+      custo = custo.plus(peca.valor_custo.mul(peca.quantidade));
+      pecas_com_custo += 1;
+    }
+  }
+
+  const margem = receita.minus(custo);
+  const percentual = receita.gt(0)
+    ? margem.div(receita).mul(100).toDecimalPlaces(1)
+    : null;
+
+  return {
+    receita,
+    custo,
+    margem,
+    percentual,
+    pecas_com_custo,
+    pecas_sem_custo,
+    valor_sem_custo,
+  };
+}
+
+// Custo e margem são só do proprietário: para os outros perfis o valor_custo
+// sai de cada peça e a margem nem é calculada
+function formatarOrdem(ordem: OrdemCompleta, perfil: Perfil | undefined) {
+  const formatada = comPagamento(ordem);
+
+  if (perfil !== "PROPRIETARIO") {
+    return {
+      ...formatada,
+      pecas: formatada.pecas.map(({ valor_custo, ...peca }) => peca),
+    };
+  }
+
+  return { ...formatada, margem_pecas: calcularMargemPecas(formatada.pecas) };
+}
+
+async function travarOrdem(tx: Tx, ordemId: number) {
+  await tx.$queryRaw`SELECT id FROM service_orders WHERE id = ${ordemId} FOR UPDATE`;
+
+  const ordem = await tx.serviceOrder.findUnique({
+    where: { id: ordemId },
+    include: { financialEntries: pagamentosAtivos },
+  });
+
+  if (!ordem) {
+    throw new AppError("Ordem de serviço não encontrada.", 404);
+  }
+
+  return ordem;
+}
+
+async function recalcularTotal(
+  tx: Tx,
+  ordemId: number,
+  perfil: Perfil | undefined,
+) {
   const [servicos, pecas] = await Promise.all([
     tx.serviceOrderService.findMany({
       where: { ordem_id: ordemId },
@@ -39,11 +163,13 @@ async function recalcularTotal(tx: Tx, ordemId: number) {
     ...pecas.map((peca) => peca.valor_unitario.mul(peca.quantidade)),
   ].reduce((acc, valor) => acc.plus(valor), new Prisma.Decimal(0));
 
-  return tx.serviceOrder.update({
+  const ordem = await tx.serviceOrder.update({
     where: { id: ordemId },
     data: { valor_total: total },
     include: ordemCompleta,
   });
+
+  return formatarOrdem(ordem, perfil);
 }
 
 function somarDias(data: Date, dias: number): Date {
@@ -93,22 +219,36 @@ async function buscarOrdemEditavel(tx: Tx, ordemId: number) {
 interface SearchServiceOrdersFilters {
   status?: StatusOrdemServico;
   cliente_id?: number;
+  status_pagamento?: StatusPagamento;
 }
 
-export async function search(filtros: SearchServiceOrdersFilters = {}) {
-  return prisma.serviceOrder.findMany({
+export async function search(
+  filtros: SearchServiceOrdersFilters,
+  perfil: Perfil | undefined,
+) {
+  const ordens = await prisma.serviceOrder.findMany({
     // Campos undefined são ignorados pelo Prisma: cada filtro é opcional
     where: { status: filtros.status, cliente_id: filtros.cliente_id },
     include: ordemCompleta,
     orderBy: { created_at: "desc" },
   });
+
+  return ordens
+    .map((ordem) => formatarOrdem(ordem, perfil))
+    .filter(
+      (ordem) =>
+        !filtros.status_pagamento ||
+        ordem.status_pagamento === filtros.status_pagamento,
+    );
 }
 
-export async function findById(id: number) {
-  return prisma.serviceOrder.findUnique({
+export async function findById(id: number, perfil: Perfil | undefined) {
+  const ordem = await prisma.serviceOrder.findUnique({
     where: { id },
     include: ordemCompleta,
   });
+
+  return ordem && formatarOrdem(ordem, perfil);
 }
 
 interface CreateServiceOrderInput {
@@ -119,7 +259,10 @@ interface CreateServiceOrderInput {
   observacoes?: string;
 }
 
-export async function create(dados: CreateServiceOrderInput) {
+export async function create(
+  dados: CreateServiceOrderInput,
+  perfil: Perfil | undefined,
+) {
   const veiculo = await prisma.vehicle.findUnique({
     where: { id: dados.veiculo_id },
   });
@@ -152,10 +295,12 @@ export async function create(dados: CreateServiceOrderInput) {
       });
     }
 
-    return tx.serviceOrder.create({
+    const ordem = await tx.serviceOrder.create({
       data: dados,
       include: ordemCompleta,
     });
+
+    return formatarOrdem(ordem, perfil);
   });
 }
 
@@ -163,12 +308,13 @@ export async function addPart(
   ordemId: number,
   itemId: number,
   quantidade: number,
+  perfil: Perfil | undefined,
 ) {
   return prisma.$transaction(async (tx) => {
     await buscarOrdemEditavel(tx, ordemId);
 
     const { count } = await tx.stockItem.updateMany({
-      where: { id: itemId, quantidade: { gte: quantidade } },
+      where: { id: itemId, ativo: true, quantidade: { gte: quantidade } },
       data: { quantidade: { decrement: quantidade } },
     });
 
@@ -180,6 +326,14 @@ export async function addPart(
       if (!indisponivel) {
         throw new AppError("Item de estoque não encontrado.", 404);
       }
+
+      if (!indisponivel.ativo) {
+        throw new AppError(
+          `O item "${indisponivel.nome}" está arquivado e não pode ser usado em novas OS.`,
+          409,
+        );
+      }
+
       throw new AppError(
         `Estoque insuficiente de "${indisponivel.nome}". Disponível: ${indisponivel.quantidade}.`,
         409,
@@ -202,11 +356,13 @@ export async function addPart(
         item_estoque_id: itemId,
         quantidade,
         valor_unitario: item.valor_final,
+        valor_custo: item.valor_entrada,
       },
+      // Preço e custo ficam os da primeira inclusão da peça na OS
       update: { quantidade: { increment: quantidade } },
     });
 
-    const ordem = await recalcularTotal(tx, ordemId);
+    const ordem = await recalcularTotal(tx, ordemId, perfil);
 
     return {
       ordem,
@@ -216,7 +372,11 @@ export async function addPart(
   });
 }
 
-export async function removePart(ordemId: number, partId: number) {
+export async function removePart(
+  ordemId: number,
+  partId: number,
+  perfil: Perfil | undefined,
+) {
   return prisma.$transaction(async (tx) => {
     await buscarOrdemEditavel(tx, ordemId);
 
@@ -235,7 +395,7 @@ export async function removePart(ordemId: number, partId: number) {
       data: { quantidade: { increment: peca.quantidade } },
     });
 
-    return recalcularTotal(tx, ordemId);
+    return recalcularTotal(tx, ordemId, perfil);
   });
 }
 
@@ -244,7 +404,11 @@ interface AddServiceInput {
   valor: number;
 }
 
-export async function addService(ordemId: number, dados: AddServiceInput) {
+export async function addService(
+  ordemId: number,
+  dados: AddServiceInput,
+  perfil: Perfil | undefined,
+) {
   return prisma.$transaction(async (tx) => {
     await buscarOrdemEditavel(tx, ordemId);
 
@@ -256,11 +420,15 @@ export async function addService(ordemId: number, dados: AddServiceInput) {
       },
     });
 
-    return recalcularTotal(tx, ordemId);
+    return recalcularTotal(tx, ordemId, perfil);
   });
 }
 
-export async function removeService(ordemId: number, serviceId: number) {
+export async function removeService(
+  ordemId: number,
+  serviceId: number,
+  perfil: Perfil | undefined,
+) {
   return prisma.$transaction(async (tx) => {
     await buscarOrdemEditavel(tx, ordemId);
 
@@ -274,30 +442,34 @@ export async function removeService(ordemId: number, serviceId: number) {
 
     await tx.serviceOrderService.delete({ where: { id: serviceId } });
 
-    return recalcularTotal(tx, ordemId);
+    return recalcularTotal(tx, ordemId, perfil);
   });
 }
 
 export async function changeStatus(
   ordemId: number,
   novoStatus: StatusOrdemServico,
+  perfil: Perfil | undefined,
 ) {
   return prisma.$transaction(async (tx) => {
-    const ordem = await tx.serviceOrder.findUnique({ where: { id: ordemId } });
+    const ordem = await travarOrdem(tx, ordemId);
 
-    if (!ordem) {
-      throw new AppError("Ordem de serviço não encontrada.", 404);
-    }
     if (!TRANSICOES[ordem.status].includes(novoStatus)) {
       throw new AppError(
         `Não é possível mudar o status de ${ordem.status} para ${novoStatus}.`,
         409,
       );
     }
+    if (novoStatus === "CANCELADA" && ordem.financialEntries.length > 0) {
+      throw new AppError("Estorne os pagamentos antes de cancelar.", 409);
+    }
 
     const { count } = await tx.serviceOrder.updateMany({
       where: { id: ordemId, status: ordem.status },
-      data: { status: novoStatus },
+      data: {
+        status: novoStatus,
+        finalizada_em: novoStatus === "FINALIZADA" ? new Date() : null,
+      },
     });
 
     if (count === 0) {
@@ -307,43 +479,11 @@ export async function changeStatus(
       );
     }
 
-    // Se a OS foi finalizada, geramos a receita automaticamente
     if (novoStatus === "FINALIZADA") {
       await recalcularLembreteManutencao(tx, ordem.veiculo_id);
-
-      // Marca todos os lançamentos ativos anteriores desta OS como estornados (regra de reabertura/ciclo)
-      await tx.financialEntry.updateMany({
-        where: { ordemId: ordemId, estornado: false },
-        data: { estornado: true },
-      });
-
-      // Cria sempre um lançamento NOVO para o encerramento atual
-      await tx.financialEntry.create({
-        data: {
-          tipo: "RECEITA",
-          descricao: `Receita referente à Ordem de Serviço #${ordem.id}`,
-          valor: ordem.valor_total,
-          ordemId: ordem.id,
-          estornado: false,
-        },
-      });
     }
 
-    // Se uma OS finalizada foi REABERTA
-    if (ordem.status === "FINALIZADA" && novoStatus === "EM_ANDAMENTO") {
-      await tx.financialEntry.updateMany({
-        where: { ordemId: ordemId, estornado: false },
-        data: { estornado: true },
-      });
-    }
-
-    // Se a OS foi cancelada, estorna o financeiro e devolve as peças
     if (novoStatus === "CANCELADA") {
-      await tx.financialEntry.updateMany({
-        where: { ordemId: ordemId, estornado: false },
-        data: { estornado: true },
-      });
-
       const pecas = await tx.serviceOrderPart.findMany({
         where: { ordem_id: ordemId },
       });
@@ -356,16 +496,19 @@ export async function changeStatus(
       }
     }
 
-    return tx.serviceOrder.findUniqueOrThrow({
+    const atualizada = await tx.serviceOrder.findUniqueOrThrow({
       where: { id: ordemId },
       include: ordemCompleta,
     });
+
+    return formatarOrdem(atualizada, perfil);
   });
 }
 
 export async function updateObservacoes(
   ordemId: number,
   observacoes: string | undefined,
+  perfil: Perfil | undefined,
 ) {
   const ordem = await prisma.serviceOrder.findUnique({
     where: { id: ordemId },
@@ -375,9 +518,95 @@ export async function updateObservacoes(
     throw new AppError("Ordem de serviço não encontrada.", 404);
   }
 
-  return prisma.serviceOrder.update({
+  const atualizada = await prisma.serviceOrder.update({
     where: { id: ordemId },
     data: { observacoes },
     include: ordemCompleta,
+  });
+
+  return formatarOrdem(atualizada, perfil);
+}
+
+interface RegistrarPagamentoInput {
+  valor: number;
+  forma_pagamento: FormaPagamento;
+  data?: Date;
+}
+
+export async function registrarPagamento(
+  ordemId: number,
+  dados: RegistrarPagamentoInput,
+) {
+  return prisma.$transaction(async (tx) => {
+    const ordem = await travarOrdem(tx, ordemId);
+
+    if (ordem.status !== "FINALIZADA") {
+      throw new AppError(
+        "Só é possível registrar pagamento de OS finalizada.",
+        409,
+      );
+    }
+
+    const valor = new Prisma.Decimal(dados.valor).toDecimalPlaces(2);
+    const { saldo } = calcularPagamento(ordem, ordem.financialEntries);
+
+    if (saldo.lte(0)) {
+      throw new AppError("Esta ordem de serviço já está paga.", 409);
+    }
+    if (valor.lte(0) || valor.gt(saldo)) {
+      throw new AppError(
+        `O valor deve ser maior que zero e no máximo o saldo de R$ ${saldo.toFixed(2).replace(".", ",")}.`,
+        409,
+      );
+    }
+
+    return tx.financialEntry.create({
+      data: {
+        tipo: "RECEITA",
+        descricao: `Pagamento da Ordem de Serviço #${ordem.id}`,
+        valor,
+        forma_pagamento: dados.forma_pagamento,
+        data: dados.data ?? new Date(),
+        ordemId: ordem.id,
+      },
+    });
+  });
+}
+
+export async function listarPagamentos(ordemId: number) {
+  const ordem = await prisma.serviceOrder.findUnique({
+    where: { id: ordemId },
+  });
+
+  if (!ordem) {
+    throw new AppError("Ordem de serviço não encontrada.", 404);
+  }
+
+  return prisma.financialEntry.findMany({
+    where: { ordemId, tipo: "RECEITA" },
+    orderBy: { data: "asc" },
+  });
+}
+
+export async function estornarPagamento(ordemId: number, pagamentoId: string) {
+  const pagamento = await prisma.financialEntry.findFirst({
+    where: { id: pagamentoId, ordemId, tipo: "RECEITA" },
+  });
+
+  if (!pagamento) {
+    throw new AppError("Pagamento não encontrado nesta ordem de serviço.", 404);
+  }
+
+  const { count } = await prisma.financialEntry.updateMany({
+    where: { id: pagamentoId, estornado: false },
+    data: { estornado: true },
+  });
+
+  if (count === 0) {
+    throw new AppError("Este pagamento já foi estornado.", 409);
+  }
+
+  return prisma.financialEntry.findUniqueOrThrow({
+    where: { id: pagamentoId },
   });
 }

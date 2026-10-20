@@ -40,8 +40,10 @@ export default function ToolbarMenu({
     };
   }, [open]);
 
+  // No celular o painel se ancora na barra de ferramentas (relative no pai),
+  // para não sair da tela quando o botão fica mais à direita
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="md:relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

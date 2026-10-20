@@ -2,7 +2,13 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Eye, Loader2 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
-import { listServiceOrders, type ServiceOrder, type StatusOS } from "../services/serviceOrders";
+import PagamentoBadge from "../components/ui/PagamentoBadge";
+import {
+  listServiceOrders,
+  type ServiceOrder,
+  type StatusOS,
+  type StatusPagamento,
+} from "../services/serviceOrders";
 
 const STATUS_OPTIONS: { value: StatusOS | ""; label: string }[] = [
   { value: "", label: "Todos os status" },
@@ -10,6 +16,13 @@ const STATUS_OPTIONS: { value: StatusOS | ""; label: string }[] = [
   { value: "EM_ANDAMENTO", label: "Em andamento" },
   { value: "FINALIZADA", label: "Finalizada" },
   { value: "CANCELADA", label: "Cancelada" },
+];
+
+const PAGAMENTO_OPTIONS: { value: StatusPagamento | ""; label: string }[] = [
+  { value: "", label: "Todos os pagamentos" },
+  { value: "PENDENTE", label: "Pendente" },
+  { value: "PARCIAL", label: "Parcial" },
+  { value: "PAGO", label: "Pago" },
 ];
 
 function formatCurrency(value: string | number) {
@@ -27,12 +40,13 @@ export default function ServiceOrders() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFiltro, setStatusFiltro] = useState<StatusOS | "">("");
+  const [pagamentoFiltro, setPagamentoFiltro] = useState<StatusPagamento | "">("");
 
-  const fetchOrdens = useCallback(async (status?: StatusOS) => {
+  const fetchOrdens = useCallback(async (status?: StatusOS, statusPagamento?: StatusPagamento) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listServiceOrders(status || undefined);
+      const data = await listServiceOrders(status, undefined, statusPagamento);
       setOrdens(data);
     } catch (err) {
       console.error(err);
@@ -43,8 +57,8 @@ export default function ServiceOrders() {
   }, []);
 
   useEffect(() => {
-    fetchOrdens(statusFiltro || undefined);
-  }, [statusFiltro, fetchOrdens]);
+    fetchOrdens(statusFiltro || undefined, pagamentoFiltro || undefined);
+  }, [statusFiltro, pagamentoFiltro, fetchOrdens]);
 
   const ordensFiltradas = useMemo(() => {
     const termo = search.trim().toLowerCase();
@@ -63,8 +77,8 @@ export default function ServiceOrders() {
   }, [ordens, search]);
 
   return (
-    <div className="space-y-6 p-8">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 p-4 md:p-8">
+      <div className="flex flex-col items-start gap-3 md:flex-row md:justify-between md:gap-0">
         <div>
           <h1 className="text-2xl font-semibold text-[#1F1F1F]">Ordens de Serviço</h1>
           <p className="text-sm text-gray-500">Gerencie as ordens de serviço da sua oficina</p>
@@ -87,16 +101,26 @@ export default function ServiceOrders() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por cliente, veículo, placa ou número"
-            className="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#FF7518]"
+            className="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-base outline-none placeholder:text-xs focus:border-[#FF7518] md:text-sm md:placeholder:text-sm"
           />
         </div>
 
         <select
           value={statusFiltro}
           onChange={(e) => setStatusFiltro(e.target.value as StatusOS | "")}
-          className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-600 outline-none"
+          className="rounded-xl border border-gray-200 px-4 py-2.5 text-base text-gray-600 outline-none md:text-sm"
         >
           {STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+        <select
+          value={pagamentoFiltro}
+          onChange={(e) => setPagamentoFiltro(e.target.value as StatusPagamento | "")}
+          className="rounded-xl border border-gray-200 px-4 py-2.5 text-base text-gray-600 outline-none md:text-sm"
+        >
+          {PAGAMENTO_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
@@ -116,13 +140,14 @@ export default function ServiceOrders() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full whitespace-nowrap text-left text-sm md:whitespace-normal">
               <thead>
                 <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-5 py-3 font-medium">Ordem</th>
                   <th className="px-5 py-3 font-medium">Cliente</th>
                   <th className="px-5 py-3 font-medium">Veículo</th>
                   <th className="px-5 py-3 font-medium">Status</th>
+                  <th className="px-5 py-3 font-medium">Pagamento</th>
                   <th className="px-5 py-3 font-medium">Data</th>
                   <th className="px-5 py-3 font-medium">Valor Total</th>
                   <th className="px-5 py-3 text-right font-medium">Ações</th>
@@ -147,6 +172,13 @@ export default function ServiceOrders() {
                     <td className="px-5 py-4">
                       <StatusBadge status={order.status} />
                     </td>
+                    <td className="px-5 py-4">
+                      {order.status_pagamento ? (
+                        <PagamentoBadge status={order.status_pagamento} />
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="px-5 py-4 text-gray-600">{formatDate(order.created_at)}</td>
                     <td className="px-5 py-4 font-medium text-[#1F1F1F]">{formatCurrency(order.valor_total)}</td>
                     <td className="px-5 py-4">
@@ -155,7 +187,7 @@ export default function ServiceOrders() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); navigate(`/ordens-servico/${order.id}`); }}
                           aria-label="Visualizar"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 md:h-8 md:w-8"
                         >
                           <Eye size={15} />
                         </button>

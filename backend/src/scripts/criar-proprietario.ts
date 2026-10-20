@@ -14,17 +14,19 @@ async function main() {
   const email = emailArg.trim().toLowerCase();
   const nome = nomeArg.trim();
 
-  const existente = await prisma.user.findUnique({ where: { email } });
-  if (existente) {
-    console.error(`Erro: Já existe um usuário cadastrado com o e-mail ${email}.`);
-    process.exit(1);
-  }
-
   const senhaProvisoria = gerarSenhaProvisoria(10);
   const senhaHash = await bcrypt.hash(senhaProvisoria, 10);
 
-  const user = await prisma.user.create({
-    data: {
+  // Se o email já existe, vira proprietário ativo com nova senha (caso o dono esqueça a senha)
+  const user = await prisma.user.upsert({
+    where: { email },
+    update: {
+      perfil: "PROPRIETARIO",
+      ativo: true,
+      senha: senhaHash,
+      trocar_senha: true,
+    },
+    create: {
       nome,
       email,
       senha: senhaHash,
