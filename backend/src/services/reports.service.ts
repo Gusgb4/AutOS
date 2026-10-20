@@ -502,3 +502,69 @@ export async function atividadeClientes(p: Periodo) {
     clientes: atual.clientes,
   };
 }
+
+// ---------- Evolução mensal (gráfico do dashboard financeiro) ----------
+
+// "2026-10" a partir de uma data, no fuso de Brasília
+function mesBrasilia(data: Date): string {
+  return diaBrasilia(data).slice(0, 7);
+}
+
+// Lista "AAAA-MM" dos últimos n meses, do mais antigo até o atual
+function ultimosMeses(n: number): string[] {
+  const [ano, mes] = mesBrasilia(new Date()).split("-").map(Number);
+  return Array.from({ length: n }, (_, i) =>
+    new Date(Date.UTC(ano, mes - n + i, 1)).toISOString().slice(0, 7),
+  );
+}
+
+// Faturado = OS finalizadas no mês (pela finalizada_em).
+// Recebido = pagamentos de OS não estornados, pela data do pagamento.
+// Os dois podem ser diferentes: uma OS fechada em setembro pode ser paga em outubro.
+export async function evolucaoMensal() {
+  const meses = ultimosMeses(12);
+  const periodo: Periodo = {
+    inicio: parseMes(meses[0]).inicio,
+    fimExclusivo: parseMes(meses[meses.length - 1]).fimExclusivo,
+  };
+
+  const [ordens, pagamentos] = await Promise.all([
+    prisma.serviceOrder.findMany({
+      where: filtroOSFinalizada(periodo),
+      select: { valor_total: true, finalizada_em: true },
+    }),
+    prisma.financialEntry.findMany({
+      where: {
+        tipo: "RECEITA",
+        estornado: false,
+        ordemId: { not: null },
+        data: { gte: periodo.inicio, lt: periodo.fimExclusivo },
+      },
+      select: { valor: true, data: true },
+    }),
+  ]);
+
+  const porMes = new Map(
+    meses.map((m) => [m, { faturado: zero(), recebido: zero() }]),
+  );
+
+  for (const o of ordens) {
+    if (!o.finalizada_em) continue;
+    const item = porMes.get(mesBrasilia(o.finalizada_em));
+    if (item) item.faturado = item.faturado.plus(o.valor_total);
+  }
+
+  for (const p of pagamentos) {
+    const item = porMes.get(mesBrasilia(p.data));
+    if (item) item.recebido = item.recebido.plus(p.valor);
+  }
+
+  return meses.map((mes) => {
+    const item = porMes.get(mes) ?? { faturado: zero(), recebido: zero() };
+    return {
+      mes,
+      faturado: arredondar(item.faturado),
+      recebido: arredondar(item.recebido),
+    };
+  });
+}

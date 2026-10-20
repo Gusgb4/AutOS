@@ -16,6 +16,7 @@ import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
 import PagamentoBadge from "../components/ui/PagamentoBadge";
 import FinancialEntryModal from "../components/financial/FinancialEntryModal";
+import EvolucaoChart from "../components/financial/EvolucaoChart";
 import {
   createFinancialEntry,
   getContasAReceber,
@@ -234,6 +235,8 @@ export default function Financial() {
           {!(filtros.inicio && filtros.fim) && " (mês atual)"}
         </p>
       )}
+
+      <EvolucaoChart ocultarValores={!showValues} />
 
       {aReceber && (
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm">

@@ -160,3 +160,14 @@ export async function getAtividadeClientes(inicio: string, fim: string) {
   );
   return data;
 }
+
+export interface EvolucaoMes {
+  mes: string; // "2026-10"
+  faturado: number;
+  recebido: number;
+}
+
+export async function getEvolucaoMensal() {
+  const { data } = await api.get<EvolucaoMes[]>("/reports/evolucao");
+  return data;
+}
