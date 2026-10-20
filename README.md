@@ -1,33 +1,47 @@
 # AutOS - Sistema de Gestão para Oficina Mecânica
 
-Sistema web para gerenciar clientes, veículos, estoque e ordens de serviço de
-uma oficina mecânica, acessível de qualquer lugar, sem instalação local.
+Sistema web para gerenciar clientes, veículos, estoque, ordens de serviço,
+financeiro e relatórios de uma oficina mecânica, acessível de qualquer lugar,
+sem instalação local.
 
 Projeto de extensão universitária (PAC Extensionista VI) — Engenharia de Software,
 Centro Universitário Católica de Santa Catarina.
 
 🔗 **Aplicação:** https://autos-project.vercel.app
 
- 
-### Conta de demonstração
+### Acesso
 
-Para testar o sistema com acesso completo, use a conta do proprietário da oficina enviada no PDF pelo Gustavo Franz na atividade do teams.
+Não existe cadastro público. A conta do proprietário é criada pela equipe com
+uma senha provisória (veja "Criar ou redefinir a conta do proprietário"), e o
+proprietário cria as contas dos funcionários. Todos trocam a senha provisória
+no primeiro acesso.
 
-Contas criadas pelo cadastro do site entram automaticamente com o perfil de
-**funcionário**, que não tem acesso ao módulo 
+Para testar o sistema com acesso completo, use a conta do proprietário enviada
+no PDF pelo Gustavo Franz na atividade do Teams.
 
+## Funcionalidades
 
-## Funcionalidades (MVP1)
+**Operação (MVP1)**
 
-- Autenticação com dois perfis (proprietário e funcionário), com permissões distintas
-- Clientes e veículos: cadastro, edição, exclusão, busca por nome ou placa
+- Dois perfis (proprietário e funcionário), com permissões verificadas no backend
+- Clientes e veículos: cadastro, edição, arquivamento, busca por nome ou placa
 - Estoque de peças, com alerta de quantidade mínima
 - Ordens de serviço completas: abertura, serviços e peças (com baixa automática de
   estoque), cálculo automático do valor total, observações, encerramento,
   reabertura e cancelamento
 - Envio de orçamento por WhatsApp
 
-Financeiro, relatórios e lembretes de manutenção fazem parte do MVP2.
+**Gestão (MVP2 e MVP2.5)**
+
+- Financeiro: receita lançada ao finalizar a OS, estorno ao reabrir ou cancelar,
+  lançamentos manuais e dashboard por período (restrito ao proprietário)
+- Relatórios: vendas por período (com ticket médio e comparativo), inventário,
+  resumo financeiro e atividade do cliente, todos com exportação CSV
+- Manutenção: quilometragem do veículo e lembrete de revisão por dias e km
+- Clientes: email, endereço, filtros, histórico de OS no perfil e indicador de
+  revisão vencida
+- Estoque: preço de custo, margem e itens parados
+- Equipe: gestão de membros, com ativar e desativar
 
 ## Stack
 
@@ -36,6 +50,7 @@ React + TypeScript + Tailwind CSS · Node.js + Express + Prisma · PostgreSQL ·
 ## Rodando localmente
 
 **Backend**
+
 ```bash
 cd backend
 npm install
@@ -46,12 +61,27 @@ npm run dev
 ```
 
 **Frontend**
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
+## Criar ou redefinir a conta do proprietário
+
+Na pasta `backend`:
+
+```bash
+npm run criar-proprietario -- email@dono.com "Nome do Dono"
+```
+
+O script mostra uma senha provisória, que precisa ser trocada no primeiro acesso.
+Se o email já existir, a conta vira proprietário ativo e recebe uma nova senha
+provisória (é assim que se recupera o acesso se o dono esquecer a senha).
+
+Para criar a conta em produção, rode o mesmo comando com a `DATABASE_URL` do
+banco de produção, do mesmo jeito que o `npx prisma migrate deploy`.
 ## Testes automatizados (backend)
 
 Os testes usam Vitest e Supertest e rodam contra um **banco separado** no
@@ -80,9 +110,9 @@ Orientação: Prof. Edson Vaz Lopes — PAC Extensionista VI
 
 ## Roadmap
 
-- ✅ **MVP1** — núcleo operacional (esta entrega)
-- 🔜 **MVP2** (setembro/2026) — financeiro, relatórios, lembretes de manutenção
-- 🔜 **MVP3** (outubro/2026) — polimento final
+- ✅ **MVP1** (agosto/2026) — núcleo operacional
+- ✅ **MVP2 e MVP2.5** (setembro e outubro/2026) — financeiro, relatórios, manutenção, equipe
+- 🔜 **MVP3** (outubro/2026) — contas a receber, notificações, PDF, testes e polimento final
 
 ## Licença
 

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   useContext,
@@ -6,15 +7,18 @@ import {
   type ReactNode,
 } from "react";
 import * as authService from "../services/auth";
-import type { User, LoginPayload, RegisterPayload } from "../services/auth";
+import type { LoginPayload, User } from "../services/auth";
+
+export type { User };
 
 interface AuthContextData {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  signIn: (payload: LoginPayload) => Promise<void>;
-  signUp: (payload: RegisterPayload) => Promise<void>;
+  needsPasswordChange: boolean;
+  signIn: (payload: LoginPayload) => Promise<User>;
   signOut: () => void;
+  updateUser: (updatedUser: User) => void;
 }
 
 const AuthContext = createContext<AuthContextData | undefined>(undefined);
@@ -26,30 +30,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restaura sessão ao carregar o app
   useEffect(() => {
     const storedUser = localStorage.getItem(USER_KEY);
     const storedToken = localStorage.getItem(TOKEN_KEY);
 
     if (storedUser && storedToken) {
       setUser(JSON.parse(storedUser));
+      authService
+        .getMe()
+        .then((freshUser) => {
+          localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+          setUser(freshUser);
+        })
+        .catch(() => {
+          // Se der 401, o interceptor do api.ts já limpa e redireciona
+        })
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
     }
-
-    setLoading(false);
   }, []);
 
-  async function signIn(payload: LoginPayload) {
+  async function signIn(payload: LoginPayload): Promise<User> {
     const { user: loggedUser, token } = await authService.login(payload);
 
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(loggedUser));
     setUser(loggedUser);
-  }
-
-  async function signUp(payload: RegisterPayload) {
-    await authService.register(payload);
-    // Após cadastro, loga automaticamente
-    await signIn({ email: payload.email, senha: payload.senha });
+    return loggedUser;
   }
 
   function signOut() {
@@ -58,15 +66,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
+  function updateUser(updatedUser: User) {
+    localStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  }
+
+  const needsPasswordChange = !!user?.trocar_senha;
+
   return (
     <AuthContext.Provider
       value={{
         user,
         isAuthenticated: !!user,
         loading,
+        needsPasswordChange,
         signIn,
-        signUp,
         signOut,
+        updateUser,
       }}
     >
       {children}

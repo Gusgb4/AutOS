@@ -10,6 +10,7 @@ let contador = 0;
 interface OpcoesUsuario {
   senha?: string;
   ativo?: boolean;
+  trocar_senha?: boolean;
 }
 
 // Mesmo formato de token que o login gera
@@ -36,6 +37,7 @@ export async function criarUsuario(perfil: Perfil, opcoes: OpcoesUsuario = {}) {
       senha: await bcrypt.hash(senha, 8),
       perfil,
       ativo: opcoes.ativo ?? true,
+      trocar_senha: opcoes.trocar_senha ?? false,
     },
   });
 
