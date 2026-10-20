@@ -77,7 +77,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6 p-8">
+    <div className="space-y-6 p-4 md:p-8">
       <div>
         <h1 className="text-2xl font-semibold text-[#1F1F1F]">Início</h1>
         <p className="text-sm text-gray-500">Visão geral da oficina</p>
@@ -157,7 +157,7 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full whitespace-nowrap text-left text-sm md:whitespace-normal">
               <thead>
                 <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-5 py-3 font-medium">Ordem</th>

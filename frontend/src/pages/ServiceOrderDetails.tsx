@@ -39,7 +39,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { formatPercent } from "../lib/relatorios";
 
 const plainInputClass =
-  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
+  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
 
 type ServicoItem = ServiceOrder["servicos"][number];
 type PecaItem = ServiceOrder["pecas"][number];
@@ -513,8 +513,8 @@ export default function ServiceOrderDetails() {
   const margem = ordem.margem_pecas;
 
   return (
-    <div className="space-y-6 p-8">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 p-4 md:p-8">
+      <div className="flex flex-col items-start gap-3 md:flex-row md:justify-between md:gap-0">
         <div>
           <h1 className="text-2xl font-semibold text-[#1F1F1F]">
             OS #{ordem.id}
@@ -534,7 +534,7 @@ export default function ServiceOrderDetails() {
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5 md:flex-nowrap md:gap-0">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
               <User size={18} />
@@ -714,10 +714,10 @@ export default function ServiceOrderDetails() {
             {ordem.servicos.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between px-5 py-3 text-sm"
+                className="flex items-center justify-between gap-3 px-5 py-3 text-sm md:gap-0"
               >
                 <span className="text-[#1F1F1F]">{s.descricao}</span>
-                <span className="font-medium text-[#1F1F1F]">
+                <span className="whitespace-nowrap font-medium text-[#1F1F1F] md:whitespace-normal">
                   {formatCurrency(s.valor)}
                 </span>
               </li>
@@ -824,13 +824,13 @@ export default function ServiceOrderDetails() {
             {ordem.pecas.map((p) => (
               <li
                 key={p.id}
-                className="flex items-center justify-between px-5 py-3 text-sm"
+                className="flex items-center justify-between gap-3 px-5 py-3 text-sm md:gap-0"
               >
                 <span className="text-[#1F1F1F]">
                   {p.item_estoque.nome}{" "}
                   <span className="text-gray-400">x{p.quantidade}</span>
                 </span>
-                <span className="font-medium text-[#1F1F1F]">
+                <span className="whitespace-nowrap font-medium text-[#1F1F1F] md:whitespace-normal">
                   {formatCurrency(Number(p.valor_unitario) * p.quantidade)}
                 </span>
               </li>
@@ -914,7 +914,7 @@ export default function ServiceOrderDetails() {
                     sem custo registrado
                   </span>
                 ) : (
-                  <span className="text-gray-600">
+                  <span className="whitespace-nowrap text-gray-600 md:whitespace-normal">
                     custo {formatCurrency(Number(p.valor_custo) * p.quantidade)}
                   </span>
                 )}
@@ -938,7 +938,7 @@ export default function ServiceOrderDetails() {
         </p>
       )}
 
-      <div className="flex flex-col items-stretch justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm sm:flex-row sm:items-center">
+      <div className="flex flex-col items-stretch justify-between gap-4 rounded-2xl bg-white p-5 shadow-sm md:flex-row md:items-center">
         <div>
           <p className="text-xs uppercase tracking-wide text-gray-400">
             Valor total da OS
@@ -947,12 +947,12 @@ export default function ServiceOrderDetails() {
             {formatCurrency(ordem.valor_total)}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col items-stretch gap-2 md:flex-row md:flex-wrap md:items-center">
           <a
             href={buildWhatsAppLink(ordem)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100"
+            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100 md:justify-start"
           >
             <MessageCircle size={16} />
             Enviar por WhatsApp
@@ -961,7 +961,7 @@ export default function ServiceOrderDetails() {
             type="button"
             onClick={handleBaixarPdf}
             disabled={gerandoPdf}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+            className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60 md:justify-start"
           >
             {gerandoPdf ? (
               <Loader2 size={16} className="animate-spin" />
@@ -975,7 +975,7 @@ export default function ServiceOrderDetails() {
               type="button"
               onClick={handleCancelar}
               disabled={processando}
-              className="flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+              className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 md:justify-start"
             >
               <Ban size={16} />
               Cancelar OS
@@ -986,7 +986,7 @@ export default function ServiceOrderDetails() {
               type="button"
               onClick={handleReabrir}
               disabled={processando}
-              className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+              className="flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-60 md:justify-start"
             >
               {processando ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -1001,7 +1001,7 @@ export default function ServiceOrderDetails() {
               type="button"
               onClick={handleEncerrar}
               disabled={processando}
-              className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
+              className="flex items-center justify-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60 md:justify-start"
             >
               {processando ? (
                 <Loader2 size={16} className="animate-spin" />

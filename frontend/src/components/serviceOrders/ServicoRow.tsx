@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Check, Loader2, Trash2 } from "lucide-react";
 
 const plainInputClass =
-  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-sm text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA]";
+  "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
 
 export interface ServicoItem {
   id: number;
@@ -128,7 +128,7 @@ export default function ServicoRow({
               type="button"
               onClick={handleCancelar}
               disabled={saving}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-3 text-xs font-semibold text-gray-600 hover:bg-gray-50 md:py-1.5"
             >
               Cancelar
             </button>
@@ -136,7 +136,7 @@ export default function ServicoRow({
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-3 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 md:py-1.5"
             >
               {saving ? (
                 <Loader2 size={13} className="animate-spin" />

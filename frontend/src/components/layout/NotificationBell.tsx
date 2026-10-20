@@ -112,7 +112,7 @@ export default function NotificationBell() {
   const lista = dados?.notificacoes ?? [];
 
   return (
-    <div ref={raiz} className="absolute -right-2 -top-3">
+    <div ref={raiz} className="relative md:absolute md:-right-2 md:-top-3">
       <button
         type="button"
         onClick={alternar}
@@ -120,7 +120,7 @@ export default function NotificationBell() {
           total > 0 ? `Notificações (${total} pendentes)` : "Notificações"
         }
         aria-expanded={aberto}
-        className="relative flex h-7 w-7 items-center justify-center rounded-full bg-[#1F1F1F] text-gray-300 ring-1 ring-[#3a3a3a] transition hover:text-white"
+        className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#1F1F1F] text-gray-300 ring-1 ring-[#3a3a3a] transition hover:text-white md:h-7 md:w-7"
       >
         <Bell size={14} />
         {total > 0 && (
@@ -131,7 +131,7 @@ export default function NotificationBell() {
       </button>
 
       {aberto && (
-        <div className="fixed bottom-4 left-28 z-50 w-96 max-w-[calc(100vw-8rem)] overflow-hidden rounded-2xl bg-[#1F1F1F] text-left shadow-2xl ring-1 ring-white/10">
+        <div className="fixed left-3 right-3 top-16 z-50 overflow-hidden rounded-2xl bg-[#1F1F1F] text-left shadow-2xl ring-1 ring-white/10 md:bottom-4 md:left-28 md:right-auto md:top-auto md:w-96 md:max-w-[calc(100vw-8rem)]">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <p className="text-sm font-semibold text-white">Notificações</p>
             {carregando && (
