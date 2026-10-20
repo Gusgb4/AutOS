@@ -33,10 +33,19 @@ import {
 } from "../services/clients";
 import { listServiceOrders } from "../services/serviceOrders";
 import { mensagemDeErro } from "../lib/errors";
+import { getUserRole } from "../lib/auth";
 
 type FiltroVeiculos = "todos" | "com" | "sem";
 type FiltroEmail = "todos" | "com" | "sem";
-type Ordenacao = "nome-asc" | "nome-desc" | "recentes" | "antigos" | "veiculos";
+type FiltroGasto = "todos" | "sem-os" | "ate-500" | "500-2000" | "acima-2000";
+type Ordenacao =
+  | "nome-asc"
+  | "nome-desc"
+  | "recentes"
+  | "antigos"
+  | "veiculos"
+  | "mais-gasto"
+  | "ultima-visita";
 
 const ORDENACOES: { value: Ordenacao; label: string }[] = [
   { value: "nome-asc", label: "Nome (A → Z)" },
@@ -44,10 +53,53 @@ const ORDENACOES: { value: Ordenacao; label: string }[] = [
   { value: "recentes", label: "Mais recentes" },
   { value: "antigos", label: "Mais antigos" },
   { value: "veiculos", label: "Mais veículos" },
+  { value: "mais-gasto", label: "Mais gasto" },
+  { value: "ultima-visita", label: "Última visita" },
 ];
+
+const FAIXAS_GASTO: { value: FiltroGasto; label: string }[] = [
+  { value: "todos", label: "Todos" },
+  { value: "sem-os", label: "Sem OS" },
+  { value: "ate-500", label: "Até R$ 500" },
+  { value: "500-2000", label: "De R$ 500 a R$ 2.000" },
+  { value: "acima-2000", label: "Acima de R$ 2.000" },
+];
+
+// "sem OS" = nenhuma OS finalizada; as faixas valem para quem já gastou algo
+function dentroDaFaixa(cliente: Client, faixa: FiltroGasto) {
+  const gasto = cliente.total_gasto ?? 0;
+  const temOs = (cliente.qtd_os ?? 0) > 0;
+  switch (faixa) {
+    case "sem-os":
+      return !temOs;
+    case "ate-500":
+      return temOs && gasto <= 500;
+    case "500-2000":
+      return temOs && gasto > 500 && gasto <= 2000;
+    case "acima-2000":
+      return temOs && gasto > 2000;
+    default:
+      return true;
+  }
+}
+
+// Compara marcas sem diferenciar maiúsculas, acentos e espaços ("FIAT" = "Fiat ")
+function chaveMarca(marca: string) {
+  return marca
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function formatCurrency(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
 
 export default function Clients() {
   const navigate = useNavigate();
+  // Funcionário cadastra e consulta; editar e arquivar é só do proprietário
+  const podeEditar = getUserRole() === "PROPRIETARIO";
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +110,8 @@ export default function Clients() {
   const [filtroVeiculos, setFiltroVeiculos] = useState<FiltroVeiculos>("todos");
   const [filtroEmail, setFiltroEmail] = useState<FiltroEmail>("todos");
   const [apenasRevisaoVencida, setApenasRevisaoVencida] = useState(false);
+  const [filtroGasto, setFiltroGasto] = useState<FiltroGasto>("todos");
+  const [filtroMarca, setFiltroMarca] = useState("");
   const [ordenacao, setOrdenacao] = useState<Ordenacao>("nome-asc");
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -69,21 +123,8 @@ export default function Clients() {
     setLoading(true);
     setError(null);
     try {
-      const data = await listClients(termo);
-
-      // Filtra clientes ativos e garante que apenas veículos ativos sejam contados
-      const clientesAtivos = data
-        .filter((c) => (c as { ativo?: boolean }).ativo !== false)
-        .map((c) => ({
-          ...c,
-          veiculos: c.veiculos
-            ? c.veiculos.filter(
-                (v) => (v as { ativo?: boolean }).ativo !== false,
-              )
-            : [],
-        }));
-
-      setClients(clientesAtivos);
+      // O backend já devolve só clientes e veículos ativos
+      setClients(await listClients(termo));
     } catch (err) {
       console.error(err);
       setError("Não foi possível carregar os clientes.");
@@ -189,13 +230,31 @@ export default function Clients() {
   const filtrosAtivos =
     (filtroVeiculos !== "todos" ? 1 : 0) +
     (filtroEmail !== "todos" ? 1 : 0) +
-    (apenasRevisaoVencida ? 1 : 0);
+    (apenasRevisaoVencida ? 1 : 0) +
+    (filtroGasto !== "todos" ? 1 : 0) +
+    (filtroMarca ? 1 : 0);
 
   function limparFiltros() {
     setFiltroVeiculos("todos");
     setFiltroEmail("todos");
     setApenasRevisaoVencida(false);
+    setFiltroGasto("todos");
+    setFiltroMarca("");
   }
+
+  // Marcas dos veículos carregados, sem repetir variações de escrita
+  const marcas = useMemo(() => {
+    const porChave = new Map<string, string>();
+    for (const c of clients) {
+      for (const v of c.veiculos) {
+        const chave = chaveMarca(v.marca);
+        if (chave && !porChave.has(chave)) porChave.set(chave, v.marca.trim());
+      }
+    }
+    return [...porChave.entries()]
+      .map(([chave, label]) => ({ chave, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [clients]);
 
   const clientesExibidos = useMemo(() => {
     const filtrados = clients.filter((c) => {
@@ -206,8 +265,20 @@ export default function Clients() {
       if (apenasRevisaoVencida && !c.veiculos.some(isMaintenanceOverdue)) {
         return false;
       }
+      if (!dentroDaFaixa(c, filtroGasto)) return false;
+      if (
+        filtroMarca &&
+        !c.veiculos.some((v) => chaveMarca(v.marca) === filtroMarca)
+      ) {
+        return false;
+      }
       return true;
     });
+
+    const porNome = (a: Client, b: Client) =>
+      a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+    const visita = (c: Client) =>
+      c.ultima_visita ? new Date(c.ultima_visita).getTime() : -Infinity;
 
     return [...filtrados].sort((a, b) => {
       switch (ordenacao) {
@@ -223,11 +294,24 @@ export default function Clients() {
           );
         case "veiculos":
           return b.veiculos.length - a.veiculos.length;
+        case "mais-gasto":
+          return (b.total_gasto ?? 0) - (a.total_gasto ?? 0) || porNome(a, b);
+        case "ultima-visita":
+          // Mais recente primeiro; quem nunca veio fica no fim
+          return visita(b) - visita(a) || porNome(a, b);
         default:
-          return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+          return porNome(a, b);
       }
     });
-  }, [clients, filtroVeiculos, filtroEmail, apenasRevisaoVencida, ordenacao]);
+  }, [
+    clients,
+    filtroVeiculos,
+    filtroEmail,
+    apenasRevisaoVencida,
+    filtroGasto,
+    filtroMarca,
+    ordenacao,
+  ]);
 
   const totalVeiculos = clients.reduce((acc, c) => acc + c.veiculos.length, 0);
   const agora = new Date();
@@ -357,6 +441,40 @@ export default function Clients() {
                 </MenuChoice>
               </MenuGroup>
 
+              <MenuGroup label="Total gasto">
+                {FAIXAS_GASTO.map((f) => (
+                  <MenuChoice
+                    key={f.value}
+                    checked={filtroGasto === f.value}
+                    onSelect={() => setFiltroGasto(f.value)}
+                  >
+                    {f.label}
+                  </MenuChoice>
+                ))}
+              </MenuGroup>
+
+              {marcas.length > 0 && (
+                <MenuGroup label="Marca do veículo">
+                  <div className="max-h-44 space-y-0.5 overflow-y-auto">
+                    <MenuChoice
+                      checked={!filtroMarca}
+                      onSelect={() => setFiltroMarca("")}
+                    >
+                      Todas
+                    </MenuChoice>
+                    {marcas.map((m) => (
+                      <MenuChoice
+                        key={m.chave}
+                        checked={filtroMarca === m.chave}
+                        onSelect={() => setFiltroMarca(m.chave)}
+                      >
+                        {m.label}
+                      </MenuChoice>
+                    ))}
+                  </div>
+                </MenuGroup>
+              )}
+
               {filtrosAtivos > 0 && (
                 <button
                   type="button"
@@ -444,6 +562,8 @@ export default function Clients() {
                   <th className="px-5 py-3 font-medium">Telefone</th>
                   <th className="px-5 py-3 font-medium">Email</th>
                   <th className="px-5 py-3 font-medium">Veículos</th>
+                  <th className="px-5 py-3 font-medium">Total gasto</th>
+                  <th className="px-5 py-3 font-medium">Última visita</th>
                   <th className="px-5 py-3 text-right font-medium">Ações</th>
                 </tr>
               </thead>
@@ -483,6 +603,22 @@ export default function Clients() {
                       </div>
                     </td>
                     <td className="px-5 py-4">
+                      <p className="font-medium text-[#1F1F1F]">
+                        {formatCurrency(client.total_gasto ?? 0)}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {client.qtd_os ?? 0}{" "}
+                        {(client.qtd_os ?? 0) === 1 ? "OS finalizada" : "OS finalizadas"}
+                      </p>
+                    </td>
+                    <td className="px-5 py-4 text-gray-600">
+                      {client.ultima_visita ? (
+                        new Date(client.ultima_visita).toLocaleDateString("pt-BR")
+                      ) : (
+                        <span className="text-xs text-gray-300">Nunca</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <Link
                           to={`/clientes/${client.id}`}
@@ -491,28 +627,32 @@ export default function Clients() {
                         >
                           <Eye size={14} />
                         </Link>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditModal(client);
-                          }}
-                          aria-label="Editar"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteDirect(client);
-                          }}
-                          aria-label="Excluir"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {podeEditar && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditModal(client);
+                              }}
+                              aria-label="Editar"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteDirect(client);
+                              }}
+                              aria-label="Excluir"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -540,7 +680,9 @@ export default function Clients() {
         submitting={submitting}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
-        onDelete={modalMode === "edit" ? handleDelete : undefined}
+        onDelete={
+          modalMode === "edit" && podeEditar ? handleDelete : undefined
+        }
       />
     </div>
   );

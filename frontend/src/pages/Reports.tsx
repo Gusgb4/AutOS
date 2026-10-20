@@ -5,6 +5,7 @@ import {
   Wallet,
   Users,
   Download,
+  FileDown,
   Loader2,
   DollarSign,
   ClipboardList,
@@ -13,9 +14,33 @@ import {
   TrendingUp,
   TrendingDown,
   Package,
+  UserPlus,
+  PackageMinus,
 } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
 import { downloadCsv } from "../lib/csv";
+import {
+  FORMATO_CSV,
+  formatDate,
+  formatPercent,
+  linhasCsv,
+  tabelaCaixa,
+  tabelaClientes,
+  tabelaFaturamento,
+  tabelaIndicadoresAtividade,
+  tabelaIndicadoresConsumo,
+  tabelaIndicadoresVendas,
+  tabelaMargemPecas,
+  tabelaPecasConsumidas,
+  tabelaPosicaoEstoque,
+  tabelaPrevisaoFalta,
+  tabelaVendasPorDia,
+} from "../lib/relatorios";
+import {
+  corPrevisaoFalta,
+  formatarDecimal,
+  textoPrevisaoFalta,
+} from "../lib/estoque";
 import {
   getVendasPorPeriodo,
   getStatusInventario,
@@ -31,25 +56,25 @@ const TIPOS = [
   {
     id: "vendas",
     titulo: "Vendas por período",
-    desc: "Receita e ticket médio",
+    desc: "Faturamento das OS finalizadas",
     icon: BarChart3,
   },
   {
     id: "inventario",
     titulo: "Status do inventário",
-    desc: "Estoque e alertas",
+    desc: "Estoque e consumo de peças",
     icon: Boxes,
   },
   {
     id: "resumo",
     titulo: "Resumo financeiro",
-    desc: "Entradas, saídas e composição",
+    desc: "Caixa e faturamento",
     icon: Wallet,
   },
   {
     id: "atividade",
     titulo: "Atividade do cliente",
-    desc: "Gasto e OS por cliente",
+    desc: "OS finalizadas por cliente",
     icon: Users,
   },
 ] as const;
@@ -63,15 +88,6 @@ function formatCurrency(valor: number) {
   return valor
     .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     .replace(/\u00A0/g, " ");
-}
-
-function formatPercent(valor: number) {
-  return `${valor.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
-}
-
-function formatDate(iso: string) {
-  const [ano, mes, dia] = iso.split("-");
-  return `${dia}/${mes}/${ano}`;
 }
 
 function toIso(data: Date) {
@@ -119,12 +135,42 @@ const ATALHOS: { label: string; intervalo: () => [string, string] }[] = [
   },
 ];
 
-function trendDe(variacao: number | null) {
+function trendDe(variacao: number | null, menorEhMelhor = false) {
   if (variacao === null) return undefined;
   return {
     value: `${variacao >= 0 ? "↑" : "↓"} ${Math.abs(variacao).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% vs período anterior`,
-    positive: variacao >= 0,
+    positive: menorEhMelhor ? variacao <= 0 : variacao >= 0,
   };
+}
+
+function Variacao({ valor }: { valor: number | null }) {
+  if (valor === null) return <span className="text-gray-400">—</span>;
+  return (
+    <span
+      className={`font-medium ${valor >= 0 ? "text-emerald-600" : "text-red-500"}`}
+    >
+      {valor >= 0 ? "↑" : "↓"} {formatPercent(Math.abs(valor))}
+    </span>
+  );
+}
+
+function ComparadoCom({
+  periodo,
+  children,
+}: {
+  periodo: { inicio: string; fim: string };
+  children?: React.ReactNode;
+}) {
+  return (
+    <p className="border-b border-gray-100 bg-gray-50/50 px-5 pb-4 text-xs text-gray-500">
+      Comparado com {formatDate(periodo.inicio)} a {formatDate(periodo.fim)}{" "}
+      {children}
+    </p>
+  );
+}
+
+function periodoCsv(p: { inicio: string; fim: string }) {
+  return `${formatDate(p.inicio)} a ${formatDate(p.fim)}`;
 }
 
 function Tabela({
@@ -193,11 +239,11 @@ export default function Reports() {
   const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
   const [atividade, setAtividade] = useState<AtividadeClientes | null>(null);
   const [apenasAbaixoMinimo, setApenasAbaixoMinimo] = useState(false);
-
-  const usaPeriodo = tipo !== "inventario";
+  const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [erroPdf, setErroPdf] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
-    if (usaPeriodo && inicio > fim) {
+    if (inicio > fim) {
       setErro("A data inicial não pode ser maior que a final.");
       return;
     }
@@ -205,7 +251,8 @@ export default function Reports() {
     setErro(null);
     try {
       if (tipo === "vendas") setVendas(await getVendasPorPeriodo(inicio, fim));
-      if (tipo === "inventario") setInventario(await getStatusInventario());
+      if (tipo === "inventario")
+        setInventario(await getStatusInventario(inicio, fim));
       if (tipo === "resumo") setResumo(await getResumoFinanceiro(inicio, fim));
       if (tipo === "atividade")
         setAtividade(await getAtividadeClientes(inicio, fim));
@@ -218,7 +265,7 @@ export default function Reports() {
     } finally {
       setLoading(false);
     }
-  }, [tipo, inicio, fim, usaPeriodo]);
+  }, [tipo, inicio, fim]);
 
   useEffect(() => {
     carregar();
@@ -242,73 +289,39 @@ export default function Reports() {
           `${formatDate(vendas.periodo_anterior.inicio)} a ${formatDate(vendas.periodo_anterior.fim)}`,
         ],
         [],
-        ["Indicador", "Atual", "Período anterior", "Variação (%)"],
-        [
-          "Faturamento",
-          vendas.atual.total,
-          vendas.anterior.total,
-          vendas.variacao.total,
-        ],
-        [
-          "OS finalizadas",
-          vendas.atual.ordens,
-          vendas.anterior.ordens,
-          vendas.variacao.ordens,
-        ],
-        [
-          "Ticket médio",
-          vendas.atual.ticket_medio,
-          vendas.anterior.ticket_medio,
-          vendas.variacao.ticket_medio,
-        ],
+        ...linhasCsv(tabelaIndicadoresVendas(vendas, FORMATO_CSV)),
         [],
-        ["Data", "OS finalizadas", "Receita"],
-        ...vendas.por_dia.map((d) => [formatDate(d.data), d.ordens, d.total]),
+        ...linhasCsv(tabelaVendasPorDia(vendas, FORMATO_CSV)),
       ]);
     }
 
     if (tipo === "inventario" && inventario) {
-      downloadCsv(`inventario-${toIso(new Date())}.csv`, [
+      downloadCsv(`inventario-${inicio}-a-${fim}.csv`, [
         ["Relatório", "Status do inventário"],
+        ["Período", periodo],
+        ["Período anterior", periodoCsv(inventario.consumo.periodo_anterior)],
         [],
-        [
-          "Item",
-          "Categoria",
-          "Fornecedor",
-          "Quantidade",
-          "Mínimo",
-          "Preço de venda",
-          "Valor em estoque",
-          "Situação",
-        ],
-        ...inventario.itens.map((i) => [
-          i.nome,
-          i.categoria,
-          i.fornecedor,
-          i.quantidade,
-          i.quantidade_minima,
-          i.valor_final,
-          i.valor_em_estoque,
-          i.abaixo_minimo ? "Abaixo do mínimo" : "Em estoque",
-        ]),
+        ...linhasCsv(tabelaIndicadoresConsumo(inventario, FORMATO_CSV)),
+        [],
+        ...linhasCsv(tabelaPecasConsumidas(inventario, FORMATO_CSV)),
+        [],
+        ...linhasCsv(tabelaPosicaoEstoque(inventario, FORMATO_CSV)),
+        [],
+        ...linhasCsv(tabelaPrevisaoFalta(inventario, FORMATO_CSV)),
       ]);
     }
 
     if (tipo === "resumo" && resumo) {
-      const c = resumo.composicao_receita_os;
       downloadCsv(`resumo-financeiro-${inicio}-a-${fim}.csv`, [
         ["Relatório", "Resumo financeiro"],
         ["Período", periodo],
+        ["Período anterior", periodoCsv(resumo.periodo_anterior)],
         [],
-        ["Entradas", resumo.entradas],
-        ["Saídas", resumo.saidas],
-        ["Saldo", resumo.saldo],
+        ...linhasCsv(tabelaCaixa(resumo, FORMATO_CSV)),
         [],
-        ["Composição da receita de OS", "Valor", "Percentual (%)"],
-        ["Mão de obra", c.mao_de_obra.valor, c.mao_de_obra.percentual],
-        ["Peças", c.pecas.valor, c.pecas.percentual],
-        ["Total de OS", c.total, ""],
-        ["Outras receitas (lançamentos manuais)", resumo.outras_receitas, ""],
+        ...linhasCsv(tabelaFaturamento(resumo, FORMATO_CSV)),
+        [],
+        ...linhasCsv(tabelaMargemPecas(resumo, FORMATO_CSV)),
       ]);
     }
 
@@ -316,16 +329,33 @@ export default function Reports() {
       downloadCsv(`atividade-clientes-${inicio}-a-${fim}.csv`, [
         ["Relatório", "Atividade do cliente"],
         ["Período", periodo],
+        ["Período anterior", periodoCsv(atividade.periodo_anterior)],
         [],
-        ["Cliente", "OS", "Total gasto", "Ticket médio", "Última OS"],
-        ...atividade.clientes.map((c) => [
-          c.nome,
-          c.ordens,
-          c.total,
-          c.ticket_medio,
-          formatDate(c.ultima_os),
-        ]),
+        ...linhasCsv(tabelaIndicadoresAtividade(atividade, FORMATO_CSV)),
+        [],
+        ...linhasCsv(tabelaClientes(atividade, FORMATO_CSV)),
       ]);
+    }
+  }
+
+  async function exportarPdf() {
+    setGerandoPdf(true);
+    setErroPdf(null);
+    try {
+      // O jspdf é pesado: só é carregado quando alguém pede o PDF
+      const pdf = await import("../lib/pdfRelatorios");
+      if (tipo === "vendas" && vendas) pdf.baixarPdfVendas(vendas, inicio, fim);
+      if (tipo === "inventario" && inventario)
+        pdf.baixarPdfInventario(inventario, inicio, fim);
+      if (tipo === "resumo" && resumo)
+        pdf.baixarPdfResumoFinanceiro(resumo, inicio, fim);
+      if (tipo === "atividade" && atividade)
+        pdf.baixarPdfAtividadeClientes(atividade, inicio, fim);
+    } catch (err) {
+      console.error(err);
+      setErroPdf("Não foi possível gerar o PDF.");
+    } finally {
+      setGerandoPdf(false);
     }
   }
 
@@ -347,7 +377,7 @@ export default function Reports() {
       <div>
         <h1 className="text-2xl font-semibold text-[#1F1F1F]">Relatórios</h1>
         <p className="text-sm text-gray-500">
-          Consulte o desempenho da oficina e exporte os dados em CSV.
+          Consulte o desempenho da oficina e exporte os dados em CSV ou PDF.
         </p>
       </div>
 
@@ -388,68 +418,80 @@ export default function Reports() {
           })}
         </div>
 
-        {usaPeriodo && (
-          <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/50 p-5 lg:flex-row lg:items-end">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-[#1B2130]">
-                Data início
-              </label>
-              <input
-                type="date"
-                value={inicio}
-                max={fim}
-                onChange={(e) => setInicio(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-[#1B2130]">
-                Data fim
-              </label>
-              <input
-                type="date"
-                value={fim}
-                min={inicio}
-                onChange={(e) => setFim(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {ATALHOS.map((a) => (
-                <button
-                  key={a.label}
-                  type="button"
-                  onClick={() => aplicarAtalho(a.intervalo)}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                >
-                  {a.label}
-                </button>
-              ))}
-            </div>
+        <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/50 p-5 lg:flex-row lg:items-end">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-[#1B2130]">
+              Data início
+            </label>
+            <input
+              type="date"
+              value={inicio}
+              max={fim}
+              onChange={(e) => setInicio(e.target.value)}
+              className={inputClass}
+            />
           </div>
-        )}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-[#1B2130]">
+              Data fim
+            </label>
+            <input
+              type="date"
+              value={fim}
+              min={inicio}
+              onChange={(e) => setFim(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {ATALHOS.map((a) => (
+              <button
+                key={a.label}
+                type="button"
+                onClick={() => aplicarAtalho(a.intervalo)}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Resultado */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-gray-100 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5">
           <div>
             <p className="font-semibold text-[#1F1F1F]">{tipoAtual.titulo}</p>
             <p className="text-xs text-gray-500">
-              {usaPeriodo
-                ? `${formatDate(inicio)} a ${formatDate(fim)}`
-                : "Posição atual do estoque"}
+              {formatDate(inicio)} a {formatDate(fim)}
             </p>
+            {erroPdf && <p className="text-xs text-red-500">{erroPdf}</p>}
           </div>
-          <button
-            type="button"
-            onClick={exportarCsv}
-            disabled={!podeExportar}
-            className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f] disabled:opacity-50"
-          >
-            <Download size={15} />
-            Exportar CSV
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={exportarPdf}
+              disabled={!podeExportar || gerandoPdf}
+              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {gerandoPdf ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <FileDown size={15} />
+              )}
+              Exportar PDF
+            </button>
+            <button
+              type="button"
+              onClick={exportarCsv}
+              disabled={!podeExportar}
+              className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f] disabled:opacity-50"
+            >
+              <Download size={15} />
+              Exportar CSV
+            </button>
+          </div>
         </div>
 
         {loading && (
@@ -495,13 +537,15 @@ export default function Reports() {
               {formatCurrency(vendas.anterior.total)}, {vendas.anterior.ordens}{" "}
               OS).
               {vendas.anterior.ordens === 0 &&
-                " Não houve vendas nesse período, então não há variação para mostrar."}
+                " Não houve vendas nesse período, então não há variação para mostrar."}{" "}
+              Faturamento é o valor das OS finalizadas, pela data de
+              finalização. Os pagamentos recebidos estão no Resumo financeiro.
             </p>
             <Tabela
               colunas={[
                 { titulo: "Data" },
                 { titulo: "OS finalizadas", direita: true },
-                { titulo: "Receita", direita: true },
+                { titulo: "Faturamento", direita: true },
               ]}
               linhas={vendas.por_dia.map((d) => [
                 formatDate(d.data),
@@ -516,6 +560,58 @@ export default function Reports() {
         {/* INVENTÁRIO */}
         {!loading && !erro && tipo === "inventario" && inventario && (
           <>
+            <div className="bg-gray-50/50 px-5 pt-5">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Consumo de peças
+              </p>
+              <p className="text-xs text-gray-500">
+                Peças das OS finalizadas no período, pela data de finalização, a
+                preço de venda.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 bg-gray-50/50 p-5 sm:grid-cols-2">
+              <StatCard
+                label="PEÇAS CONSUMIDAS"
+                value={inventario.consumo.atual.quantidade}
+                icon={PackageMinus}
+                accentColor="#2563EB"
+                trend={trendDe(inventario.consumo.variacao.quantidade)}
+              />
+              <StatCard
+                label="VALOR DE VENDA"
+                value={formatCurrency(inventario.consumo.atual.valor)}
+                icon={DollarSign}
+                accentColor="#10B981"
+                trend={trendDe(inventario.consumo.variacao.valor)}
+              />
+            </div>
+            <ComparadoCom periodo={inventario.consumo.periodo_anterior}>
+              ({inventario.consumo.anterior.quantidade} peças,{" "}
+              {formatCurrency(inventario.consumo.anterior.valor)}).
+            </ComparadoCom>
+            <Tabela
+              colunas={[
+                { titulo: "Peça consumida" },
+                { titulo: "Categoria" },
+                { titulo: "Quantidade", direita: true },
+                { titulo: "Valor de venda", direita: true },
+              ]}
+              linhas={inventario.consumo.itens.map((i) => [
+                <span className="font-medium">{i.nome}</span>,
+                i.categoria ?? "—",
+                i.quantidade,
+                formatCurrency(i.valor),
+              ])}
+              vazio="Nenhuma peça consumida em OS finalizadas neste período."
+            />
+            <div className="border-t border-gray-100 bg-gray-50/50 px-5 pt-5">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Posição atual do estoque
+              </p>
+              <p className="text-xs text-gray-500">
+                Quantidades de hoje, independentes do período.
+              </p>
+            </div>
             <div className="grid grid-cols-1 gap-4 bg-gray-50/50 p-5 sm:grid-cols-3">
               <StatCard
                 label="TOTAL DE ITENS"
@@ -573,40 +669,98 @@ export default function Reports() {
               ])}
               vazio="Nenhum item para mostrar."
             />
+            <div className="border-y border-gray-100 px-5 py-3">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Previsão de falta
+              </p>
+              <p className="text-xs text-gray-500">
+                Consumo nas OS finalizadas de{" "}
+                {formatDate(inventario.previsao_falta.periodo.inicio)} a{" "}
+                {formatDate(inventario.previsao_falta.periodo.fim)} (últimos 90
+                dias), independente do período escolhido. A média por mês é o
+                consumo dividido por 3. Itens sem consumo nesses 90 dias não
+                entram.
+              </p>
+            </div>
+            <Tabela
+              colunas={[
+                { titulo: "Item" },
+                { titulo: "Categoria" },
+                { titulo: "Quantidade", direita: true },
+                { titulo: "Consumo (90 dias)", direita: true },
+                { titulo: "Média por mês", direita: true },
+                { titulo: "Previsão" },
+              ]}
+              linhas={inventario.previsao_falta.itens.map((i) => [
+                <span className="font-medium">{i.nome}</span>,
+                i.categoria ?? "—",
+                i.quantidade,
+                i.consumo_90_dias,
+                formatarDecimal(i.media_mensal),
+                <span className={corPrevisaoFalta(i.situacao)}>
+                  {textoPrevisaoFalta(i)}
+                </span>,
+              ])}
+              vazio="Nenhum item com consumo em OS finalizadas nos últimos 90 dias."
+            />
           </>
         )}
 
         {/* RESUMO FINANCEIRO */}
         {!loading && !erro && tipo === "resumo" && resumo && (
           <>
+            <div className="bg-gray-50/50 px-5 pt-5">
+              <p className="text-sm font-semibold text-[#1F1F1F]">Caixa</p>
+              <p className="text-xs text-gray-500">
+                Entradas e saídas lançadas no financeiro, pela data do
+                lançamento.
+              </p>
+            </div>
             <div className="grid grid-cols-1 gap-4 bg-gray-50/50 p-5 sm:grid-cols-3">
               <StatCard
                 label="ENTRADAS"
                 value={formatCurrency(resumo.entradas)}
                 icon={TrendingUp}
                 accentColor="#10B981"
+                trend={trendDe(resumo.variacao.entradas)}
               />
               <StatCard
                 label="SAÍDAS"
                 value={formatCurrency(resumo.saidas)}
                 icon={TrendingDown}
                 accentColor="#EF4444"
+                trend={trendDe(resumo.variacao.saidas, true)}
               />
               <StatCard
                 label="SALDO"
                 value={formatCurrency(resumo.saldo)}
                 icon={Wallet}
                 accentColor="#2563EB"
+                trend={trendDe(resumo.variacao.saldo)}
               />
             </div>
-            <p className="border-b border-gray-100 px-5 py-3 text-sm font-semibold text-[#1F1F1F]">
-              Composição da receita de ordens de serviço
-            </p>
+            <ComparadoCom periodo={resumo.periodo_anterior}>
+              (entradas {formatCurrency(resumo.anterior.entradas)}, saídas{" "}
+              {formatCurrency(resumo.anterior.saidas)}, saldo{" "}
+              {formatCurrency(resumo.anterior.saldo)}). Outras receitas
+              (lançamentos sem OS): {formatCurrency(resumo.outras_receitas)}.
+            </ComparadoCom>
+            <div className="border-b border-gray-100 px-5 py-3">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Faturamento
+              </p>
+              <p className="text-xs text-gray-500">
+                Composição das OS finalizadas no período, pela data de
+                finalização.
+              </p>
+            </div>
             <Tabela
               colunas={[
                 { titulo: "Origem" },
                 { titulo: "Valor", direita: true },
-                { titulo: "% da receita de OS", direita: true },
+                { titulo: "% do faturamento", direita: true },
+                { titulo: "Período anterior", direita: true },
+                { titulo: "Variação", direita: true },
               ]}
               linhas={[
                 [
@@ -617,26 +771,81 @@ export default function Reports() {
                   formatPercent(
                     resumo.composicao_receita_os.mao_de_obra.percentual,
                   ),
+                  formatCurrency(resumo.anterior.mao_de_obra),
+                  <Variacao valor={resumo.variacao.mao_de_obra} />,
                 ],
                 [
                   "Peças",
                   formatCurrency(resumo.composicao_receita_os.pecas.valor),
                   formatPercent(resumo.composicao_receita_os.pecas.percentual),
+                  formatCurrency(resumo.anterior.pecas),
+                  <Variacao valor={resumo.variacao.pecas} />,
                 ],
                 [
-                  <span className="font-semibold">Total de OS</span>,
+                  <span className="font-semibold">Total faturado</span>,
                   <span className="font-semibold">
                     {formatCurrency(resumo.composicao_receita_os.total)}
                   </span>,
+                  "",
+                  <span className="font-semibold">
+                    {formatCurrency(resumo.anterior.faturamento)}
+                  </span>,
+                  <Variacao valor={resumo.variacao.faturamento} />,
+                ],
+              ]}
+              vazio=""
+            />
+            <div className="border-y border-gray-100 px-5 py-3">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Margem das peças
+              </p>
+              <p className="text-xs text-gray-500">
+                Venda menos custo das peças nas mesmas OS do faturamento,
+                recebidas ou não. O custo é o do estoque no momento em que a
+                peça entrou na OS.
+              </p>
+            </div>
+            <Tabela
+              colunas={[
+                { titulo: "Indicador" },
+                { titulo: "Atual", direita: true },
+                { titulo: "Período anterior", direita: true },
+                { titulo: "Variação", direita: true },
+              ]}
+              linhas={[
+                [
+                  "Custo das peças",
+                  formatCurrency(resumo.margem_pecas.custo),
+                  formatCurrency(resumo.anterior.custo_pecas),
+                  <Variacao valor={resumo.variacao.custo_pecas} />,
+                ],
+                [
+                  "Margem (R$)",
+                  formatCurrency(resumo.margem_pecas.margem),
+                  formatCurrency(resumo.anterior.margem_pecas),
+                  <Variacao valor={resumo.variacao.margem_pecas} />,
+                ],
+                [
+                  "Margem (%)",
+                  resumo.margem_pecas.percentual === null
+                    ? "—"
+                    : formatPercent(resumo.margem_pecas.percentual),
+                  "",
+                  "",
+                ],
+                [
+                  "Peças sem custo registrado (venda, fora da margem)",
+                  formatCurrency(resumo.margem_pecas.valor_sem_custo),
+                  "",
                   "",
                 ],
               ]}
               vazio=""
             />
             <p className="border-t border-gray-100 px-5 py-4 text-xs text-gray-500">
-              Outras receitas (lançamentos manuais, sem OS):{" "}
-              {formatCurrency(resumo.outras_receitas)}. A margem de lucro nas
-              peças ainda não está disponível neste resumo.
+              Só as peças com custo registrado entram na margem. Peças
+              adicionadas antes do registro de custo aparecem como sem custo
+              registrado.
             </p>
           </>
         )}
@@ -644,33 +853,51 @@ export default function Reports() {
         {/* ATIVIDADE DO CLIENTE */}
         {!loading && !erro && tipo === "atividade" && atividade && (
           <>
-            <div className="grid grid-cols-1 gap-4 bg-gray-50/50 p-5 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 bg-gray-50/50 p-5 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 label="CLIENTES ATENDIDOS"
                 value={atividade.resumo.clientes_atendidos}
                 icon={Users}
                 accentColor="#A855F7"
+                trend={trendDe(atividade.variacao.clientes_atendidos)}
+              />
+              <StatCard
+                label="CLIENTES NOVOS"
+                value={atividade.resumo.clientes_novos}
+                icon={UserPlus}
+                accentColor="#FF7518"
+                trend={trendDe(atividade.variacao.clientes_novos)}
               />
               <StatCard
                 label="OS FINALIZADAS"
                 value={atividade.resumo.ordens}
                 icon={ClipboardList}
                 accentColor="#2563EB"
+                trend={trendDe(atividade.variacao.ordens)}
               />
               <StatCard
                 label="TOTAL FATURADO"
                 value={formatCurrency(atividade.resumo.total)}
                 icon={DollarSign}
                 accentColor="#10B981"
+                trend={trendDe(atividade.variacao.total)}
               />
             </div>
+            <ComparadoCom periodo={atividade.periodo_anterior}>
+              (clientes atendidos: {atividade.anterior.clientes_atendidos},
+              novos: {atividade.anterior.clientes_novos}, OS:{" "}
+              {atividade.anterior.ordens}, total:{" "}
+              {formatCurrency(atividade.anterior.total)}). Considera as OS
+              finalizadas no período, pela data de finalização; clientes novos
+              são os cadastrados no período.
+            </ComparadoCom>
             <Tabela
               colunas={[
                 { titulo: "Cliente" },
-                { titulo: "OS", direita: true },
-                { titulo: "Total gasto", direita: true },
+                { titulo: "OS finalizadas", direita: true },
+                { titulo: "Total faturado", direita: true },
                 { titulo: "Ticket médio", direita: true },
-                { titulo: "Última OS", direita: true },
+                { titulo: "Última finalização", direita: true },
               ]}
               linhas={atividade.clientes.map((c) => [
                 <span className="font-medium">{c.nome}</span>,

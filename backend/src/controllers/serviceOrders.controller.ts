@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { StatusOrdemServico } from "@prisma/client";
+import { FormaPagamento, StatusOrdemServico } from "@prisma/client";
 import { z } from "zod";
 import {
   search,
@@ -10,10 +10,14 @@ import {
   addService,
   removeService,
   changeStatus,
+  registrarPagamento,
+  listarPagamentos,
+  estornarPagamento,
 } from "../services/serviceOrders.service";
 
 const statusSchema = z.enum(StatusOrdemServico);
 const clienteIdSchema = z.coerce.number().int().positive();
+const statusPagamentoSchema = z.enum(["PENDENTE", "PARCIAL", "PAGO"]);
 
 // GET /api/service-orders?status=ABERTA&cliente_id=1
 export async function listController(req: Request, res: Response) {
@@ -25,14 +29,21 @@ export async function listController(req: Request, res: Response) {
     typeof req.query.cliente_id === "string"
       ? clienteIdSchema.parse(req.query.cliente_id)
       : undefined;
-  const ordens = await search({ status, cliente_id });
+  const status_pagamento =
+    typeof req.query.status_pagamento === "string"
+      ? statusPagamentoSchema.parse(req.query.status_pagamento)
+      : undefined;
+  const ordens = await search(
+    { status, cliente_id, status_pagamento },
+    req.user?.perfil,
+  );
   return res.status(200).json(ordens);
 }
 
 // GET /api/service-orders/:id
 export async function getByIdController(req: Request, res: Response) {
   const id = Number(req.params.id);
-  const ordem = await findById(id);
+  const ordem = await findById(id, req.user?.perfil);
 
   if (!ordem) {
     return res.status(404).json({ erro: "Ordem de serviço não encontrada." });
@@ -56,7 +67,7 @@ const createServiceOrderSchema = z.object({
 // POST /api/service-orders
 export async function createController(req: Request, res: Response) {
   const dados = createServiceOrderSchema.parse(req.body);
-  const ordem = await create(dados);
+  const ordem = await create(dados, req.user?.perfil);
   return res.status(201).json(ordem);
 }
 
@@ -73,6 +84,7 @@ export async function addPartController(req: Request, res: Response) {
     ordemId,
     dados.item_estoque_id,
     dados.quantidade,
+    req.user?.perfil,
   );
   return res.status(201).json(resultado);
 }
@@ -81,7 +93,7 @@ export async function addPartController(req: Request, res: Response) {
 export async function removePartController(req: Request, res: Response) {
   const ordemId = Number(req.params.id);
   const partId = Number(req.params.partId);
-  const ordem = await removePart(ordemId, partId);
+  const ordem = await removePart(ordemId, partId, req.user?.perfil);
   return res.status(200).json(ordem);
 }
 
@@ -94,7 +106,7 @@ const addServiceSchema = z.object({
 export async function addServiceController(req: Request, res: Response) {
   const ordemId = Number(req.params.id);
   const dados = addServiceSchema.parse(req.body);
-  const ordem = await addService(ordemId, dados);
+  const ordem = await addService(ordemId, dados, req.user?.perfil);
   return res.status(201).json(ordem);
 }
 
@@ -102,7 +114,7 @@ export async function addServiceController(req: Request, res: Response) {
 export async function removeServiceController(req: Request, res: Response) {
   const ordemId = Number(req.params.id);
   const serviceId = Number(req.params.serviceId);
-  const ordem = await removeService(ordemId, serviceId);
+  const ordem = await removeService(ordemId, serviceId, req.user?.perfil);
   return res.status(200).json(ordem);
 }
 
@@ -114,7 +126,7 @@ const changeStatusSchema = z.object({
 export async function changeStatusController(req: Request, res: Response) {
   const ordemId = Number(req.params.id);
   const { status } = changeStatusSchema.parse(req.body);
-  const ordem = await changeStatus(ordemId, status);
+  const ordem = await changeStatus(ordemId, status, req.user?.perfil);
   return res.status(200).json(ordem);
 }
 
@@ -132,6 +144,44 @@ const updateObservacoesSchema = z.object({
 export async function updateObservacoesController(req: Request, res: Response) {
   const ordemId = Number(req.params.id);
   const { observacoes } = updateObservacoesSchema.parse(req.body);
-  const ordem = await updateObservacoes(ordemId, observacoes);
+  const ordem = await updateObservacoes(
+    ordemId,
+    observacoes,
+    req.user?.perfil,
+  );
   return res.status(200).json(ordem);
+}
+
+const registrarPagamentoSchema = z.object({
+  valor: z.number(),
+  forma_pagamento: z.enum(FormaPagamento),
+  data: z.iso
+    .date("Use o formato AAAA-MM-DD.")
+    .transform((v) => new Date(`${v}T12:00:00-03:00`))
+    .optional(),
+});
+
+export async function registrarPagamentoController(
+  req: Request,
+  res: Response,
+) {
+  const ordemId = Number(req.params.id);
+  const dados = registrarPagamentoSchema.parse(req.body);
+  const pagamento = await registrarPagamento(ordemId, dados);
+  return res.status(201).json(pagamento);
+}
+
+export async function listarPagamentosController(req: Request, res: Response) {
+  const ordemId = Number(req.params.id);
+  const pagamentos = await listarPagamentos(ordemId);
+  return res.status(200).json(pagamentos);
+}
+
+export async function estornarPagamentoController(req: Request, res: Response) {
+  const ordemId = Number(req.params.id);
+  const pagamento = await estornarPagamento(
+    ordemId,
+    String(req.params.pagamentoId),
+  );
+  return res.status(200).json(pagamento);
 }

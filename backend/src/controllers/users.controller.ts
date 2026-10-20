@@ -1,6 +1,19 @@
 import { Request, Response } from "express";
-import { activate, deactivate, listGroupedByPerfil } from "../services/users.service";
+import { z } from "zod";
+import {
+  activate,
+  deactivate,
+  listGroupedByPerfil,
+  produtividade,
+} from "../services/users.service";
+import { parseMes } from "../services/reports.service";
 import { AppError } from "../utils/AppError";
+
+const produtividadeSchema = z.object({
+  mes: z
+    .string({ error: "Informe o mês no formato AAAA-MM." })
+    .regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Use o formato AAAA-MM."),
+});
 
 // GET /api/users
 export async function listController(_req: Request, res: Response) {
@@ -24,4 +37,9 @@ export async function activateController(req: Request, res: Response) {
   const id = Number(req.params.id);
   const usuario = await activate(id);
   return res.status(200).json(usuario);
+}
+
+export async function produtividadeController(req: Request, res: Response) {
+  const { mes } = produtividadeSchema.parse(req.query);
+  return res.status(200).json(await produtividade(parseMes(mes)));
 }

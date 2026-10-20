@@ -15,7 +15,6 @@ import {
   History,
   Loader2,
 } from "lucide-react";
-import DisabledBadge from "../components/ui/DisabledBadge";
 import StatusBadge from "../components/ui/StatusBadge";
 import ClientFormModal, {
   type ClientFormData,
@@ -41,6 +40,7 @@ import {
   type ServiceOrder,
 } from "../services/serviceOrders";
 import { mensagemDeErro } from "../lib/errors";
+import { getUserRole } from "../lib/auth";
 import { isMaintenanceOverdue } from "../lib/maintenance";
 
 function formatCurrency(value: string | number) {
@@ -54,19 +54,11 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("pt-BR");
 }
 
-// Mantém só os veículos ativos do cliente
-function comVeiculosAtivos(data: Client): Client {
-  return {
-    ...data,
-    veiculos: (data.veiculos ?? []).filter(
-      (v) => (v as { ativo?: boolean }).ativo !== false,
-    ),
-  };
-}
-
 export default function ClientProfile() {
   const { id } = useParams();
   const clientId = Number(id);
+  // Funcionário cadastra e consulta; editar e arquivar é só do proprietário
+  const podeEditar = getUserRole() === "PROPRIETARIO";
   const navigate = useNavigate();
 
   const [client, setClient] = useState<Client | null>(null);
@@ -92,7 +84,7 @@ export default function ClientProfile() {
   const fetchClient = useCallback(async () => {
     try {
       const data = await getClientById(clientId);
-      setClient(comVeiculosAtivos(data));
+      setClient(data);
       setError(null);
     } catch (err) {
       console.error(err);
@@ -108,7 +100,7 @@ export default function ClientProfile() {
     getClientById(clientId)
       .then((data) => {
         if (!ativo) return;
-        setClient(comVeiculosAtivos(data));
+        setClient(data);
         setError(null);
       })
       .catch((err) => {
@@ -309,20 +301,21 @@ export default function ClientProfile() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setEditClientOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f]"
-          >
-            <Pencil size={14} />
-            Editar
-          </button>
+          {podeEditar && (
+            <button
+              type="button"
+              onClick={() => setEditClientOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f]"
+            >
+              <Pencil size={14} />
+              Editar
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-6 p-5 lg:grid-cols-[1fr_auto]">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
             <div className="space-y-4">
-              <DisabledBadge label="Status desativado" />
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-400">
                   Nome
@@ -357,7 +350,7 @@ export default function ClientProfile() {
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-400">
-                  Membro desde
+                  Cliente desde
                 </p>
                 <p className="mt-1 flex items-center gap-2 text-sm text-[#1F1F1F]">
                   <CalendarDays size={14} className="text-gray-400" />
@@ -446,7 +439,9 @@ export default function ClientProfile() {
                   <th className="px-5 py-3 font-medium">Placa</th>
                   <th className="px-5 py-3 font-medium">Quilometragem</th>
                   {""}
-                  <th className="px-5 py-3 text-right font-medium">Ações</th>
+                  {podeEditar && (
+                    <th className="px-5 py-3 text-right font-medium">Ações</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -476,26 +471,28 @@ export default function ClientProfile() {
                         : "0 km"}
                     </td>
 
-                    <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEditVehicle(vehicle)}
-                          aria-label="Editar"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteVehicle(vehicle)}
-                          aria-label="Arquivar"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
+                    {podeEditar && (
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openEditVehicle(vehicle)}
+                            aria-label="Editar"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteVehicle(vehicle)}
+                            aria-label="Arquivar"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -621,7 +618,7 @@ export default function ClientProfile() {
         onClose={() => setVehicleModalOpen(false)}
         onSave={handleSaveVehicle}
         onDelete={
-          vehicleModalMode === "edit" && editingVehicle
+          podeEditar && vehicleModalMode === "edit" && editingVehicle
             ? () => {
                 handleDeleteVehicle(editingVehicle);
                 setVehicleModalOpen(false);

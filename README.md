@@ -82,6 +82,23 @@ provisória (é assim que se recupera o acesso se o dono esquecer a senha).
 
 Para criar a conta em produção, rode o mesmo comando com a `DATABASE_URL` do
 banco de produção, do mesmo jeito que o `npx prisma migrate deploy`.
+## Testes automatizados (backend)
+
+Os testes usam Vitest e Supertest e rodam contra um **banco separado** no
+Postgres local. A cada execução esse banco é apagado e recriado com todas as
+migrations, então nunca aponte para o banco de desenvolvimento: se o nome do
+banco não tiver "test", os testes param antes de apagar qualquer coisa.
+
+```bash
+cd backend
+cp .env.test.example .env.test   # ajuste usuário e senha do Postgres (banco autos_test)
+npm test                         # roda todos os testes
+npm run test:coverage            # roda com relatório de cobertura (pasta coverage/)
+```
+
+O banco `autos_test` é criado sozinho na primeira execução. Os testes ficam em
+`backend/tests/`, e os helpers em `backend/tests/helpers/` criam usuários de
+cada perfil (`criarProprietario`, `criarFuncionario`) já com o token deles.
 
 ## Equipe
 

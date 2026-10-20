@@ -87,12 +87,14 @@ model StockItem {
   quantidade_minima Int      @default(0)
   valor_final       Decimal  @db.Decimal(10, 2)
   valor_entrada     Decimal? @db.Decimal(10, 2)
+  ativo             Boolean  @default(true) 
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
 
   usos_em_ordens ServiceOrderPart[]
 
   @@index([nome])
+   @@index([ativo])    
   @@map("stock_items")
 }
 
@@ -112,6 +114,7 @@ model ServiceOrder {
   valor_total              Decimal            @default(0) @db.Decimal(10, 2)
   observacoes              String?
   quilometragem_registrada Int?
+  finalizada_em            DateTime?
   created_at               DateTime           @default(now())
   updated_at               DateTime           @updatedAt
 
@@ -127,6 +130,7 @@ model ServiceOrder {
   @@index([veiculo_id])
   @@index([mecanico_id])
   @@index([status])
+  @@index([status, finalizada_em])
   @@map("service_orders")
 }
 
@@ -147,7 +151,9 @@ model ServiceOrderPart {
   ordem_id        Int
   item_estoque_id Int
   quantidade      Int
-  valor_unitario  Decimal @db.Decimal(10, 2)
+  valor_unitario  Decimal  @db.Decimal(10, 2)
+  // Custo da peça no momento do uso (valor_entrada do estoque). Vazio nas peças antigas
+  valor_custo     Decimal? @db.Decimal(10, 2)
 
   ordem        ServiceOrder @relation(fields: [ordem_id], references: [id], onDelete: Cascade)
   item_estoque StockItem    @relation(fields: [item_estoque_id], references: [id])
@@ -173,6 +179,13 @@ model MaintenanceReminder {
   @@map("maintenance_reminders")
 }
 
+enum FormaPagamento {
+  DINHEIRO
+  PIX
+  CARTAO
+  OUTRO
+}
+
 model FinancialEntry {
   id           String        @id @default(uuid())
   tipo         String        // Ex: "RECEITA", "DESPESA"
@@ -180,6 +193,7 @@ model FinancialEntry {
   valor        Decimal       @db.Decimal(10, 2)
   data         DateTime      @default(now())
   estornado    Boolean       @default(false)
+  forma_pagamento FormaPagamento?
   
   ordemId      Int?          // Alterado de String? para Int? para bater com o ID de ServiceOrder
   ordemServico ServiceOrder? @relation(fields: [ordemId], references: [id], onDelete: SetNull)
