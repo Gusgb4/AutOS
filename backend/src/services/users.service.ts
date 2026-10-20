@@ -1,6 +1,8 @@
+import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
+import { gerarSenhaProvisoria } from "../utils/senha";
 import {
   Periodo,
   arredondar,
@@ -52,6 +54,110 @@ export async function listGroupedByPerfil() {
   return {
     proprietarios: comContagem.filter((u) => u.perfil === "PROPRIETARIO"),
     funcionarios: comContagem.filter((u) => u.perfil === "FUNCIONARIO"),
+  };
+}
+
+//---------- criar usuário (membro da equipe) --------------
+export async function createUser(data: {
+  nome?: string;
+  email?: string;
+  perfil?: string;
+}) {
+  const nome = data.nome?.trim();
+  const email = data.email?.trim().toLowerCase();
+
+  if (!nome || !email) {
+    throw new AppError("Nome e e-mail são obrigatórios.", 400);
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new AppError("Formato de e-mail inválido.", 400);
+  }
+
+  if (
+    data.perfil &&
+    data.perfil !== "PROPRIETARIO" &&
+    data.perfil !== "FUNCIONARIO"
+  ) {
+    throw new AppError("Perfil inválido.", 400);
+  }
+
+  const perfil =
+    data.perfil === "PROPRIETARIO" ? "PROPRIETARIO" : "FUNCIONARIO";
+
+  const existente = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (existente) {
+    throw new AppError(
+      "Este e-mail já está cadastrado para outro membro.",
+      409,
+    );
+  }
+
+  const senhaProvisoria = gerarSenhaProvisoria();
+  const senhaHash = await bcrypt.hash(senhaProvisoria, 10);
+
+  const usuario = await prisma.user.create({
+    data: {
+      nome,
+      email,
+      senha: senhaHash,
+      perfil,
+      ativo: true,
+      trocar_senha: true,
+    },
+    select: USER_SELECT,
+  });
+
+  return {
+    usuario: {
+      ...usuario,
+      total_os: 0,
+      os_ativas: 0,
+    },
+    senha_provisoria: senhaProvisoria,
+  };
+}
+
+//---------- redefinir senha de um membro --------------
+export async function resetUserPassword(id: number, requesterId: number) {
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError("ID de usuário inválido.", 400);
+  }
+
+  if (id === requesterId) {
+    throw new AppError(
+      "Você não pode redefinir sua própria senha por esta opção.",
+      400,
+    );
+  }
+
+  const usuario = await prisma.user.findUnique({
+    where: { id },
+  });
+
+  if (!usuario) {
+    throw new AppError("Usuário não encontrado.", 404);
+  }
+
+  const senhaProvisoria = gerarSenhaProvisoria();
+  const senhaHash = await bcrypt.hash(senhaProvisoria, 10);
+
+  const atualizado = await prisma.user.update({
+    where: { id },
+    data: {
+      senha: senhaHash,
+      trocar_senha: true,
+    },
+    select: USER_SELECT,
+  });
+
+  return {
+    usuario: atualizado,
+    senha_provisoria: senhaProvisoria,
   };
 }
 
