@@ -45,7 +45,14 @@ const menuItems = [
   },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  /** No celular, o menu só aparece quando aberto pelo botão da barra do topo. */
+  aberto: boolean;
+  /** No celular o sino fica na barra do topo, então não aparece aqui. */
+  mostrarSino: boolean;
+}
+
+export default function Sidebar({ aberto, mostrarSino }: SidebarProps) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const perfil = getUserRole();
@@ -60,7 +67,11 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-24 flex-col bg-[#1F1F1F] text-white">
+    <aside
+      className={`fixed left-0 top-0 z-40 h-dvh w-64 flex-col bg-[#1F1F1F] text-white md:flex md:h-screen md:w-24 ${
+        aberto ? "flex" : "hidden"
+      }`}
+    >
       {/* Logo */}
       <div className="flex h-28 shrink-0 items-center justify-center [@media(max-height:850px)]:h-16">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FF7518] [@media(max-height:850px)]:h-11 [@media(max-height:850px)]:w-11">
@@ -77,12 +88,12 @@ export default function Sidebar() {
               key={item.path}
               to={item.path}
               end={item.path === "/"}
-              className="group flex w-full flex-col items-center justify-center gap-1.5 px-2 py-2.5 text-center [@media(max-height:850px)]:gap-1 [@media(max-height:850px)]:py-1.5"
+              className="group flex w-full items-center gap-3 px-4 py-1 text-left md:flex-col md:justify-center md:gap-1.5 md:px-2 md:py-2.5 md:text-center md:[@media(max-height:850px)]:gap-1 md:[@media(max-height:850px)]:py-1.5"
             >
               {({ isActive }) => (
                 <>
                   <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-xl transition [@media(max-height:850px)]:h-9 [@media(max-height:850px)]:w-9 ${
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl transition md:[@media(max-height:850px)]:h-9 md:[@media(max-height:850px)]:w-9 ${
                       isActive
                         ? "bg-[#FF7518] text-white"
                         : "text-gray-400 group-hover:bg-[#292929] group-hover:text-white"
@@ -91,7 +102,7 @@ export default function Sidebar() {
                     <Icon size={20} strokeWidth={1.8} />
                   </div>
                   <span
-                    className={`text-[11px] leading-tight ${
+                    className={`text-sm leading-tight md:text-[11px] ${
                       isActive
                         ? "font-medium text-white"
                         : "text-gray-400 group-hover:text-white"
@@ -110,17 +121,17 @@ export default function Sidebar() {
       <div className="shrink-0 pb-2">
         {perfil && (
           <div className="relative mx-2 mb-2 rounded-xl bg-[#292929] px-1.5 py-2 text-center [@media(max-height:850px)]:mb-1 [@media(max-height:850px)]:py-1">
-            <NotificationBell />
+            {mostrarSino && <NotificationBell />}
             {primeiroNome && (
               <p
-                className="truncate text-[11px] font-medium text-white"
+                className="truncate text-[14px] font-medium text-white md:text-[11px]"
                 title={user?.nome}
               >
                 {primeiroNome}
               </p>
             )}
             <p
-              className={`truncate text-[10px] ${
+              className={`truncate text-[12px] md:text-[10px] ${
                 perfil === "PROPRIETARIO" ? "text-[#FF7518]" : "text-gray-400"
               }`}
             >
@@ -131,7 +142,7 @@ export default function Sidebar() {
             <NavLink
               to="/trocar-senha"
               title="Alterar senha"
-              className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-[#242424] py-1.5 text-[10px] font-medium text-gray-300 transition hover:bg-[#333333] hover:text-white"
+              className="mt-2 flex items-center justify-center gap-1 rounded-lg bg-[#242424] py-3 text-[12px] font-medium text-gray-300 transition hover:bg-[#333333] hover:text-white md:py-1.5 md:text-[10px]"
             >
               <KeyRound size={12} />
               <span>Alterar senha</span>

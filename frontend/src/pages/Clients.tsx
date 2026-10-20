@@ -324,7 +324,7 @@ export default function Clients() {
   }).length;
 
   return (
-    <div className="space-y-6 p-8">
+    <div className="space-y-6 p-4 md:p-8">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold text-[#1F1F1F]">Clientes</h1>
@@ -363,8 +363,8 @@ export default function Clients() {
 
       {/* Search + actions bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 items-center gap-3">
-          <div className="relative max-w-md flex-1">
+        <div className="relative flex flex-1 flex-wrap items-center gap-3 md:static md:flex-nowrap">
+          <div className="relative min-w-full max-w-md flex-1 md:min-w-auto">
             <Search
               size={16}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -374,7 +374,7 @@ export default function Clients() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nome/placa..."
-              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#FF7518]"
+              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-base outline-none focus:border-[#FF7518] md:text-sm"
             />
           </div>
 
@@ -479,7 +479,7 @@ export default function Clients() {
                 <button
                   type="button"
                   onClick={limparFiltros}
-                  className="w-full rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                  className="w-full rounded-lg border border-gray-200 py-2.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 md:py-2"
                 >
                   Limpar filtros
                 </button>
@@ -555,7 +555,7 @@ export default function Clients() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full whitespace-nowrap text-left text-sm md:whitespace-normal">
               <thead>
                 <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-5 py-3 font-medium">Cliente</th>
@@ -619,11 +619,11 @@ export default function Clients() {
                       )}
                     </td>
                     <td className="px-5 py-4">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-3 md:gap-2">
                         <Link
                           to={`/clientes/${client.id}`}
                           aria-label="Visualizar"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"
+                          className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 md:h-8 md:w-8"
                         >
                           <Eye size={14} />
                         </Link>
@@ -636,7 +636,7 @@ export default function Clients() {
                                 openEditModal(client);
                               }}
                               aria-label="Editar"
-                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100"
+                              className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 md:h-8 md:w-8"
                             >
                               <Pencil size={14} />
                             </button>
@@ -647,7 +647,7 @@ export default function Clients() {
                                 handleDeleteDirect(client);
                               }}
                               aria-label="Excluir"
-                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                              className="flex h-11 w-11 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 md:h-8 md:w-8"
                             >
                               <Trash2 size={14} />
                             </button>
@@ -718,7 +718,7 @@ function MenuChoice({
     <button
       type="button"
       onClick={onSelect}
-      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-gray-50 ${
+      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2.5 text-left text-sm hover:bg-gray-50 md:py-1.5 ${
         checked ? "font-medium text-[#1F1F1F]" : "text-gray-600"
       }`}
     >

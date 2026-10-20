@@ -77,8 +77,8 @@ export default function ServiceOrders() {
   }, [ordens, search]);
 
   return (
-    <div className="space-y-6 p-8">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 p-4 md:p-8">
+      <div className="flex flex-col items-start gap-3 md:flex-row md:justify-between md:gap-0">
         <div>
           <h1 className="text-2xl font-semibold text-[#1F1F1F]">Ordens de Serviço</h1>
           <p className="text-sm text-gray-500">Gerencie as ordens de serviço da sua oficina</p>
@@ -101,14 +101,14 @@ export default function ServiceOrders() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por cliente, veículo, placa ou número"
-            className="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[#FF7518]"
+            className="w-full rounded-xl border border-gray-200 py-2.5 pl-9 pr-3 text-base outline-none placeholder:text-xs focus:border-[#FF7518] md:text-sm md:placeholder:text-sm"
           />
         </div>
 
         <select
           value={statusFiltro}
           onChange={(e) => setStatusFiltro(e.target.value as StatusOS | "")}
-          className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-600 outline-none"
+          className="rounded-xl border border-gray-200 px-4 py-2.5 text-base text-gray-600 outline-none md:text-sm"
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -118,7 +118,7 @@ export default function ServiceOrders() {
         <select
           value={pagamentoFiltro}
           onChange={(e) => setPagamentoFiltro(e.target.value as StatusPagamento | "")}
-          className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-600 outline-none"
+          className="rounded-xl border border-gray-200 px-4 py-2.5 text-base text-gray-600 outline-none md:text-sm"
         >
           {PAGAMENTO_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -140,7 +140,7 @@ export default function ServiceOrders() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full whitespace-nowrap text-left text-sm md:whitespace-normal">
               <thead>
                 <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-5 py-3 font-medium">Ordem</th>
@@ -187,7 +187,7 @@ export default function ServiceOrders() {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); navigate(`/ordens-servico/${order.id}`); }}
                           aria-label="Visualizar"
-                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          className="flex h-11 w-11 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 md:h-8 md:w-8"
                         >
                           <Eye size={15} />
                         </button>
