@@ -57,7 +57,6 @@ export const router = createBrowserRouter([
             ],
           },
           { path: "ordens-servico/novo", element: <NewServiceOrder /> },
-          { path: "produtividade", element: <Productivity /> },
           { path: "relatorios", element: <Reports /> },
         ],
       },
