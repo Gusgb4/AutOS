@@ -25,27 +25,30 @@ model User {
   senha        String
   perfil       Perfil   @default(FUNCIONARIO)
   ativo        Boolean  @default(true)
-  trocar_senha Boolean  @default(false) 
+  trocar_senha Boolean  @default(false)
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
   ordens_como_mecanico ServiceOrder[] @relation("MecanicoResponsavel")
+  acessos              AccessLog[]
 
   @@index([ativo])
   @@map("users")
 }
 
 model Client {
-  id           Int       @id @default(autoincrement())
-  nome         String
-  telefone     String
-  documento    String?   @unique
-  email        String?
-  endereco     String?
-  ativo        Boolean   @default(true)
-  arquivado_em DateTime?
-  created_at   DateTime  @default(now())
-  updated_at   DateTime  @updatedAt
+  id             Int       @id @default(autoincrement())
+  nome           String
+  telefone       String
+  documento      String?   @unique
+  email          String?
+  endereco       String?
+  ativo          Boolean   @default(true)
+  arquivado_em   DateTime?
+  // LGPD: preenchido quando os dados pessoais foram apagados a pedido do titular
+  anonimizado_em DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
 
   veiculos       Vehicle[]
   ordens_servico ServiceOrder[]
@@ -87,14 +90,14 @@ model StockItem {
   quantidade_minima Int      @default(0)
   valor_final       Decimal  @db.Decimal(10, 2)
   valor_entrada     Decimal? @db.Decimal(10, 2)
-  ativo             Boolean  @default(true) 
+  ativo             Boolean  @default(true)
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
 
   usos_em_ordens ServiceOrderPart[]
 
   @@index([nome])
-   @@index([ativo])    
+  @@index([ativo])
   @@map("stock_items")
 }
 
@@ -122,8 +125,8 @@ model ServiceOrder {
   veiculo  Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Restrict)
   mecanico User    @relation("MecanicoResponsavel", fields: [mecanico_id], references: [id])
 
-  servicos ServiceOrderService[]
-  pecas    ServiceOrderPart[]
+  servicos         ServiceOrderService[]
+  pecas            ServiceOrderPart[]
   financialEntries FinancialEntry[]
 
   @@index([cliente_id])
@@ -147,7 +150,7 @@ model ServiceOrderService {
 }
 
 model ServiceOrderPart {
-  id              Int     @id @default(autoincrement())
+  id              Int      @id @default(autoincrement())
   ordem_id        Int
   item_estoque_id Int
   quantidade      Int
@@ -196,22 +199,44 @@ enum CategoriaDespesa {
 }
 
 model FinancialEntry {
-  id           String        @id @default(uuid())
-  tipo         String        // Ex: "RECEITA", "DESPESA"
-  descricao    String
-  valor        Decimal       @db.Decimal(10, 2)
-  data         DateTime      @default(now())
-  estornado    Boolean       @default(false)
+  id              String            @id @default(uuid())
+  tipo            String // Ex: "RECEITA", "DESPESA"
+  descricao       String
+  valor           Decimal           @db.Decimal(10, 2)
+  data            DateTime          @default(now())
+  estornado       Boolean           @default(false)
   forma_pagamento FormaPagamento?
   // Obrigatória em despesa; fica vazia em receita
-  categoria    CategoriaDespesa?
+  categoria       CategoriaDespesa?
 
-  ordemId      Int?          // Alterado de String? para Int? para bater com o ID de ServiceOrder
+  ordemId      Int? // Alterado de String? para Int? para bater com o ID de ServiceOrder
   ordemServico ServiceOrder? @relation(fields: [ordemId], references: [id], onDelete: SetNull)
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([ordemId])
   @@map("financial_entries")
+}
+
+enum EventoAcesso {
+  LOGIN_OK
+  LOGIN_FALHA
+}
+
+// Registro de acesso (Marco Civil, art. 15): guardado por 6 meses e depois apagado
+model AccessLog {
+  id         Int          @id @default(autoincrement())
+  evento     EventoAcesso
+  // E-mail digitado; o usuário só quando esse e-mail existe no sistema
+  usuario_id Int?
+  email      String
+  ip         String
+  user_agent String?
+  created_at DateTime     @default(now())
+
+  usuario User? @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+
+  @@index([created_at])
+  @@map("access_logs")
 }

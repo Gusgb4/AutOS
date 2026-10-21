@@ -14,6 +14,7 @@ import {
   Trash2,
   History,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
 import ClientFormModal, {
@@ -22,6 +23,7 @@ import ClientFormModal, {
 import VehicleFormModal, {
   type VehicleFormData,
 } from "../components/clients/VehicleFormModal";
+import RemoverDadosCard from "../components/clients/RemoverDadosCard";
 import {
   getClientById,
   updateClient,
@@ -266,6 +268,9 @@ export default function ClientProfile() {
     );
   }
 
+  // Dados apagados a pedido do titular: o perfil fica só pra consultar o histórico
+  const anonimizado = Boolean(client.anonimizado_em);
+
   return (
     <div className="space-y-6 p-4 md:p-8">
       {/* Header */}
@@ -286,6 +291,17 @@ export default function ClientProfile() {
         </Link>
       </div>
 
+      {client.anonimizado_em && (
+        <div className="flex items-start gap-3 rounded-2xl bg-gray-100 p-5 text-sm text-gray-600">
+          <ShieldCheck size={18} className="mt-0.5 shrink-0 text-gray-500" />
+          <p>
+            Os dados pessoais deste cliente foram removidos em{" "}
+            {formatDate(client.anonimizado_em)} a pedido dele (LGPD). O
+            histórico de serviço foi mantido sem identificar a pessoa.
+          </p>
+        </div>
+      )}
+
       {/* Informações de contato */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 p-5 md:flex-nowrap md:gap-0">
@@ -301,7 +317,7 @@ export default function ClientProfile() {
             </div>
           </div>
 
-          {podeEditar && (
+          {podeEditar && !anonimizado && (
             <button
               type="button"
               onClick={() => setEditClientOpen(true)}
@@ -415,14 +431,16 @@ export default function ClientProfile() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={openAddVehicle}
-            className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f]"
-          >
-            <Plus size={14} />
-            Adicionar veículo
-          </button>
+          {!anonimizado && (
+            <button
+              type="button"
+              onClick={openAddVehicle}
+              className="flex items-center gap-2 rounded-xl bg-[#FF7518] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#e6690f]"
+            >
+              <Plus size={14} />
+              Adicionar veículo
+            </button>
+          )}
         </div>
 
         {client.veiculos.length === 0 ? (
@@ -578,6 +596,10 @@ export default function ClientProfile() {
           </div>
         )}
       </div>
+
+      {podeEditar && !anonimizado && (
+        <RemoverDadosCard clienteId={clientId} onRemovido={fetchClient} />
+      )}
 
       {/* Modal de edição do cliente */}
       <ClientFormModal
