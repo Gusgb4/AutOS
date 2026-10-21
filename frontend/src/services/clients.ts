@@ -8,6 +8,8 @@ export interface Client {
   documento?: string;
   email?: string | null;
   endereco?: string | null;
+  // LGPD: quando os dados pessoais foram apagados a pedido do titular
+  anonimizado_em?: string | null;
   created_at: string;
   // Só veículos ativos (o backend já filtra)
   veiculos: Vehicle[];
@@ -62,6 +64,12 @@ export async function updateClient(
   payload: UpdateClientPayload,
 ): Promise<Client> {
   const { data } = await api.put<Client>(`/clients/${id}`, payload);
+  return data;
+}
+
+// Apaga os dados pessoais e a placa dos veículos; as OS continuam. Não tem volta.
+export async function anonimizarCliente(id: number): Promise<Client> {
+  const { data } = await api.post<Client>(`/clients/${id}/anonimizar`);
   return data;
 }
 

@@ -954,15 +954,18 @@ export default function ServiceOrderDetails() {
           </p>
         </div>
         <div className="flex flex-col items-stretch gap-2 md:flex-row md:flex-wrap md:items-center">
-          <a
-            href={buildWhatsAppLink(ordem)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100 md:justify-start"
-          >
-            <MessageCircle size={16} />
-            Enviar por WhatsApp
-          </a>
+          {/* Cliente com dados removidos (LGPD) não tem telefone pra mandar */}
+          {ordem.cliente?.telefone && (
+            <a
+              href={buildWhatsAppLink(ordem)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100 md:justify-start"
+            >
+              <MessageCircle size={16} />
+              Enviar por WhatsApp
+            </a>
+          )}
           <button
             type="button"
             onClick={handleBaixarPdf}

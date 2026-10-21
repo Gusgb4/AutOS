@@ -4,6 +4,10 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 import { z } from 'zod';
 import { prisma } from '../config/prisma';
 import { env } from '../config/env';
+import {
+  limparAcessosAntigos,
+  registrarAcesso,
+} from '../services/accessLog.service';
 
 const loginSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -23,13 +27,30 @@ export class AuthController {
 
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user || !user.ativo) {
+        await registrarAcesso(req, {
+          evento: 'LOGIN_FALHA',
+          email,
+          usuarioId: user?.id,
+        });
         return res.status(400).json({ error: 'E-mail ou senha incorretos' });
       }
 
       const passwordMatch = await bcrypt.compare(senha, user.senha);
       if (!passwordMatch) {
+        await registrarAcesso(req, {
+          evento: 'LOGIN_FALHA',
+          email,
+          usuarioId: user.id,
+        });
         return res.status(400).json({ error: 'E-mail ou senha incorretos' });
       }
+
+      await registrarAcesso(req, {
+        evento: 'LOGIN_OK',
+        email,
+        usuarioId: user.id,
+      });
+      await limparAcessosAntigos();
 
       const token = jwt.sign(
         { id: user.id, perfil: user.perfil },

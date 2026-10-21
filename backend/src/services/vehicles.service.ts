@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma";
+import { garantirNaoAnonimizado } from "./clients.service";
 
 function somarDias(base: Date, dias: number) {
   const data = new Date(base);
@@ -39,6 +40,7 @@ interface CreateVehicleInput {
 
 export async function create(dados: CreateVehicleInput) {
   const { intervalo_dias, intervalo_km, ...dadosVeiculo } = dados;
+  await garantirNaoAnonimizado(dados.cliente_id);
 
   return prisma.$transaction(async (tx) => {
     const veiculo = await tx.vehicle.create({ data: dadosVeiculo });
@@ -76,6 +78,10 @@ interface UpdateVehicleInput {
 
 export async function update(id: number, dados: UpdateVehicleInput) {
   const { intervalo_dias, intervalo_km, ...dadosVeiculo } = dados;
+  await garantirClienteDoVeiculo(id);
+  if (dados.cliente_id !== undefined) {
+    await garantirNaoAnonimizado(dados.cliente_id);
+  }
 
   return prisma.$transaction(async (tx) => {
     const veiculo = await tx.vehicle.update({
@@ -124,6 +130,15 @@ export async function update(id: number, dados: UpdateVehicleInput) {
   });
 }
 
+// Veículo de cliente anonimizado fica travado (a placa foi apagada de propósito)
+async function garantirClienteDoVeiculo(veiculoId: number) {
+  const veiculo = await prisma.vehicle.findUnique({
+    where: { id: veiculoId },
+    select: { cliente_id: true },
+  });
+  if (veiculo) await garantirNaoAnonimizado(veiculo.cliente_id);
+}
+
 //---------- arquivar veículo --------------
 export async function archive(id: number) {
   return prisma.vehicle.update({
@@ -134,6 +149,7 @@ export async function archive(id: number) {
 
 //---------- desarquivar veículo --------------
 export async function unarchive(id: number) {
+  await garantirClienteDoVeiculo(id);
   return prisma.vehicle.update({
     where: { id },
     data: { ativo: true, arquivado_em: null },

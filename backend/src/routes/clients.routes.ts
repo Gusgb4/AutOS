@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { listController, createController, getByIdController, updateController, archiveController, unarchiveController } from "../controllers/clients.controller";
+import { listController, createController, getByIdController, updateController, archiveController, unarchiveController, anonimizarController } from "../controllers/clients.controller";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ensureAuthenticated, requireRole } from "../middlewares/auth.middleware";
 
@@ -14,5 +14,6 @@ router.get("/:id", asyncHandler(getByIdController));
 router.put("/:id", requireRole(["PROPRIETARIO"]), asyncHandler(updateController));
 router.patch("/:id/archive", requireRole(["PROPRIETARIO"]), asyncHandler(archiveController));
 router.patch("/:id/unarchive", requireRole(["PROPRIETARIO"]), asyncHandler(unarchiveController));
+router.post("/:id/anonimizar", requireRole(["PROPRIETARIO"]), asyncHandler(anonimizarController));
 
 export default router;
