@@ -27,28 +27,31 @@ const TOKEN_KEY = "@autos:token";
 const USER_KEY = "@autos:user";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
+  // O usuário salvo já aparece na primeira renderização; o efeito só confirma com o backend
+  const [user, setUser] = useState<User | null>(() => {
     const storedUser = localStorage.getItem(USER_KEY);
     const storedToken = localStorage.getItem(TOKEN_KEY);
+    return storedUser && storedToken ? JSON.parse(storedUser) : null;
+  });
+  // Sem sessão salva não tem o que conferir, então nem começa carregando
+  const [loading, setLoading] = useState(() => user !== null);
 
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      authService
-        .getMe()
-        .then((freshUser) => {
-          localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
-          setUser(freshUser);
-        })
-        .catch(() => {
-          // Se der 401, o interceptor do api.ts já limpa e redireciona
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
+  useEffect(() => {
+    // Mesma condição do useState acima: precisa do usuário e do token salvos
+    if (!localStorage.getItem(USER_KEY) || !localStorage.getItem(TOKEN_KEY)) {
+      return;
     }
+
+    authService
+      .getMe()
+      .then((freshUser) => {
+        localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+        setUser(freshUser);
+      })
+      .catch(() => {
+        // Se der 401, o interceptor do api.ts já limpa e redireciona
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   async function signIn(payload: LoginPayload): Promise<User> {

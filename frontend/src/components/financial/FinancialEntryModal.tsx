@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -41,9 +41,12 @@ export default function FinancialEntryModal({
 }: FinancialEntryModalProps) {
   const [form, setForm] = useState(emptyForm);
 
-  useEffect(() => {
+  // Toda vez que o modal abre, começa com o formulário limpo
+  const [abertoAntes, setAbertoAntes] = useState(open);
+  if (open !== abertoAntes) {
+    setAbertoAntes(open);
     if (open) setForm(emptyForm);
-  }, [open]);
+  }
 
   if (!open) return null;
 

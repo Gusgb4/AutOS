@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -37,6 +37,7 @@ import { buildWhatsAppLink } from "../lib/whatsapp";
 import PagamentosCard from "../components/serviceOrders/PagamentosCard";
 import { useAuth } from "../contexts/AuthContext";
 import { formatPercent } from "../lib/relatorios";
+import { mensagemDeErro } from "../lib/errors";
 
 const plainInputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
@@ -61,15 +62,6 @@ function capitalizeName(nome: string) {
 
 function formatDateTime(value: string) {
   return new Date(value).toLocaleString("pt-BR");
-}
-
-function apiErrorMessage(err: any, fallback: string) {
-  return (
-    err?.response?.data?.erro ||
-    err?.response?.data?.error ||
-    err?.response?.data?.errors?.[0]?.message ||
-    fallback
-  );
 }
 
 // function buildWhatsAppLink(order: ServiceOrder) {
@@ -140,20 +132,13 @@ export default function ServiceOrderDetails() {
   const [erroPeca, setErroPeca] = useState<string | null>(null);
   const [savingPecaId, setSavingPecaId] = useState<number | null>(null);
 
-  const fetchOrdem = useCallback(async () => {
+  // Trocou de OS (link de uma OS pra outra): volta pro carregando na hora
+  const [ordemAnterior, setOrdemAnterior] = useState(orderId);
+  if (orderId !== ordemAnterior) {
+    setOrdemAnterior(orderId);
     setLoading(true);
     setError(null);
-    try {
-      const data = await getServiceOrderById(orderId);
-      setOrdem(data);
-      setObservacoesTexto(data.observacoes || "");
-    } catch (err) {
-      console.error(err);
-      setError("Não foi possível carregar esta ordem de serviço.");
-    } finally {
-      setLoading(false);
-    }
-  }, [orderId]);
+  }
 
   async function atualizarOrdem() {
     try {
@@ -164,16 +149,37 @@ export default function ServiceOrderDetails() {
   }
 
   useEffect(() => {
-    if (!Number.isNaN(orderId)) {
-      fetchOrdem();
-      listStock()
-        .then(setStockItems)
-        .catch((err) => {
-          console.error(err);
-          setStockItems([]);
-        });
-    }
-  }, [orderId, fetchOrdem]);
+    if (Number.isNaN(orderId)) return;
+    // Resposta de uma OS antiga não sobrescreve a atual
+    let ativo = true;
+
+    getServiceOrderById(orderId)
+      .then((data) => {
+        if (!ativo) return;
+        setOrdem(data);
+        setObservacoesTexto(data.observacoes || "");
+      })
+      .catch((err) => {
+        console.error(err);
+        if (ativo) setError("Não foi possível carregar esta ordem de serviço.");
+      })
+      .finally(() => {
+        if (ativo) setLoading(false);
+      });
+
+    listStock()
+      .then((itens) => {
+        if (ativo) setStockItems(itens);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (ativo) setStockItems([]);
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, [orderId]);
 
   const itemEstoqueSelecionado = useMemo(
     () => stockItems.find((i) => i.id === itemEstoqueId) ?? null,
@@ -194,8 +200,8 @@ export default function ServiceOrderDetails() {
       );
       setOrdem(atualizada);
       setObservacoesTexto(atualizada.observacoes || "");
-    } catch (err: any) {
-      setErroObservacoes(apiErrorMessage(err, "Erro ao salvar observações."));
+    } catch (err) {
+      setErroObservacoes(mensagemDeErro(err, "Erro ao salvar observações."));
     } finally {
       setSavingObservacoes(false);
     }
@@ -218,8 +224,8 @@ export default function ServiceOrderDetails() {
       setOrdem(atualizada);
       setDescricaoServico("");
       setValorServico("");
-    } catch (err: any) {
-      setErroServico(apiErrorMessage(err, "Erro ao adicionar serviço."));
+    } catch (err) {
+      setErroServico(mensagemDeErro(err, "Erro ao adicionar serviço."));
     } finally {
       setAddingServico(false);
     }
@@ -317,9 +323,9 @@ export default function ServiceOrderDetails() {
       );
       setItemEstoqueId("");
       setQuantidadePeca("");
-    } catch (err: any) {
+    } catch (err) {
       setErroPeca(
-        apiErrorMessage(
+        mensagemDeErro(
           err,
           "Erro ao adicionar peça — verifique o estoque disponível.",
         ),
@@ -418,8 +424,8 @@ export default function ServiceOrderDetails() {
       }
       const finalizada = await changeServiceOrderStatus(atual.id, "FINALIZADA");
       setOrdem(finalizada);
-    } catch (err: any) {
-      setErroAcao(apiErrorMessage(err, "Erro ao encerrar a ordem de serviço."));
+    } catch (err) {
+      setErroAcao(mensagemDeErro(err, "Erro ao encerrar a ordem de serviço."));
     } finally {
       setProcessando(false);
     }
@@ -438,8 +444,8 @@ export default function ServiceOrderDetails() {
     try {
       const cancelada = await changeServiceOrderStatus(ordem.id, "CANCELADA");
       setOrdem(cancelada);
-    } catch (err: any) {
-      setErroAcao(apiErrorMessage(err, "Erro ao cancelar a ordem de serviço."));
+    } catch (err) {
+      setErroAcao(mensagemDeErro(err, "Erro ao cancelar a ordem de serviço."));
     } finally {
       setProcessando(false);
     }
@@ -458,8 +464,8 @@ export default function ServiceOrderDetails() {
     try {
       const reaberta = await changeServiceOrderStatus(ordem.id, "EM_ANDAMENTO");
       setOrdem(reaberta);
-    } catch (err: any) {
-      setErroAcao(apiErrorMessage(err, "Erro ao reabrir a ordem de serviço."));
+    } catch (err) {
+      setErroAcao(mensagemDeErro(err, "Erro ao reabrir a ordem de serviço."));
     } finally {
       setProcessando(false);
     }

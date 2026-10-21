@@ -25,6 +25,7 @@ import {
 } from "../services/serviceOrders";
 import ServicoRow from "../components/serviceOrders/ServicoRow";
 import PecaRow from "../components/serviceOrders/PecaRow";
+import { mensagemDeErro } from "../lib/errors";
 
 const inputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] py-2.5 pl-9 pr-3 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
@@ -44,15 +45,6 @@ function capitalizeName(nome: string) {
     .filter(Boolean)
     .map((palavra) => palavra.charAt(0).toUpperCase() + palavra.slice(1))
     .join(" ");
-}
-
-function apiErrorMessage(err: any, fallback: string) {
-  return (
-    err?.response?.data?.erro ||
-    err?.response?.data?.error ||
-    err?.response?.data?.errors?.[0]?.message ||
-    fallback
-  );
 }
 
 type ServicoItem = ServiceOrder["servicos"][number];
@@ -162,8 +154,8 @@ export default function NewServiceOrder() {
           quilometragem !== "" ? Number(quilometragem) : undefined,
       });
       setOrdem(nova);
-    } catch (err: any) {
-      setErroCriacao(apiErrorMessage(err, "Erro ao criar ordem de serviço."));
+    } catch (err) {
+      setErroCriacao(mensagemDeErro(err, "Erro ao criar ordem de serviço."));
     } finally {
       setCriando(false);
     }
@@ -186,8 +178,8 @@ export default function NewServiceOrder() {
       setOrdem(atualizada);
       setDescricaoServico("");
       setValorServico("");
-    } catch (err: any) {
-      setErroServico(apiErrorMessage(err, "Erro ao adicionar serviço."));
+    } catch (err) {
+      setErroServico(mensagemDeErro(err, "Erro ao adicionar serviço."));
     } finally {
       setAddingServico(false);
     }
@@ -288,9 +280,9 @@ export default function NewServiceOrder() {
       );
       setItemEstoqueId("");
       setQuantidadePeca("");
-    } catch (err: any) {
+    } catch (err) {
       setErroPeca(
-        apiErrorMessage(
+        mensagemDeErro(
           err,
           "Erro ao adicionar peça — verifique o estoque disponível.",
         ),

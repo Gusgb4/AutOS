@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { trocarSenha } from "../services/auth";
+import { mensagemDeErro } from "../lib/errors";
 
 export default function ChangePassword() {
   const navigate = useNavigate();
@@ -57,12 +58,13 @@ export default function ChangePassword() {
       }
 
       navigate("/", { replace: true });
-    } catch (err: any) {
-      const apiMessage =
-        err?.response?.data?.error ||
-        err?.response?.data?.errors?.[0]?.message ||
-        "Erro ao alterar a senha. Verifique sua senha atual.";
-      setError(apiMessage);
+    } catch (err) {
+      setError(
+        mensagemDeErro(
+          err,
+          "Erro ao alterar a senha. Verifique sua senha atual.",
+        ),
+      );
     } finally {
       setSubmitting(false);
     }

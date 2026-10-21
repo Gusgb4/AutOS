@@ -6,6 +6,7 @@ import {
   getStockItem,
   updateStockItem,
 } from "../services/stock";
+import { mensagemDeErro } from "../lib/errors";
 
 const CATEGORIAS = [
   "Freios",
@@ -55,8 +56,8 @@ export default function NewStockItem() {
         setQuantidadeMinima(String(item.quantidade_minima));
         setValorFinal(String(item.valor_final));
         setValorEntrada(item.valor_entrada ?? "");
-      } catch (e: any) {
-        setErro(e.response?.data?.error ?? "Não foi possível carregar o item.");
+      } catch (e) {
+        setErro(mensagemDeErro(e, "Não foi possível carregar o item."));
       } finally {
         setCarregando(false);
       }
@@ -102,13 +103,8 @@ export default function NewStockItem() {
       }
 
       navigate("/estoque");
-    } catch (e: any) {
-      const data = e.response?.data;
-      setErro(
-        data?.errors?.[0]?.message ??
-          data?.error ??
-          "Não foi possível salvar o item.",
-      );
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível salvar o item."));
     } finally {
       setSalvando(false);
     }

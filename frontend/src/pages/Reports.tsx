@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   BarChart3,
   Boxes,
@@ -53,6 +53,7 @@ import {
   type AtividadeClientes,
 } from "../services/reports";
 import { rotuloForma } from "../services/serviceOrders";
+import { mensagemDeErro } from "../lib/errors";
 
 const TIPOS = [
   {
@@ -244,34 +245,59 @@ export default function Reports() {
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [erroPdf, setErroPdf] = useState<string | null>(null);
 
-  const carregar = useCallback(async () => {
-    if (inicio > fim) {
-      setErro("A data inicial não pode ser maior que a final.");
-      return;
-    }
-    setLoading(true);
-    setErro(null);
-    try {
-      if (tipo === "vendas") setVendas(await getVendasPorPeriodo(inicio, fim));
-      if (tipo === "inventario")
-        setInventario(await getStatusInventario(inicio, fim));
-      if (tipo === "resumo") setResumo(await getResumoFinanceiro(inicio, fim));
-      if (tipo === "atividade")
-        setAtividade(await getAtividadeClientes(inicio, fim));
-    } catch (err: any) {
-      setErro(
-        err?.response?.data?.erro ||
-          err?.response?.data?.error ||
-          "Não foi possível gerar o relatório.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [tipo, inicio, fim]);
+  const periodoInvalido = inicio > fim;
+
+  // Mudou o relatório ou o período: liga o carregando já nesta renderização,
+  // em vez de esperar o efeito (padrão do React para reagir a mudança de estado)
+  const consulta = `${tipo}|${inicio}|${fim}`;
+  const [consultaAnterior, setConsultaAnterior] = useState<string | null>(
+    null,
+  );
+  if (consulta !== consultaAnterior) {
+    setConsultaAnterior(consulta);
+    setErro(
+      periodoInvalido ? "A data inicial não pode ser maior que a final." : null,
+    );
+    setLoading(!periodoInvalido);
+  }
 
   useEffect(() => {
-    carregar();
-  }, [carregar]);
+    if (periodoInvalido) return;
+    // Resposta de uma consulta antiga não sobrescreve a atual
+    let ativo = true;
+
+    async function buscar() {
+      try {
+        if (tipo === "vendas") {
+          const dados = await getVendasPorPeriodo(inicio, fim);
+          if (ativo) setVendas(dados);
+        }
+        if (tipo === "inventario") {
+          const dados = await getStatusInventario(inicio, fim);
+          if (ativo) setInventario(dados);
+        }
+        if (tipo === "resumo") {
+          const dados = await getResumoFinanceiro(inicio, fim);
+          if (ativo) setResumo(dados);
+        }
+        if (tipo === "atividade") {
+          const dados = await getAtividadeClientes(inicio, fim);
+          if (ativo) setAtividade(dados);
+        }
+      } catch (err) {
+        if (ativo) {
+          setErro(mensagemDeErro(err, "Não foi possível gerar o relatório."));
+        }
+      } finally {
+        if (ativo) setLoading(false);
+      }
+    }
+
+    buscar();
+    return () => {
+      ativo = false;
+    };
+  }, [tipo, inicio, fim, periodoInvalido]);
 
   function aplicarAtalho(intervalo: () => [string, string]) {
     const [novoInicio, novoFim] = intervalo();
