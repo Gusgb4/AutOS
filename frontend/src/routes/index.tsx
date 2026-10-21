@@ -14,7 +14,7 @@ import ServiceOrders from "../pages/ServiceOrders";
 import NewServiceOrder from "../pages/NewServiceOrder";
 import ServiceOrderDetails from "../pages/ServiceOrderDetails";
 import NotFound from "../pages/NotFound";
-import TermsOfUse from "../pages/TermsOfSerivce";
+import TermsOfUse from "../pages/TermsOfService";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
 import Team from "../pages/Team";
 import ChangePassword from "../pages/ChangePassword";
