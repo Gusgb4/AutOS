@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Check, Loader2, Trash2 } from "lucide-react";
 
 const plainInputClass =
@@ -45,9 +45,15 @@ export default function PecaRow({
     String(peca.quantidade),
   );
 
-  useEffect(() => {
+  // Salvou (ou veio outra peça): o campo volta pro valor que está na OS
+  const [anterior, setAnterior] = useState({
+    id: peca.id,
+    quantidade: peca.quantidade,
+  });
+  if (peca.id !== anterior.id || peca.quantidade !== anterior.quantidade) {
+    setAnterior({ id: peca.id, quantidade: peca.quantidade });
     setQuantidadeTexto(String(peca.quantidade));
-  }, [peca.id, peca.quantidade]);
+  }
 
   const dirty = Number(quantidadeTexto) !== peca.quantidade;
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   X,
   Car,
@@ -52,11 +52,12 @@ export default function VehicleFormModal({
   const isEdit = mode === "edit";
   const [form, setForm] = useState<VehicleFormData>(initialData ?? emptyForm);
 
-  useEffect(() => {
-    if (open) {
-      setForm(initialData ?? emptyForm);
-    }
-  }, [open, initialData]);
+  // Ao abrir (ou trocar o veículo editado) o formulário volta pros dados recebidos
+  const [anterior, setAnterior] = useState({ open, initialData });
+  if (open !== anterior.open || initialData !== anterior.initialData) {
+    setAnterior({ open, initialData });
+    if (open) setForm(initialData ?? emptyForm);
+  }
 
   if (!open) return null;
 

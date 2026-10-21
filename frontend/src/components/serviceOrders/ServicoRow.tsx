@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Check, Loader2, Trash2 } from "lucide-react";
 
 const plainInputClass =
@@ -34,10 +34,25 @@ export default function ServicoRow({
   const [descricao, setDescricao] = useState(servico.descricao);
   const [valorTexto, setValorTexto] = useState(String(servico.valor));
 
-  useEffect(() => {
+  // Salvou (ou veio outro serviço): os campos voltam pro que está na OS
+  const [anterior, setAnterior] = useState({
+    id: servico.id,
+    descricao: servico.descricao,
+    valor: servico.valor,
+  });
+  if (
+    servico.id !== anterior.id ||
+    servico.descricao !== anterior.descricao ||
+    servico.valor !== anterior.valor
+  ) {
+    setAnterior({
+      id: servico.id,
+      descricao: servico.descricao,
+      valor: servico.valor,
+    });
     setDescricao(servico.descricao);
     setValorTexto(String(servico.valor));
-  }, [servico.id, servico.descricao, servico.valor]);
+  }
 
   const dirty =
     descricao.trim() !== servico.descricao ||

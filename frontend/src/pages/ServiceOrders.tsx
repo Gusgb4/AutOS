@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Plus, Eye, Loader2 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
@@ -42,23 +42,39 @@ export default function ServiceOrders() {
   const [statusFiltro, setStatusFiltro] = useState<StatusOS | "">("");
   const [pagamentoFiltro, setPagamentoFiltro] = useState<StatusPagamento | "">("");
 
-  const fetchOrdens = useCallback(async (status?: StatusOS, statusPagamento?: StatusPagamento) => {
+  // Mudou um filtro: volta pro carregando já nesta renderização
+  const filtrosAtuais = `${statusFiltro}|${pagamentoFiltro}`;
+  const [filtrosAnteriores, setFiltrosAnteriores] = useState(filtrosAtuais);
+  if (filtrosAtuais !== filtrosAnteriores) {
+    setFiltrosAnteriores(filtrosAtuais);
     setLoading(true);
     setError(null);
-    try {
-      const data = await listServiceOrders(status, undefined, statusPagamento);
-      setOrdens(data);
-    } catch (err) {
-      console.error(err);
-      setError("Não foi possível carregar as ordens de serviço.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  }
 
   useEffect(() => {
-    fetchOrdens(statusFiltro || undefined, pagamentoFiltro || undefined);
-  }, [statusFiltro, pagamentoFiltro, fetchOrdens]);
+    // Resposta de um filtro antigo não sobrescreve a do atual
+    let ativo = true;
+
+    listServiceOrders(
+      statusFiltro || undefined,
+      undefined,
+      pagamentoFiltro || undefined,
+    )
+      .then((data) => {
+        if (ativo) setOrdens(data);
+      })
+      .catch((err) => {
+        console.error(err);
+        if (ativo) setError("Não foi possível carregar as ordens de serviço.");
+      })
+      .finally(() => {
+        if (ativo) setLoading(false);
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, [statusFiltro, pagamentoFiltro]);
 
   const ordensFiltradas = useMemo(() => {
     const termo = search.trim().toLowerCase();
