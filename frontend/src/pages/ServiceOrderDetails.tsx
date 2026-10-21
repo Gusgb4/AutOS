@@ -924,13 +924,13 @@ export default function ServiceOrderDetails() {
         </div>
       )}
 
-      {(ordem.status === "FINALIZADA" || Number(ordem.valor_pago) > 0) && (
-        <PagamentosCard
-          ordem={ordem}
-          podeGerenciar={user?.perfil === "PROPRIETARIO"}
-          onAlterado={atualizarOrdem}
-        />
-      )}
+      {/* A key remonta o card ao finalizar, para o valor já vir com o saldo final */}
+      <PagamentosCard
+        key={ordem.status}
+        ordem={ordem}
+        podeGerenciar={user?.perfil === "PROPRIETARIO"}
+        onAlterado={atualizarOrdem}
+      />
 
       {erroAcao && (
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-600">

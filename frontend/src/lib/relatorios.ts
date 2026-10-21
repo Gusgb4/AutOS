@@ -4,6 +4,7 @@ import type {
   StatusInventario,
   VendasPorPeriodo,
 } from "../services/reports";
+import { rotuloForma } from "../services/serviceOrders";
 import { textoPrevisaoFalta } from "./estoque";
 
 // Tabelas dos relatórios, montadas uma vez só para o CSV e o PDF terem as mesmas linhas.
@@ -244,6 +245,26 @@ export function tabelaCaixa(
         f.moeda(resumo.outras_receitas),
       ],
     ],
+  };
+}
+
+// Receitas do caixa por forma: ajuda a conferir com o banco e a maquininha
+export function tabelaRecebidoPorForma(
+  resumo: ResumoFinanceiro,
+  f: Formatador,
+): TabelaRelatorio {
+  return {
+    colunas: [
+      { titulo: "Recebido por forma de pagamento" },
+      { titulo: "Valor", direita: true },
+      { titulo: "Percentual (%)", direita: true },
+    ],
+    linhas: resumo.recebido_por_forma.map((r) => [
+      rotuloForma(r.forma),
+      f.moeda(r.valor),
+      f.percentual(r.percentual),
+    ]),
+    vazio: "Nenhuma receita no período.",
   };
 }
 

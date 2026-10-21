@@ -34,6 +34,7 @@ import {
   tabelaPecasConsumidas,
   tabelaPosicaoEstoque,
   tabelaPrevisaoFalta,
+  tabelaRecebidoPorForma,
   tabelaVendasPorDia,
 } from "../lib/relatorios";
 import {
@@ -51,6 +52,7 @@ import {
   type ResumoFinanceiro,
   type AtividadeClientes,
 } from "../services/reports";
+import { rotuloForma } from "../services/serviceOrders";
 
 const TIPOS = [
   {
@@ -318,6 +320,8 @@ export default function Reports() {
         ["Período anterior", periodoCsv(resumo.periodo_anterior)],
         [],
         ...linhasCsv(tabelaCaixa(resumo, FORMATO_CSV)),
+        [],
+        ...linhasCsv(tabelaRecebidoPorForma(resumo, FORMATO_CSV)),
         [],
         ...linhasCsv(tabelaFaturamento(resumo, FORMATO_CSV)),
         [],
@@ -745,6 +749,28 @@ export default function Reports() {
               {formatCurrency(resumo.anterior.saldo)}). Outras receitas
               (lançamentos sem OS): {formatCurrency(resumo.outras_receitas)}.
             </ComparadoCom>
+            <div className="border-b border-gray-100 px-5 py-3">
+              <p className="text-sm font-semibold text-[#1F1F1F]">
+                Recebido por forma de pagamento
+              </p>
+              <p className="text-xs text-gray-500">
+                Entradas do caixa no período. Receita lançada à mão aparece
+                como não informado.
+              </p>
+            </div>
+            <Tabela
+              colunas={[
+                { titulo: "Forma" },
+                { titulo: "Valor", direita: true },
+                { titulo: "% do recebido", direita: true },
+              ]}
+              linhas={resumo.recebido_por_forma.map((r) => [
+                rotuloForma(r.forma),
+                formatCurrency(r.valor),
+                formatPercent(r.percentual),
+              ])}
+              vazio="Nenhuma receita no período."
+            />
             <div className="border-b border-gray-100 px-5 py-3">
               <p className="text-sm font-semibold text-[#1F1F1F]">
                 Faturamento

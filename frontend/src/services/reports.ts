@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { RecebidoPorForma } from "./financial";
 import type { PrevisaoFalta } from "./stock";
 
 export interface PeriodoDatas {
@@ -104,6 +105,7 @@ export interface ResumoFinanceiro {
     valor_sem_custo: number;
   };
   outras_receitas: number;
+  recebido_por_forma: RecebidoPorForma[];
 }
 
 export interface ResumoAtividade {
@@ -158,16 +160,5 @@ export async function getAtividadeClientes(inicio: string, fim: string) {
       params: { inicio, fim },
     },
   );
-  return data;
-}
-
-export interface EvolucaoMes {
-  mes: string; // "2026-10"
-  faturado: number;
-  recebido: number;
-}
-
-export async function getEvolucaoMensal() {
-  const { data } = await api.get<EvolucaoMes[]>("/reports/evolucao");
   return data;
 }

@@ -1,4 +1,4 @@
-import { CategoriaDespesa, Prisma } from "@prisma/client";
+import { CategoriaDespesa, FormaPagamento, Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
 import { comPagamento, pagamentosAtivos } from "./serviceOrders.service";
@@ -9,6 +9,7 @@ import {
   parseMes,
   parsePeriodo,
   periodoAnterior,
+  recebidoPorForma,
   variacao,
 } from "./reports.service";
 
@@ -17,6 +18,7 @@ export type TipoLancamento = "RECEITA" | "DESPESA";
 interface Filtros {
   tipo?: TipoLancamento;
   categoria?: CategoriaDespesa;
+  forma?: FormaPagamento;
   inicio?: string; // "2026-10-01"
   fim?: string; // "2026-10-31" (inclusivo)
   estornados?: boolean;
@@ -38,6 +40,7 @@ export async function listEntries(filtros: Filtros) {
       estornado: filtros.estornados ? undefined : false,
       tipo: filtros.tipo,
       categoria: filtros.categoria,
+      forma_pagamento: filtros.forma,
       data: filtroData(filtros.inicio, filtros.fim),
     },
     orderBy: { data: "desc" },
@@ -204,11 +207,13 @@ export async function resumoComparativo(inicio?: string, fim?: string) {
     anterior = parseMes(mesAnterior(mes));
   }
 
-  const [totaisAtual, totaisAnterior, porCategoria] = await Promise.all([
-    totaisDoPeriodo(atual),
-    totaisDoPeriodo(anterior),
-    despesasPorCategoria(atual),
-  ]);
+  const [totaisAtual, totaisAnterior, porCategoria, porForma] =
+    await Promise.all([
+      totaisDoPeriodo(atual),
+      totaisDoPeriodo(anterior),
+      despesasPorCategoria(atual),
+      recebidoPorForma(atual),
+    ]);
 
   return {
     periodo: descreverPeriodo(atual),
@@ -221,5 +226,6 @@ export async function resumoComparativo(inicio?: string, fim?: string) {
       saldo: variacao(totaisAtual.saldo, totaisAnterior.saldo),
     },
     despesas_por_categoria: porCategoria,
+    recebido_por_forma: porForma,
   };
 }

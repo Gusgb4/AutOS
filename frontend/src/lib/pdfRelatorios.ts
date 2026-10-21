@@ -29,6 +29,7 @@ import {
   tabelaPecasConsumidas,
   tabelaPosicaoEstoque,
   tabelaPrevisaoFalta,
+  tabelaRecebidoPorForma,
   tabelaVendasPorDia,
   type Celula,
   type Formatador,
@@ -238,6 +239,11 @@ export function baixarPdfResumoFinanceiro(
     resumo.periodo_anterior,
   );
   y = desenharTabelaRelatorio(doc, y, tabelaCaixa(resumo, FORMATO_PDF));
+  y = desenharTabelaRelatorio(
+    doc,
+    y + 6,
+    tabelaRecebidoPorForma(resumo, FORMATO_PDF),
+  );
   y = desenharTabelaRelatorio(
     doc,
     y + 6,

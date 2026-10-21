@@ -79,3 +79,60 @@ describe("Estorno de lançamento manual", () => {
     expect(res.status).toBe(409);
   });
 });
+
+describe("Forma de pagamento no financeiro", () => {
+  async function pagarOS(
+    token: string,
+    ordemId: number,
+    valor: number,
+    forma: string,
+  ) {
+    const res = await request(app)
+      .post(`/api/service-orders/${ordemId}/pagamentos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ valor, forma_pagamento: forma });
+    expect(res.status).toBe(201);
+    return res.body;
+  }
+
+  it("o resumo soma o recebido por forma, com receita manual como não informado", async () => {
+    const { usuario, token } = await criarProprietario();
+    const ordem = await criarOrdem(usuario.id, "FINALIZADA", 300);
+    await pagarOS(token, ordem.id, 100, "PIX");
+    await pagarOS(token, ordem.id, 50, "DEBITO");
+    await request(app)
+      .post("/api/financial")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ tipo: "RECEITA", descricao: "Venda de sucata", valor: 50 });
+
+    const res = await request(app)
+      .get("/api/financial/resumo")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    const porForma = res.body.recebido_por_forma;
+    // O maior vem primeiro; débito e não informado empatam, a ordem entre eles tanto faz
+    expect(porForma[0]).toEqual({ forma: "PIX", valor: 100, percentual: 50 });
+    expect(porForma).toHaveLength(3);
+    expect(porForma).toEqual(
+      expect.arrayContaining([
+        { forma: "DEBITO", valor: 50, percentual: 25 },
+        { forma: "NAO_INFORMADO", valor: 50, percentual: 25 },
+      ]),
+    );
+  });
+
+  it("filtra a lista de lançamentos pela forma", async () => {
+    const { usuario, token } = await criarProprietario();
+    const ordem = await criarOrdem(usuario.id, "FINALIZADA", 300);
+    const pix = await pagarOS(token, ordem.id, 100, "PIX");
+    await pagarOS(token, ordem.id, 50, "CREDITO");
+
+    const res = await request(app)
+      .get("/api/financial?forma=PIX")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.map((l: { id: string }) => l.id)).toEqual([pix.id]);
+  });
+});
