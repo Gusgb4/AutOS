@@ -1,3 +1,4 @@
+import { FormaPagamento } from "@prisma/client";
 import { Request, Response } from "express";
 import { z } from "zod";
 import * as financialService from "../services/financial.service";
@@ -16,9 +17,14 @@ const categoriaSchema = z.enum(
   { message: "Categoria inválida." },
 );
 
+const formaSchema = z.enum(FormaPagamento, {
+  message: "Forma de pagamento inválida.",
+});
+
 const listSchema = z.object({
   tipo: tipoSchema.optional(),
   categoria: categoriaSchema.optional(),
+  forma: formaSchema.optional(),
   inicio: dataSchema.optional(),
   fim: dataSchema.optional(),
   // Vem como texto na URL: ?estornados=true
@@ -28,7 +34,7 @@ const listSchema = z.object({
     .transform((v) => v === "true"),
 });
 
-// GET /api/financial?tipo=&categoria=&inicio=&fim=&estornados=true
+// GET /api/financial?tipo=&categoria=&forma=&inicio=&fim=&estornados=true
 export async function list(req: Request, res: Response) {
   const filtros = listSchema.safeParse(req.query);
   if (!filtros.success) {

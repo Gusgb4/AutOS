@@ -4,7 +4,30 @@ export type StatusOS = "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA";
 
 export type StatusPagamento = "PENDENTE" | "PARCIAL" | "PAGO";
 
-export type FormaPagamento = "DINHEIRO" | "PIX" | "CARTAO" | "OUTRO";
+export type FormaPagamento =
+  | "DINHEIRO"
+  | "PIX"
+  | "DEBITO"
+  | "CREDITO"
+  | "OUTRO";
+
+// Texto mostrado na tela (a ordem aqui é a ordem dos botões)
+export const FORMA_LABEL: Record<FormaPagamento, string> = {
+  PIX: "Pix",
+  DINHEIRO: "Dinheiro",
+  DEBITO: "Débito",
+  CREDITO: "Crédito",
+  OUTRO: "Outro",
+};
+
+// Receita lançada à mão não tem forma de pagamento
+export type FormaOuNaoInformado = FormaPagamento | "NAO_INFORMADO";
+
+export function rotuloForma(forma: FormaOuNaoInformado | null) {
+  return !forma || forma === "NAO_INFORMADO"
+    ? "Não informado"
+    : FORMA_LABEL[forma];
+}
 
 export interface Pagamento {
   id: string;

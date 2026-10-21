@@ -312,6 +312,39 @@ function ehDespesa(tipo: string) {
   return ["DESPESA", "SAIDA", "SAÍDA"].includes(tipo.trim().toUpperCase());
 }
 
+// Receitas ativas do período por forma de pagamento (da maior pra menor).
+// Receita lançada à mão não tem forma e entra como NAO_INFORMADO.
+// Usado no relatório e no dashboard do financeiro.
+export async function recebidoPorForma(p: Periodo) {
+  const grupos = await prisma.financialEntry.groupBy({
+    by: ["forma_pagamento"],
+    where: {
+      tipo: "RECEITA",
+      estornado: false,
+      data: { gte: p.inicio, lt: p.fimExclusivo },
+    },
+    _sum: { valor: true },
+  });
+
+  const total = grupos.reduce(
+    (acc, g) => acc.plus(g._sum?.valor ?? 0),
+    zero(),
+  );
+
+  return grupos
+    .map((g) => {
+      const valor = g._sum?.valor ?? zero();
+      return {
+        forma: g.forma_pagamento ?? "NAO_INFORMADO",
+        valor: arredondar(valor),
+        percentual: total.isZero()
+          ? 0
+          : valor.div(total).mul(100).toDecimalPlaces(1).toNumber(),
+      };
+    })
+    .sort((a, b) => b.valor - a.valor);
+}
+
 async function calcularResumo(p: Periodo) {
   const [lancamentos, ordensFinalizadas] = await Promise.all([
     prisma.financialEntry.findMany({
@@ -365,9 +398,10 @@ async function calcularResumo(p: Periodo) {
 
 export async function resumoFinanceiro(p: Periodo) {
   const anterior = periodoAnterior(p);
-  const [atual, ant] = await Promise.all([
+  const [atual, ant, porForma] = await Promise.all([
     calcularResumo(p),
     calcularResumo(anterior),
+    recebidoPorForma(p),
   ]);
 
   const indicadores = (r: typeof atual) => ({
@@ -415,6 +449,7 @@ export async function resumoFinanceiro(p: Periodo) {
       valor_sem_custo: arredondar(atual.margemPecas.valor_sem_custo),
     },
     outras_receitas: arredondar(atual.outrasReceitas),
+    recebido_por_forma: porForma,
     anterior: indicadoresAnteriores,
     variacao: comparar(indicadoresAtuais, indicadoresAnteriores),
   };
@@ -501,70 +536,4 @@ export async function atividadeClientes(p: Periodo) {
     variacao: comparar(atual.resumo, ant.resumo),
     clientes: atual.clientes,
   };
-}
-
-// ---------- Evolução mensal (gráfico do dashboard financeiro) ----------
-
-// "2026-10" a partir de uma data, no fuso de Brasília
-function mesBrasilia(data: Date): string {
-  return diaBrasilia(data).slice(0, 7);
-}
-
-// Lista "AAAA-MM" dos últimos n meses, do mais antigo até o atual
-function ultimosMeses(n: number): string[] {
-  const [ano, mes] = mesBrasilia(new Date()).split("-").map(Number);
-  return Array.from({ length: n }, (_, i) =>
-    new Date(Date.UTC(ano, mes - n + i, 1)).toISOString().slice(0, 7),
-  );
-}
-
-// Faturado = OS finalizadas no mês (pela finalizada_em).
-// Recebido = pagamentos de OS não estornados, pela data do pagamento.
-// Os dois podem ser diferentes: uma OS fechada em setembro pode ser paga em outubro.
-export async function evolucaoMensal() {
-  const meses = ultimosMeses(12);
-  const periodo: Periodo = {
-    inicio: parseMes(meses[0]).inicio,
-    fimExclusivo: parseMes(meses[meses.length - 1]).fimExclusivo,
-  };
-
-  const [ordens, pagamentos] = await Promise.all([
-    prisma.serviceOrder.findMany({
-      where: filtroOSFinalizada(periodo),
-      select: { valor_total: true, finalizada_em: true },
-    }),
-    prisma.financialEntry.findMany({
-      where: {
-        tipo: "RECEITA",
-        estornado: false,
-        ordemId: { not: null },
-        data: { gte: periodo.inicio, lt: periodo.fimExclusivo },
-      },
-      select: { valor: true, data: true },
-    }),
-  ]);
-
-  const porMes = new Map(
-    meses.map((m) => [m, { faturado: zero(), recebido: zero() }]),
-  );
-
-  for (const o of ordens) {
-    if (!o.finalizada_em) continue;
-    const item = porMes.get(mesBrasilia(o.finalizada_em));
-    if (item) item.faturado = item.faturado.plus(o.valor_total);
-  }
-
-  for (const p of pagamentos) {
-    const item = porMes.get(mesBrasilia(p.data));
-    if (item) item.recebido = item.recebido.plus(p.valor);
-  }
-
-  return meses.map((mes) => {
-    const item = porMes.get(mes) ?? { faturado: zero(), recebido: zero() };
-    return {
-      mes,
-      faturado: arredondar(item.faturado),
-      recebido: arredondar(item.recebido),
-    };
-  });
 }

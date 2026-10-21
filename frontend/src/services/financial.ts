@@ -1,5 +1,9 @@
 import { api } from "./api";
-import type { StatusPagamento } from "./serviceOrders";
+import type {
+  FormaOuNaoInformado,
+  FormaPagamento,
+  StatusPagamento,
+} from "./serviceOrders";
 
 export type TipoLancamento = "RECEITA" | "DESPESA";
 
@@ -27,6 +31,7 @@ export interface FinancialEntry {
   data: string;
   estornado: boolean;
   categoria: CategoriaDespesa | null;
+  forma_pagamento: FormaPagamento | null;
   ordemId: number | null;
   ordemServico: {
     id: number;
@@ -48,6 +53,7 @@ export interface FinancialEntryPayload {
 export interface FinancialFilters {
   tipo?: TipoLancamento;
   categoria?: CategoriaDespesa;
+  forma?: FormaPagamento;
   inicio?: string; // "2026-10-01"
   fim?: string; // "2026-10-31" (o backend conta o dia inteiro)
   estornados?: boolean;
@@ -59,6 +65,7 @@ export async function listFinancialEntries(
   const params: Record<string, string> = {};
   if (filtros.tipo) params.tipo = filtros.tipo;
   if (filtros.categoria) params.categoria = filtros.categoria;
+  if (filtros.forma) params.forma = filtros.forma;
   if (filtros.inicio) params.inicio = filtros.inicio;
   if (filtros.fim) params.fim = filtros.fim;
   if (filtros.estornados) params.estornados = "true";
@@ -100,6 +107,12 @@ export async function getContasAReceber() {
   return data;
 }
 
+export interface RecebidoPorForma {
+  forma: FormaOuNaoInformado;
+  valor: number;
+  percentual: number;
+}
+
 export interface TotaisFinanceiros {
   entradas: number;
   saidas: number;
@@ -121,6 +134,7 @@ export interface ResumoFinanceiro {
     valor: number;
     percentual: number;
   }[];
+  recebido_por_forma: RecebidoPorForma[];
 }
 
 // Sem datas: mês atual comparado com o mês anterior

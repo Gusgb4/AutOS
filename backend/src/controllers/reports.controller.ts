@@ -6,7 +6,6 @@ import {
   statusInventario,
   resumoFinanceiro,
   atividadeClientes,
-  evolucaoMensal,
 } from "../services/reports.service";
 
 const dataIso = z
@@ -47,9 +46,4 @@ export async function resumoController(req: Request, res: Response) {
 // GET /api/reports/client-activity?inicio=...&fim=...
 export async function atividadeController(req: Request, res: Response) {
   return res.status(200).json(await atividadeClientes(lerPeriodo(req)));
-}
-
-// GET /api/reports/evolucao (sempre os últimos 12 meses, sem filtro)
-export async function evolucaoController(_req: Request, res: Response) {
-  return res.status(200).json(await evolucaoMensal());
 }

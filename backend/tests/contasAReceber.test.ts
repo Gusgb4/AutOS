@@ -80,6 +80,34 @@ describe("Pagamento de OS", () => {
     expect(res.status).toBe(409);
   });
 
+  it.each(["DEBITO", "CREDITO"] as const)(
+    "aceita pagamento no cartão (%s) e salva a forma",
+    async (forma) => {
+      const { usuario, token } = await criarProprietario();
+      const ordem = await criarOrdem(usuario.id, "FINALIZADA", 300);
+
+      const res = await request(app)
+        .post(`/api/service-orders/${ordem.id}/pagamentos`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({ valor: 100, forma_pagamento: forma });
+
+      expect(res.status).toBe(201);
+      expect(res.body.forma_pagamento).toBe(forma);
+    },
+  );
+
+  it("recusa a forma antiga CARTAO (400)", async () => {
+    const { usuario, token } = await criarProprietario();
+    const ordem = await criarOrdem(usuario.id, "FINALIZADA", 300);
+
+    const res = await request(app)
+      .post(`/api/service-orders/${ordem.id}/pagamentos`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ valor: 100, forma_pagamento: "CARTAO" });
+
+    expect(res.status).toBe(400);
+  });
+
   it.each(["ABERTA", "EM_ANDAMENTO", "CANCELADA"] as const)(
     "pagamento em OS %s responde 409",
     async (status) => {

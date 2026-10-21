@@ -12,14 +12,20 @@ import {
   EyeOff,
   HandCoins,
   RotateCcw,
+  PieChart,
+  CreditCard,
 } from "lucide-react";
 import { mensagemDeErro } from "../lib/errors";
 import { isAxiosError } from "axios";
 import StatCard from "../components/ui/StatCard";
 import PagamentoBadge from "../components/ui/PagamentoBadge";
 import FinancialEntryModal from "../components/financial/FinancialEntryModal";
-import EvolucaoChart from "../components/financial/EvolucaoChart";
-import DespesasPorCategoria from "../components/financial/DespesasPorCategoria";
+import DistribuicaoCard from "../components/financial/DistribuicaoCard";
+import {
+  FORMA_LABEL,
+  rotuloForma,
+  type FormaPagamento,
+} from "../services/serviceOrders";
 import {
   CATEGORIA_LABEL,
   createFinancialEntry,
@@ -38,6 +44,7 @@ import {
 interface Filtros {
   tipo: TipoLancamento | "";
   categoria: CategoriaDespesa | "";
+  forma: FormaPagamento | "";
   inicio: string;
   fim: string;
   estornados: boolean;
@@ -46,6 +53,7 @@ interface Filtros {
 const filtrosVazios: Filtros = {
   tipo: "",
   categoria: "",
+  forma: "",
   inicio: "",
   fim: "",
   estornados: false,
@@ -96,6 +104,7 @@ export default function Financial() {
       const data = await listFinancialEntries({
         tipo: alvo.tipo || undefined,
         categoria: alvo.categoria || undefined,
+        forma: alvo.forma || undefined,
         inicio: alvo.inicio || undefined,
         fim: alvo.fim || undefined,
         estornados: alvo.estornados,
@@ -162,8 +171,10 @@ export default function Financial() {
 
   function aplicarFiltro(patch: Partial<Filtros>) {
     const novos = { ...filtros, ...patch };
-    // Receita não tem categoria: ao filtrar só receitas, limpa a categoria
-    if (novos.tipo === "RECEITA") novos.categoria = "";
+    // Categoria é só de despesa e forma é só de receita: os dois juntos
+    // nunca acham nada, então escolher um limpa o outro
+    if (novos.tipo === "RECEITA" || patch.forma) novos.categoria = "";
+    if (novos.tipo === "DESPESA" || patch.categoria) novos.forma = "";
     setFiltros(novos);
     carregar(novos);
   }
@@ -199,7 +210,9 @@ export default function Financial() {
       // Recarrega lista e cards: o estornado sai dos totais
       await carregar(filtros);
     } catch (e) {
-      setErroEstorno(mensagemDeErro(e, "Não foi possível estornar o lançamento."));
+      setErroEstorno(
+        mensagemDeErro(e, "Não foi possível estornar o lançamento."),
+      );
     } finally {
       setEstornando(false);
     }
@@ -212,10 +225,11 @@ export default function Financial() {
 
   const temFiltro = Boolean(
     filtros.tipo ||
-      filtros.categoria ||
-      filtros.inicio ||
-      filtros.fim ||
-      filtros.estornados,
+    filtros.categoria ||
+    filtros.forma ||
+    filtros.inicio ||
+    filtros.fim ||
+    filtros.estornados,
   );
 
   return (
@@ -282,13 +296,40 @@ export default function Financial() {
         </p>
       )}
 
-      <EvolucaoChart ocultarValores={!showValues} />
-
       {resumo && (
-        <DespesasPorCategoria
-          itens={resumo.despesas_por_categoria}
-          ocultarValores={!showValues}
-        />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Ajuda a conferir com o extrato do banco e da maquininha */}
+          <DistribuicaoCard
+            titulo="Recebido por forma de pagamento"
+            subtitulo="Receitas no período dos cards acima"
+            icone={CreditCard}
+            corIcone="bg-emerald-50 text-emerald-600"
+            corBarra="bg-emerald-500"
+            vazio="Nenhuma receita no período."
+            itens={(resumo.recebido_por_forma ?? []).map((r) => ({
+              chave: r.forma,
+              rotulo: rotuloForma(r.forma),
+              valor: r.valor,
+              percentual: r.percentual,
+            }))}
+            ocultarValores={!showValues}
+          />
+          <DistribuicaoCard
+            titulo="Despesas por categoria"
+            subtitulo="No período dos cards acima"
+            icone={PieChart}
+            corIcone="bg-red-50 text-red-500"
+            corBarra="bg-red-400"
+            vazio="Nenhuma despesa no período."
+            itens={(resumo.despesas_por_categoria ?? []).map((d) => ({
+              chave: d.categoria,
+              rotulo: CATEGORIA_LABEL[d.categoria],
+              valor: d.valor,
+              percentual: d.percentual,
+            }))}
+            ocultarValores={!showValues}
+          />
+        </div>
       )}
 
       {aReceber && (
@@ -406,6 +447,25 @@ export default function Financial() {
                     </option>
                   ),
                 )}
+              </select>
+            )}
+
+            {filtros.tipo !== "DESPESA" && (
+              <select
+                value={filtros.forma}
+                onChange={(e) =>
+                  aplicarFiltro({
+                    forma: e.target.value as FormaPagamento | "",
+                  })
+                }
+                className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#FF7518]"
+              >
+                <option value="">Todas as formas</option>
+                {(Object.keys(FORMA_LABEL) as FormaPagamento[]).map((f) => (
+                  <option key={f} value={f}>
+                    {FORMA_LABEL[f]}
+                  </option>
+                ))}
               </select>
             )}
 
@@ -550,6 +610,11 @@ export default function Financial() {
                         ) : (
                           <span className="text-xs text-gray-400">Manual</span>
                         )}
+                        {lancamento.forma_pagamento && (
+                          <p className="mt-1 text-xs text-gray-500">
+                            {FORMA_LABEL[lancamento.forma_pagamento]}
+                          </p>
+                        )}
                       </td>
 
                       <td
@@ -562,8 +627,9 @@ export default function Financial() {
 
                       <td className="px-5 py-4 text-right">
                         {/* Só lançamento manual e ativo; pagamento de OS se estorna na OS */}
-                        {!lancamento.ordemId && !estornado && (
-                          confirmandoEstorno === lancamento.id ? (
+                        {!lancamento.ordemId &&
+                          !estornado &&
+                          (confirmandoEstorno === lancamento.id ? (
                             <div className="flex items-center justify-end gap-2">
                               <span className="text-xs text-gray-500">
                                 Estornar?
@@ -598,8 +664,7 @@ export default function Financial() {
                               <RotateCcw size={12} />
                               Estornar
                             </button>
-                          )
-                        )}
+                          ))}
                       </td>
                     </tr>
                   );

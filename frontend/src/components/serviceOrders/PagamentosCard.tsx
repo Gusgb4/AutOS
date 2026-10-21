@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Wallet, Plus, Loader2, Undo2 } from "lucide-react";
+import { Wallet, Plus, Loader2, Undo2, Info } from "lucide-react";
 import { isAxiosError } from "axios";
 import PagamentoBadge from "../ui/PagamentoBadge";
 import {
   listPagamentos,
   registrarPagamento,
   estornarPagamento,
+  FORMA_LABEL,
   type FormaPagamento,
   type Pagamento,
   type ServiceOrder,
@@ -14,12 +15,7 @@ import {
 const plainInputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
 
-const FORMAS: { value: FormaPagamento; label: string }[] = [
-  { value: "PIX", label: "Pix" },
-  { value: "DINHEIRO", label: "Dinheiro" },
-  { value: "CARTAO", label: "Cartão" },
-  { value: "OUTRO", label: "Outro" },
-];
+const FORMAS = Object.keys(FORMA_LABEL) as FormaPagamento[];
 
 function formatCurrency(value: string | number) {
   return Number(value)
@@ -82,6 +78,15 @@ export default function PagamentosCard({
   const saldo = Number(ordem.saldo);
   const podeRegistrar =
     podeGerenciar && ordem.status === "FINALIZADA" && saldo > 0;
+
+  // Explica por que o formulário não aparece, em vez de só sumir com ele
+  let aviso: string | null = null;
+  if (podeGerenciar && ordem.status === "CANCELADA") {
+    aviso = "OS cancelada não recebe pagamentos.";
+  } else if (podeGerenciar && ordem.status !== "FINALIZADA") {
+    aviso =
+      "Os pagamentos ficam disponíveis quando a OS for finalizada, porque o valor total só fecha nessa hora.";
+  }
 
   async function handleRegistrar() {
     const valorNumero = Number(valor.replace(/\./g, "").replace(",", "."));
@@ -177,57 +182,84 @@ export default function PagamentosCard({
       </div>
 
       {podeRegistrar && (
-        <div className="flex flex-col gap-3 bg-gray-50/50 p-5 sm:flex-row sm:items-end">
-          <div className="flex flex-1 flex-col gap-1.5">
-            <label className="text-xs font-semibold text-[#1B2130]">
-              Valor (R$)
-            </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              className={plainInputClass}
-            />
-          </div>
-          <div className="flex flex-1 flex-col gap-1.5">
-            <label className="text-xs font-semibold text-[#1B2130]">
+        <div className="flex flex-col gap-4 bg-gray-50/50 p-5">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold text-[#1B2130]">
               Forma de pagamento
-            </label>
-            <select
-              value={forma}
-              onChange={(e) => setForma(e.target.value as FormaPagamento)}
-              className={plainInputClass}
+            </span>
+            {/* Botões em vez de select: um toque só e dá pra ver todas as opções */}
+            <div
+              role="radiogroup"
+              aria-label="Forma de pagamento"
+              className="grid grid-cols-3 gap-2 sm:grid-cols-5"
             >
-              {FORMAS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
+              {FORMAS.map((f) => {
+                const ativo = forma === f;
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    role="radio"
+                    aria-checked={ativo}
+                    onClick={() => setForma(f)}
+                    className={`rounded-lg border-[1.5px] px-3 py-2.5 text-sm font-medium transition md:py-2 ${
+                      ativo
+                        ? "border-[#FF7518] bg-[#FFF4EC] text-[#FF7518]"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:text-[#1B2130]"
+                    }`}
+                  >
+                    {FORMA_LABEL[f]}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex flex-1 flex-col gap-1.5">
-            <label className="text-xs font-semibold text-[#1B2130]">Data</label>
-            <input
-              type="date"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              className={plainInputClass}
-            />
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex flex-1 flex-col gap-1.5">
+              <label className="text-xs font-semibold text-[#1B2130]">
+                Valor (R$)
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                className={plainInputClass}
+              />
+            </div>
+            <div className="flex flex-1 flex-col gap-1.5">
+              <label className="text-xs font-semibold text-[#1B2130]">
+                Data
+              </label>
+              <input
+                type="date"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                className={plainInputClass}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleRegistrar}
+              disabled={salvando}
+              className="flex items-center justify-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
+            >
+              {salvando ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <Plus size={15} />
+              )}
+              Registrar
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleRegistrar}
-            disabled={salvando}
-            className="flex items-center justify-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
-          >
-            {salvando ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <Plus size={15} />
-            )}
-            Registrar
-          </button>
+        </div>
+      )}
+
+      {aviso && (
+        <div className="flex items-start gap-2 bg-gray-50/50 p-5 text-sm text-gray-500">
+          <Info size={16} className="mt-0.5 shrink-0 text-gray-400" />
+          <p>{aviso}</p>
         </div>
       )}
 
@@ -252,8 +284,9 @@ export default function PagamentosCard({
               <div className={p.estornado ? "text-gray-400" : "text-[#1F1F1F]"}>
                 <span>{new Date(p.data).toLocaleDateString("pt-BR")}</span>
                 <span className="ml-2 text-xs text-gray-400">
-                  {FORMAS.find((f) => f.value === p.forma_pagamento)?.label ??
-                    "Lançamento automático"}
+                  {p.forma_pagamento
+                    ? FORMA_LABEL[p.forma_pagamento]
+                    : "Lançamento automático"}
                 </span>
                 {p.estornado && (
                   <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
