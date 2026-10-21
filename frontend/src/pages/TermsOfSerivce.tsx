@@ -45,7 +45,7 @@ export default function TermsOfService() {
               Ao criar uma conta ou utilizar a Plataforma, você declara ter
               lido, compreendido e concordado integralmente com estes Termos e
               com nossa{" "}
-              <Link to="/privacidade" className="text-[#FF7518] hover:underline">
+              <Link to="/politica-de-privacidade" className="text-[#FF7518] hover:underline">
                 Política de Privacidade
               </Link>
               . Caso não concorde com qualquer disposição aqui prevista, você
