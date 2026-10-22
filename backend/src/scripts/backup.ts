@@ -37,6 +37,19 @@ function main() {
   const destino = new URL(url);
   console.log(`Copiando o banco "${destino.pathname.slice(1)}" em ${destino.hostname}...`);
 
+  // Parâmetros que só o Prisma entende (ex.: ?schema=public do .env local):
+  // o pg_dump recusa a URL inteira se eles estiverem nela
+  for (const parametro of [
+    "schema",
+    "connection_limit",
+    "pool_timeout",
+    "pgbouncer",
+    "statement_cache_size",
+    "socket_timeout",
+  ]) {
+    destino.searchParams.delete(parametro);
+  }
+
   const pasta = path.resolve(__dirname, "..", "..", "backups");
   fs.mkdirSync(pasta, { recursive: true });
   const agora = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
@@ -45,13 +58,19 @@ function main() {
   // Formato custom (-Fc): compactado e restaurável com o pg_restore
   const resultado = spawnSync(
     acharPgDump(),
-    ["--format=custom", "--no-owner", "--no-privileges", `--file=${arquivo}`, url],
+    [
+      "--format=custom",
+      "--no-owner",
+      "--no-privileges",
+      `--file=${arquivo}`,
+      destino.toString(),
+    ],
     { stdio: "inherit" },
   );
 
   if (resultado.error || resultado.status !== 0) {
     console.error(
-      "O backup falhou. Confira se o PostgreSQL está instalado (ou aponte o caminho do pg_dump em PG_DUMP).",
+      "O backup falhou (veja a mensagem do pg_dump acima). Se ele não foi encontrado, confira se o PostgreSQL está instalado ou aponte o caminho em PG_DUMP.",
     );
     process.exit(1);
   }
