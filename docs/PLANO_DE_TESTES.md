@@ -51,7 +51,7 @@ Marque cada item. O que falhar vira uma correção antes de liberar para uso.
 - [ ] **Baixar PDF** da OS aberta: "Orçamento", com a logo e a previsão (ou "A combinar")
 - [ ] Editar os detalhes do atendimento; "Descartar" volta ao que estava salvo
 - [ ] A quilometragem informada na abertura atualiza a do veículo
-- [ ] Iniciar (em andamento) e finalizar a OS
+- [ ] **Encerrar OS** (confirma e finaliza)
 - [ ] **Baixar PDF** da OS finalizada: "Nota de entrega", em uma página, com assinaturas no pé
 - [ ] **Imprimir** a nota numa impressora de verdade e conferir a leitura no papel
 - [ ] WhatsApp da OS finalizada diz "Seu veículo está pronto!"

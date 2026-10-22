@@ -426,7 +426,7 @@ export default function ServiceOrderDetails() {
     if (!ordem) return;
     if (
       !confirm(
-        "Encerrar esta ordem de serviço? Essa ação não pode ser desfeita.",
+        "Encerrar esta ordem de serviço?",
       )
     )
       return;
