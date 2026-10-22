@@ -64,6 +64,7 @@ Tudo o que entrou nesta versão está em [docs/RELEASE_v3.0.md](docs/RELEASE_v3.
 - [Manual do usuário](docs/MANUAL.md)
 - [Roteiro de treinamento](docs/TREINAMENTO.md)
 - [API (endpoints, perfis e erros)](docs/API.md)
+- [Deploy em produção e backup](docs/DEPLOY.md)
 - [Notas da versão 3.0](docs/RELEASE_v3.0.md)
 - [Plano de testes de aceitação](docs/PLANO_DE_TESTES.md)
 

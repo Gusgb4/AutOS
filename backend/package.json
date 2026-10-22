@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "criar-proprietario": "ts-node --transpile-only src/scripts/criar-proprietario.ts"
+    "criar-proprietario": "ts-node --transpile-only src/scripts/criar-proprietario.ts",
+    "backup": "ts-node --transpile-only src/scripts/backup.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
