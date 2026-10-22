@@ -33,8 +33,7 @@ no PDF pelo Gustavo Franz na atividade do Teams.
 
 **Gestão (MVP2 e MVP2.5)**
 
-- Financeiro: receita lançada ao finalizar a OS, estorno ao reabrir ou cancelar,
-  lançamentos manuais e dashboard por período (restrito ao proprietário)
+- Financeiro: lançamentos manuais e dashboard por período (restrito ao proprietário)
 - Relatórios: vendas por período (com ticket médio e comparativo), inventário,
   resumo financeiro e atividade do cliente, todos com exportação CSV
 - Manutenção: quilometragem do veículo e lembrete de revisão por dias e km
@@ -42,6 +41,29 @@ no PDF pelo Gustavo Franz na atividade do Teams.
   revisão vencida
 - Estoque: preço de custo, margem e itens parados
 - Equipe: gestão de membros, com ativar e desativar
+
+**Entrega e recebimento (MVP3)**
+
+- Orçamento e nota de entrega em PDF, com a logo da oficina, em uma página
+- Orçamento pelo WhatsApp com pedido de autorização; reclamação do cliente,
+  previsão de entrega e informações ao cliente na OS
+- Pagamentos da OS (parciais, com forma de pagamento e estorno) e contas a receber
+- Financeiro com comparativo de período, despesas por categoria e recebido por
+  forma de pagamento
+- Relatórios em PDF e CSV com comparativo, giro de estoque, previsão de falta e
+  produtividade por mecânico
+- Notificações: revisões, estoque baixo e pagamentos atrasados
+- Senha provisória com troca obrigatória e limite de tentativas de login
+- LGPD: remoção de dados do cliente (anonimização), registro de acesso por 6
+  meses, Termos de Uso e Política de Privacidade
+
+Tudo o que entrou nesta versão está em [docs/RELEASE_v3.0.md](docs/RELEASE_v3.0.md).
+
+## Documentação
+
+- [API (endpoints, perfis e erros)](docs/API.md)
+- [Notas da versão 3.0](docs/RELEASE_v3.0.md)
+- [Plano de testes de aceitação](docs/PLANO_DE_TESTES.md)
 
 ## Stack
 
@@ -54,11 +76,21 @@ React + TypeScript + Tailwind CSS · Node.js + Express + Prisma · PostgreSQL ·
 ```bash
 cd backend
 npm install
-cp .env.example .env      # preencha DATABASE_URL e JWT_SECRET
+cp .env.example .env      # preencha as variáveis (veja abaixo)
 npx prisma generate
 npx prisma migrate deploy
 npm run dev
 ```
+
+Variáveis do `backend/.env`:
+
+| Variável | Para que serve |
+|---|---|
+| `DATABASE_URL` | Conexão com o PostgreSQL |
+| `JWT_SECRET` | Chave que assina os tokens de login (texto longo e aleatório) |
+| `JWT_EXPIRES_IN` | Validade do login (padrão: `8h`) |
+| `PORT` | Porta da API (padrão: `3333`) |
+| `CORS_ORIGIN` | Endereço do frontend que pode chamar a API. **Em produção, use a URL da Vercel**; sem ela, qualquer site é aceito |
 
 **Frontend**
 
@@ -100,6 +132,13 @@ O banco `autos_test` é criado sozinho na primeira execução. Os testes ficam e
 `backend/tests/`, e os helpers em `backend/tests/helpers/` criam usuários de
 cada perfil (`criarProprietario`, `criarFuncionario`) já com o token deles.
 
+São 87 testes em 8 arquivos: autenticação e perfis, contas de usuário, ordens
+de serviço, pagamentos e contas a receber, lançamentos manuais, LGPD e
+detalhes da OS.
+
+No frontend, `npm run lint` e `npm run build` (que inclui a checagem de tipos)
+devem passar sem erros.
+
 ## Equipe
 
 Adrian Marcio Roth · Daniela Luisa da Conceição · Gustavo Franz ·
@@ -112,7 +151,7 @@ Orientação: Prof. Edson Vaz Lopes — PAC Extensionista VI
 
 - ✅ **MVP1** (agosto/2026) — núcleo operacional
 - ✅ **MVP2 e MVP2.5** (setembro e outubro/2026) — financeiro, relatórios, manutenção, equipe
-- 🔜 **MVP3** (outubro/2026) — contas a receber, notificações, PDF, testes e polimento final
+- 🔜 **MVP3 / v3.0** (outubro/2026) — entrega e recebimento, LGPD, testes e polimento final
 
 ## Licença
 
