@@ -1,8 +1,10 @@
 name: Deploy Status
 
+# O deploy em si é feito pelo Render a cada push na main. Este workflow só
+# registra o ambiente no GitHub, depois de conferir que a API responde.
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   deployment:
@@ -10,12 +12,33 @@ jobs:
     permissions:
       deployments: write
       contents: read
+    env:
+      URL_API: https://autos-t60j.onrender.com
     steps:
-      - name: Registrar e Ativar Ambiente no GitHub
+      # O Render leva alguns minutos pro deploy, e no plano gratuito o serviço
+      # pode estar dormindo (o primeiro acesso demora). Tenta por até 10 minutos.
+      - name: Conferir se a API está no ar
+        id: health
+        run: |
+          for tentativa in $(seq 1 20); do
+            if curl -fsS --max-time 60 "$URL_API/health" | grep -q '"ok"'; then
+              echo "API respondeu na tentativa $tentativa."
+              echo "estado=success" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Tentativa $tentativa sem resposta, esperando 30 s..."
+            sleep 30
+          done
+          echo "estado=failure" >> "$GITHUB_OUTPUT"
+          exit 1
+
+      - name: Registrar o ambiente no GitHub
+        if: always()
         uses: actions/github-script@v7
+        env:
+          ESTADO: ${{ steps.health.outputs.estado || 'failure' }}
         with:
           script: |
-            // 1. Cria a solicitação de deploy
             const deployment = await github.rest.repos.createDeployment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -25,12 +48,14 @@ jobs:
               required_contexts: []
             });
 
-            // 2. Atualiza o status para Sucesso (verde) e adiciona o link da API
+            const ok = process.env.ESTADO === 'success';
             await github.rest.repos.createDeploymentStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
               deployment_id: deployment.data.id,
-              state: 'success',
-              environment_url: 'https://autos-t60j.onrender.com',
-              description: 'Backend em produção no Render'
+              state: ok ? 'success' : 'failure',
+              environment_url: process.env.URL_API,
+              description: ok
+                ? 'Backend em produção no Render (health ok)'
+                : 'A API não respondeu ao /health'
             });

@@ -1,0 +1,98 @@
+# Roda em todo PR e em todo push na main: se algo quebrar, aparece antes do merge
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Um push novo no mesmo PR cancela a execução antiga
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build e testes)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    # Postgres descartável só pra esta execução: nunca toca o banco de produção
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: autos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # Os testes leem o .env.test; aqui ele aponta pro Postgres do CI.
+      # O segredo do JWT é só de teste, não é o de produção.
+      - name: Criar .env.test
+        run: |
+          cat > .env.test <<'EOF'
+          DATABASE_URL="postgresql://postgres:postgres@localhost:5432/autos_test?schema=public"
+          JWT_SECRET="segredo_somente_para_o_ci"
+          JWT_EXPIRES_IN="1h"
+          CORS_ORIGIN="http://localhost:5173"
+          EOF
+
+      - name: Build (Prisma Client e checagem de tipos)
+        run: npm run build
+
+      - name: Testes com cobertura
+        run: npm run test:coverage
+
+      - name: Guardar relatório de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-backend
+          path: backend/coverage/
+          retention-days: 14
+
+  frontend:
+    name: Frontend (lint e build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build (checagem de tipos e build de produção)
+        run: npm run build
