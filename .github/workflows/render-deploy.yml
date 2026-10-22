@@ -13,22 +13,28 @@ jobs:
       deployments: write
       contents: read
     env:
-      URL_API: https://autos-t60j.onrender.com
+      # Endereço do backend no Render. Se o serviço mudar de endereço, crie a
+      # variável URL_API em Settings > Secrets and variables > Actions > Variables
+      # (ela vale mais que o padrão abaixo), sem precisar mexer neste arquivo.
+      URL_API: ${{ vars.URL_API || 'https://autos-fj4y.onrender.com' }}
     steps:
       # O Render leva alguns minutos pro deploy, e no plano gratuito o serviço
-      # pode estar dormindo (o primeiro acesso demora). Tenta por até 10 minutos.
+      # pode estar dormindo (o primeiro acesso demora até ~1 min).
+      # 20 tentativas de até 20 s, com 10 s entre elas: no máximo ~10 minutos.
       - name: Conferir se a API está no ar
         id: health
         run: |
+          echo "Conferindo $URL_API/health"
           for tentativa in $(seq 1 20); do
-            if curl -fsS --max-time 60 "$URL_API/health" | grep -q '"ok"'; then
+            if curl -fsS --max-time 20 "$URL_API/health" | grep -q '"ok"'; then
               echo "API respondeu na tentativa $tentativa."
               echo "estado=success" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            echo "Tentativa $tentativa sem resposta, esperando 30 s..."
-            sleep 30
+            echo "Tentativa $tentativa sem resposta, esperando 10 s..."
+            sleep 10
           done
+          echo "::error::A API não respondeu em $URL_API/health. Confira se o endereço do Render mudou (variável URL_API)."
           echo "estado=failure" >> "$GITHUB_OUTPUT"
           exit 1
 
