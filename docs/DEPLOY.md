@@ -14,9 +14,12 @@ Como o AutOS roda em produção e como colocar uma versão nova no ar.
 
 ## 1. Banco no Neon
 
-1. Crie um projeto no [Neon](https://neon.tech). **Região: AWS US East (N.
-   Virginia)**, a mesma do backend no Render (Virginia ou Ohio). Banco e
-   backend perto um do outro deixam cada tela mais rápida.
+1. Crie um projeto no [Neon](https://neon.tech) na região **mais perto do
+   backend no Render** (a região do Render aparece no topo do serviço). Em
+   produção usamos **AWS US East 1 (N. Virginia)**, junto do Render em Virginia;
+   se o Render estiver em Oregon, prefira AWS US West. Não vale usar São Paulo:
+   o Render não tem servidor no Brasil, e cada tela faz várias consultas ao
+   banco, então a distância entre backend e banco pesaria em todo clique.
 2. Em **Connection Details**, copie a connection string **sem pooling**
    (desmarque "Connection pooling"). Ela termina com `?sslmode=require`.
    Essa é a `DATABASE_URL` de produção.
@@ -25,6 +28,18 @@ Como o AutOS roda em produção e como colocar uma versão nova no ar.
    DATABASE_URL="<connection string do Neon>" npx prisma migrate deploy
    ```
    No PowerShell: `$env:DATABASE_URL="<...>"; npx prisma migrate deploy`.
+
+   No CMD do Windows são dois comandos (as aspas em volta de tudo protegem o
+   `&` que a string do Neon costuma ter):
+   ```cmd
+   set "DATABASE_URL=<connection string do Neon>"
+   npx prisma migrate deploy
+   ```
+
+   > **Cuidado:** no PowerShell e no CMD a variável continua valendo no
+   > terminal até ele ser fechado, e tem prioridade sobre o `.env`. Use um
+   > terminal só para os comandos de produção e feche-o ao terminar; senão um
+   > `npm run dev` ou `npm test` nele vai usar o banco de produção.
 
 ## 2. Backend no Render
 
