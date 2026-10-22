@@ -10,6 +10,7 @@ import {
   Gauge,
   Palette,
 } from "lucide-react";
+import LembretesEditor, { type LembreteForm } from "./LembretesEditor";
 
 export interface VehicleFormData {
   marca: string;
@@ -18,8 +19,7 @@ export interface VehicleFormData {
   cor: string;
   ano: number | "";
   quilometragem_atual: number | "";
-  intervalo_dias: number | "";
-  intervalo_km: number | "";
+  lembretes: LembreteForm[];
 }
 
 interface VehicleFormModalProps {
@@ -39,8 +39,7 @@ const emptyForm: VehicleFormData = {
   cor: "",
   ano: "",
   quilometragem_atual: "",
-  intervalo_dias: "",
-  intervalo_km: "",
+  lembretes: [],
 };
 
 export default function VehicleFormModal({
@@ -204,57 +203,10 @@ export default function VehicleFormModal({
             </Field>
           </div>
 
-          {/* Manutenção periódica */}
-          <div className="mt-5 border-t border-gray-100 pt-4">
-            <p className="mb-1 text-sm font-semibold text-[#1B2130]">
-              Manutenção periódica{" "}
-              <span className="font-normal text-gray-400">(opcional)</span>
-            </p>
-            <p className="mb-3 text-xs text-gray-500">
-              Defina de quanto em quanto tempo e de quantos em quantos km este
-              veículo precisa de revisão. Preencha os dois campos ou deixe os
-              dois em branco. O lembrete é recalculado quando uma ordem de
-              serviço do veículo for encerrada, e vale o que vencer primeiro.
-            </p>
-
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-              <Field label="Intervalo (dias)">
-                <InputWithIcon icon={Calendar}>
-                  <input
-                    type="number"
-                    value={form.intervalo_dias}
-                    onChange={(e) =>
-                      handleChange(
-                        "intervalo_dias",
-                        e.target.value ? Number(e.target.value) : "",
-                      )
-                    }
-                    placeholder="Ex: 180"
-                    min={1}
-                    className="input-field"
-                  />
-                </InputWithIcon>
-              </Field>
-
-              <Field label="Intervalo (km)">
-                <InputWithIcon icon={Gauge}>
-                  <input
-                    type="number"
-                    value={form.intervalo_km}
-                    onChange={(e) =>
-                      handleChange(
-                        "intervalo_km",
-                        e.target.value ? Number(e.target.value) : "",
-                      )
-                    }
-                    placeholder="Ex: 10000"
-                    min={1}
-                    className="input-field"
-                  />
-                </InputWithIcon>
-              </Field>
-            </div>
-          </div>
+          <LembretesEditor
+            lembretes={form.lembretes}
+            onChange={(lembretes) => handleChange("lembretes", lembretes)}
+          />
         </form>
 
         {/* Footer */}

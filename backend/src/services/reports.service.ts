@@ -29,6 +29,7 @@ export function parseMes(mes: string): Periodo {
   return parsePeriodo(`${mes}-01`, `${mes}-${ultimoDia}`);
 }
 
+// Período usado na comparação quando o usuário não escolhe outro
 export function periodoAnterior(p: Periodo): Periodo {
   const duracao = p.fimExclusivo.getTime() - p.inicio.getTime();
   return {
@@ -85,8 +86,8 @@ function resumir(ordensFinalizadas: { valor_total: Prisma.Decimal }[]) {
 }
 
 // ---------- 1. Vendas por período (com comparativo) ----------
-export async function vendasPorPeriodo(p: Periodo) {
-  const anterior = periodoAnterior(p);
+export async function vendasPorPeriodo(p: Periodo, comparacao?: Periodo) {
+  const anterior = comparacao ?? periodoAnterior(p);
 
   const [atuais, anteriores] = await Promise.all([
     prisma.serviceOrder.findMany({
@@ -222,8 +223,8 @@ export function preverFalta(quantidade: number, consumo: number) {
   return previsao("SEMANAS", Math.round(semanas));
 }
 
-export async function statusInventario(p: Periodo) {
-  const anterior = periodoAnterior(p);
+export async function statusInventario(p: Periodo, comparacao?: Periodo) {
+  const anterior = comparacao ?? periodoAnterior(p);
   const giro = periodoGiro();
   const [itens, consumoAtual, consumoAnterior, consumoGiro] = await Promise.all([
     prisma.stockItem.findMany({
@@ -396,8 +397,8 @@ async function calcularResumo(p: Periodo) {
   return { entradas, saidas, outrasReceitas, maoDeObra, pecas, margemPecas };
 }
 
-export async function resumoFinanceiro(p: Periodo) {
-  const anterior = periodoAnterior(p);
+export async function resumoFinanceiro(p: Periodo, comparacao?: Periodo) {
+  const anterior = comparacao ?? periodoAnterior(p);
   const [atual, ant, porForma] = await Promise.all([
     calcularResumo(p),
     calcularResumo(anterior),
@@ -521,8 +522,8 @@ async function calcularAtividade(p: Periodo) {
   };
 }
 
-export async function atividadeClientes(p: Periodo) {
-  const anterior = periodoAnterior(p);
+export async function atividadeClientes(p: Periodo, comparacao?: Periodo) {
+  const anterior = comparacao ?? periodoAnterior(p);
   const [atual, ant] = await Promise.all([
     calcularAtividade(p),
     calcularAtividade(anterior),

@@ -61,9 +61,9 @@ sob o prefixo `/api`.
 | Método | Rota | Perfil | Descrição |
 |---|---|---|---|
 | GET | `/?placa=` | todos | Busca por placa |
-| GET | `/:id` | todos | Veículo com cliente e lembrete |
-| POST | `/` | todos | Cadastra: `{ cliente_id, placa, marca, modelo, ano, cor?, quilometragem_atual?, intervalo_dias?, intervalo_km? }`. Os intervalos (os dois juntos) criam o lembrete de revisão |
-| PUT | `/:id` | Dono | Edita. Mandar os intervalos vazios remove o lembrete |
+| GET | `/:id` | todos | Veículo com cliente e lembretes |
+| POST | `/` | todos | Cadastra: `{ cliente_id, placa, marca, modelo, ano, cor?, quilometragem_atual?, lembretes? }`. Cada lembrete: `{ nome, intervalo_dias, intervalo_km }` (até 10; vence pelo que chegar primeiro) |
+| PUT | `/:id` | Dono | Edita. `lembretes`, quando enviado, substitui a lista: os sem `id` são criados, os que sumiram são apagados e os existentes só recalculam a agenda se o intervalo mudar |
 | PATCH | `/:id/archive` | Dono | Arquiva |
 | PATCH | `/:id/unarchive` | Dono | Desarquiva |
 
@@ -88,7 +88,7 @@ Cliente anonimizado fica travado: editar, desarquivar ou cadastrar veículo nele
 | GET | `/?status=&cliente_id=&status_pagamento=` | todos | Lista com filtros opcionais |
 | GET | `/:id` | todos | OS completa (o custo e a margem das peças só vêm para o dono) |
 | POST | `/` | todos | Abre: `{ cliente_id, veiculo_id, mecanico_id, quilometragem_registrada?, reclamacao?, previsao_entrega?, observacoes? }` |
-| PATCH | `/:id/status` | todos | Muda o status: `{ status }`. Transições permitidas: ABERTA → EM_ANDAMENTO ou CANCELADA; EM_ANDAMENTO → FINALIZADA ou CANCELADA; FINALIZADA → EM_ANDAMENTO (reabrir). Cancelar com pagamento ativo responde `409` |
+| PATCH | `/:id/status` | todos | Muda o status: `{ status }`. Transições permitidas: ABERTA → EM_ANDAMENTO ou CANCELADA; EM_ANDAMENTO → FINALIZADA ou CANCELADA; FINALIZADA → EM_ANDAMENTO (reabrir). Cancelar com pagamento ativo responde `409`. Ao finalizar, `lembretes_feitos` (ids dos lembretes do veículo) reinicia a contagem só desses lembretes |
 | PATCH | `/:id/detalhes` | todos | Reclamação, previsão de entrega e informações ao cliente. Só os campos enviados mudam; `""` apaga |
 | POST | `/:id/services` | todos | Adiciona um serviço: `{ descricao, valor }` |
 | DELETE | `/:id/services/:serviceId` | todos | Remove um serviço |
@@ -113,8 +113,9 @@ O valor total da OS é recalculado a cada serviço ou peça. O status de pagamen
 
 ## Relatórios (`/api/reports`) (só o dono)
 
-Todos recebem `?inicio=AAAA-MM-DD&fim=AAAA-MM-DD` e comparam com o período
-anterior de mesma duração.
+Todos recebem `?inicio=AAAA-MM-DD&fim=AAAA-MM-DD`. Para comparar com outro
+período, envie também `comparar_inicio` e `comparar_fim` (os dois juntos); sem
+eles, a comparação é com o período anterior de mesma duração.
 
 | Método | Rota | Descrição |
 |---|---|---|
@@ -127,4 +128,4 @@ anterior de mesma duração.
 
 | Método | Rota | Perfil | Descrição |
 |---|---|---|---|
-| GET | `/` | todos | Avisos do sino: revisão vencida ou próxima (até 7 dias ou 500 km), estoque abaixo do mínimo e, para o dono, pagamento atrasado (OS finalizada há mais de 15 dias com saldo) |
+| GET | `/` | todos | Avisos do sino: um por lembrete vencido ou próximo (até 7 dias ou 500 km), com o nome do lembrete, estoque abaixo do mínimo e, para o dono, pagamento atrasado (OS finalizada há mais de 15 dias com saldo) |

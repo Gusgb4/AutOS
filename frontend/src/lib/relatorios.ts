@@ -60,7 +60,7 @@ function colunasComparativo(primeira: string) {
   return [
     { titulo: primeira },
     { titulo: "Atual", direita: true },
-    { titulo: "Período anterior", direita: true },
+    { titulo: "Comparação", direita: true },
     { titulo: "Variação (%)", direita: true },
   ];
 }
@@ -280,7 +280,7 @@ export function tabelaFaturamento(
       { titulo: "Faturamento (OS finalizadas no período)" },
       { titulo: "Atual", direita: true },
       { titulo: "Percentual (%)", direita: true },
-      { titulo: "Período anterior", direita: true },
+      { titulo: "Comparação", direita: true },
       { titulo: "Variação (%)", direita: true },
     ],
     linhas: [

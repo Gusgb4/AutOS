@@ -1,18 +1,24 @@
-import type { Vehicle } from "../services/vehicles";
+import type { MaintenanceReminder, Vehicle } from "../services/vehicles";
 
 /**
- * Uma revisão está vencida quando a data prevista já passou
+ * Um lembrete está vencido quando a data prevista já passou
  * OU a quilometragem atual já alcançou o km previsto.
- * (Mesma regra que já existia no perfil do cliente.)
+ * (Mesma regra das notificações.)
  */
-export function isMaintenanceOverdue(
-  vehicle: Pick<Vehicle, "lembrete_manutencao" | "quilometragem_atual">,
+export function isLembreteVencido(
+  lembrete: Pick<MaintenanceReminder, "proxima_data" | "proximo_km">,
+  quilometragemAtual: number | undefined,
 ): boolean {
-  const lembrete = vehicle.lembrete_manutencao;
-  if (!lembrete) return false;
-
   const dataVencida = new Date(lembrete.proxima_data) <= new Date();
-  const kmVencido = (vehicle.quilometragem_atual ?? 0) >= lembrete.proximo_km;
-
+  const kmVencido = (quilometragemAtual ?? 0) >= lembrete.proximo_km;
   return dataVencida || kmVencido;
+}
+
+/** O veículo tem pelo menos um lembrete vencido. */
+export function isMaintenanceOverdue(
+  vehicle: Pick<Vehicle, "lembretes" | "quilometragem_atual">,
+): boolean {
+  return (vehicle.lembretes ?? []).some((l) =>
+    isLembreteVencido(l, vehicle.quilometragem_atual),
+  );
 }   

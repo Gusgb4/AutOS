@@ -17,6 +17,7 @@ export interface Notificacao {
     cliente_nome: string;
     telefone: string;
     veiculo: string;
+    lembrete: string;
     proxima_data: string;
     proximo_km: number;
     quilometragem_atual: number;

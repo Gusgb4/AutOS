@@ -102,12 +102,28 @@ export async function aReceber(_req: Request, res: Response) {
 }
 
 const resumoSchema = z
-  .object({ inicio: dataSchema.optional(), fim: dataSchema.optional() })
+  .object({
+    inicio: dataSchema.optional(),
+    fim: dataSchema.optional(),
+    // Período de comparação escolhido; sem ele, usa o anterior
+    comparar_inicio: dataSchema.optional(),
+    comparar_fim: dataSchema.optional(),
+  })
   .refine((d) => Boolean(d.inicio) === Boolean(d.fim), {
     message: "Informe a data inicial e a final, ou nenhuma das duas.",
-  });
+  })
+  .refine((d) => !d.inicio || !d.fim || d.inicio <= d.fim, {
+    message: "A data inicial não pode ser maior que a final.",
+  })
+  .refine((d) => Boolean(d.comparar_inicio) === Boolean(d.comparar_fim), {
+    message: "Informe o início e o fim do período de comparação.",
+  })
+  .refine(
+    (d) => !d.comparar_inicio || !d.comparar_fim || d.comparar_inicio <= d.comparar_fim,
+    { message: "Na comparação, a data inicial não pode ser maior que a final." },
+  );
 
-// GET /api/financial/resumo?inicio=2026-10-01&fim=2026-10-31
+// GET /api/financial/resumo?inicio=2026-10-01&fim=2026-10-31[&comparar_inicio=&comparar_fim=]
 export async function resumo(req: Request, res: Response) {
   const filtros = resumoSchema.safeParse(req.query);
   if (!filtros.success) {
@@ -115,8 +131,15 @@ export async function resumo(req: Request, res: Response) {
   }
 
   try {
-    const { inicio, fim } = filtros.data;
-    return res.json(await financialService.resumoComparativo(inicio, fim));
+    const { inicio, fim, comparar_inicio, comparar_fim } = filtros.data;
+    return res.json(
+      await financialService.resumoComparativo(
+        inicio,
+        fim,
+        comparar_inicio,
+        comparar_fim,
+      ),
+    );
   } catch (error) {
     return res
       .status(500)

@@ -29,17 +29,36 @@ export async function getByIdController(req: Request, res: Response) {
   return res.status(200).json(veiculo);
 }
 
-function intervalosCompletosOuVazios(d: {
-  intervalo_dias?: number | null;
-  intervalo_km?: number | null;
-}) {
-  return (d.intervalo_dias == null) === (d.intervalo_km == null);
-}
+// Um lembrete: nome livre e os dois intervalos (vence pelo que chegar primeiro)
+const lembreteSchema = z.object({
+  id: z.number().int().positive().optional(),
+  nome: z
+    .string({ message: "Dê um nome ao lembrete." })
+    .trim()
+    .min(1, "Dê um nome ao lembrete.")
+    .max(60, "O nome do lembrete pode ter até 60 caracteres."),
+  intervalo_dias: z
+    .number({ message: "Informe o intervalo em dias." })
+    .int()
+    .positive("O intervalo em dias deve ser maior que zero."),
+  intervalo_km: z
+    .number({ message: "Informe o intervalo em km." })
+    .int()
+    .positive("O intervalo em km deve ser maior que zero."),
+});
 
-const mensagemIntervalos = {
-  message: "Informe os dois intervalos (dias e km) ou deixe os dois em branco.",
-  path: ["intervalo_dias"],
-};
+const lembretesSchema = z
+  .array(lembreteSchema)
+  .max(10, "Cada veículo pode ter até 10 lembretes.")
+  .optional();
+
+// Placa sempre maiúscula e sem espaços nas pontas: "arx2020" e "ARX2020"
+// são o mesmo carro
+const placaSchema = z
+  .string({ message: "Placa é obrigatória." })
+  .trim()
+  .min(1, "Placa é obrigatória.")
+  .transform((v) => v.toUpperCase());
 
 // Opcional; vazio apaga
 const corSchema = z
@@ -49,42 +68,36 @@ const corSchema = z
   .optional()
   .transform((v) => (v === "" ? null : v));
 
-const createVehicleSchema = z
-  .object({
-    cliente_id: z.number().int().positive(),
-    placa: z.string().min(1, "Placa é obrigatória."),
-    cor: corSchema,
-    marca: z.string().min(1, "Marca é obrigatória."),
-    modelo: z.string().min(1, "Modelo é obrigatório."),
-    ano: z
-      .number()
-      .int()
-      .min(1900)
-      .max(new Date().getFullYear() + 1),
-    quilometragem_atual: z.number().int().nonnegative().optional(),
-    intervalo_dias: z.number().int().positive().nullable().optional(),
-    intervalo_km: z.number().int().positive().nullable().optional(),
-  })
-  .refine(intervalosCompletosOuVazios, mensagemIntervalos);
+const createVehicleSchema = z.object({
+  cliente_id: z.number().int().positive(),
+  placa: placaSchema,
+  cor: corSchema,
+  marca: z.string().min(1, "Marca é obrigatória."),
+  modelo: z.string().min(1, "Modelo é obrigatório."),
+  ano: z
+    .number()
+    .int()
+    .min(1900)
+    .max(new Date().getFullYear() + 1),
+  quilometragem_atual: z.number().int().nonnegative().optional(),
+  lembretes: lembretesSchema,
+});
 
-const updateVehicleSchema = z
-  .object({
-    cliente_id: z.number().int().positive().optional(),
-    placa: z.string().min(1).optional(),
-    cor: corSchema,
-    marca: z.string().min(1).optional(),
-    modelo: z.string().min(1).optional(),
-    ano: z
-      .number()
-      .int()
-      .min(1900)
-      .max(new Date().getFullYear() + 1)
-      .optional(),
-    quilometragem_atual: z.number().int().nonnegative().optional(),
-    intervalo_dias: z.number().int().positive().nullable().optional(),
-    intervalo_km: z.number().int().positive().nullable().optional(),
-  })
-  .refine(intervalosCompletosOuVazios, mensagemIntervalos);
+const updateVehicleSchema = z.object({
+  cliente_id: z.number().int().positive().optional(),
+  placa: placaSchema.optional(),
+  cor: corSchema,
+  marca: z.string().min(1).optional(),
+  modelo: z.string().min(1).optional(),
+  ano: z
+    .number()
+    .int()
+    .min(1900)
+    .max(new Date().getFullYear() + 1)
+    .optional(),
+  quilometragem_atual: z.number().int().nonnegative().optional(),
+  lembretes: lembretesSchema,
+});
 
 // POST /api/vehicles
 export async function createController(req: Request, res: Response) {

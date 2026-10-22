@@ -6,7 +6,7 @@ import { calcularPagamento, pagamentosAtivos } from "./serviceOrders.service";
 // Veículo arquivado não aparece no cliente (as OS antigas continuam apontando pra ele)
 const veiculosAtivos = {
   where: { ativo: true },
-  include: { lembrete_manutencao: true },
+  include: { lembretes: { orderBy: { id: "asc" } } },
   orderBy: { created_at: "asc" },
 } satisfies Prisma.Client$veiculosArgs;
 

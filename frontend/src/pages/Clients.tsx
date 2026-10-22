@@ -179,7 +179,10 @@ export default function Clients() {
               marca: vehicle.marca,
               modelo: vehicle.modelo,
               placa: vehicle.placa,
+              cor: vehicle.cor || undefined,
               ano: vehicle.ano,
+              quilometragem_atual: vehicle.quilometragem_atual,
+              lembretes: vehicle.lembretes,
             });
           } catch (vehicleErr) {
             // Cliente já foi criado; avisa mas não desfaz o cadastro

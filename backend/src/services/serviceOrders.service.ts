@@ -18,7 +18,8 @@ export const pagamentosAtivos = {
 
 const ordemCompleta = {
   cliente: true,
-  veiculo: true,
+  // Os lembretes do veículo aparecem na OS para marcar os que foram feitos
+  veiculo: { include: { lembretes: { orderBy: { id: "asc" } } } },
   mecanico: { select: { id: true, nome: true, email: true, perfil: true } },
   servicos: true,
   // Preço de custo é só do proprietário, e as rotas de OS atendem os dois perfis
@@ -178,26 +179,36 @@ function somarDias(data: Date, dias: number): Date {
   return resultado;
 }
 
-async function recalcularLembreteManutencao(tx: Tx, veiculoId: number) {
-  const lembrete = await tx.maintenanceReminder.findUnique({
-    where: { veiculo_id: veiculoId },
-  });
+// Ao encerrar a OS, reinicia a contagem só dos lembretes marcados como
+// feitos nela (a troca de óleo não zera a correia, por exemplo).
+// A nova contagem parte de hoje e da quilometragem atual do veículo.
+async function reiniciarLembretes(
+  tx: Tx,
+  veiculoId: number,
+  lembreteIds: number[],
+) {
+  if (lembreteIds.length === 0) return;
 
-  if (!lembrete) {
-    return;
+  const lembretes = await tx.maintenanceReminder.findMany({
+    where: { veiculo_id: veiculoId, id: { in: lembreteIds } },
+  });
+  if (lembretes.length !== new Set(lembreteIds).size) {
+    throw new AppError("Lembrete não encontrado neste veículo.", 400);
   }
 
   const veiculo = await tx.vehicle.findUniqueOrThrow({
     where: { id: veiculoId },
   });
 
-  await tx.maintenanceReminder.update({
-    where: { veiculo_id: veiculoId },
-    data: {
-      proxima_data: somarDias(new Date(), lembrete.intervalo_dias),
-      proximo_km: veiculo.quilometragem_atual + lembrete.intervalo_km,
-    },
-  });
+  for (const lembrete of lembretes) {
+    await tx.maintenanceReminder.update({
+      where: { id: lembrete.id },
+      data: {
+        proxima_data: somarDias(new Date(), lembrete.intervalo_dias),
+        proximo_km: veiculo.quilometragem_atual + lembrete.intervalo_km,
+      },
+    });
+  }
 }
 
 async function buscarOrdemEditavel(tx: Tx, ordemId: number) {
@@ -452,6 +463,8 @@ export async function changeStatus(
   ordemId: number,
   novoStatus: StatusOrdemServico,
   perfil: Perfil | undefined,
+  // Só ao finalizar: lembretes do veículo feitos nesta OS
+  lembretesFeitos: number[] = [],
 ) {
   return prisma.$transaction(async (tx) => {
     const ordem = await travarOrdem(tx, ordemId);
@@ -482,7 +495,7 @@ export async function changeStatus(
     }
 
     if (novoStatus === "FINALIZADA") {
-      await recalcularLembreteManutencao(tx, ordem.veiculo_id);
+      await reiniciarLembretes(tx, ordem.veiculo_id, lembretesFeitos);
     }
 
     if (novoStatus === "CANCELADA") {

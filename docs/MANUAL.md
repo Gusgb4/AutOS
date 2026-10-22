@@ -48,9 +48,11 @@ abaixo do estoque mínimo e, para o proprietário, pagamentos atrasados.
 1. Abra o perfil do cliente (clique no nome dele na lista).
 2. Em **Veículos**, clique em **Adicionar veículo**.
 3. Preencha marca, modelo, placa, ano, cor (opcional) e a quilometragem atual.
-4. **Lembrete de revisão** (opcional): informe de quanto em quanto tempo e de
-   quantos em quantos km o carro deve voltar. Quando chegar perto, o aviso
-   aparece no sino, com um botão para chamar o cliente no WhatsApp.
+4. **Lembretes de manutenção** (opcional): clique numa sugestão (Troca de
+   óleo, Correia dentada, Revisão geral...) ou em **Outro**, e ajuste de quantos
+   em quantos dias e km o serviço deve ser repetido. Um carro pode ter vários
+   lembretes. Quando um deles chegar perto, o aviso aparece no sino, com um
+   botão para chamar o cliente no WhatsApp.
 
 **Buscar:** na lista de clientes, digite o nome ou a placa.
 
@@ -108,11 +110,14 @@ Clique em **Salvar** para gravar ou em **Descartar** para voltar ao que estava.
 
 ### 4.5 Encerrar e entregar
 
-1. Com o serviço pronto, clique em **Encerrar OS** e confirme.
-2. Clique em **Baixar PDF**: sai a **Nota de entrega**, em uma página, com o que
+1. Se o carro tem lembretes, a seção **Lembretes do veículo** aparece na OS.
+   Marque o que foi feito nesta OS (por exemplo, a troca de óleo): só os
+   marcados recomeçam a contagem.
+2. Com o serviço pronto, clique em **Encerrar OS** e confirme.
+3. Clique em **Baixar PDF**: sai a **Nota de entrega**, em uma página, com o que
    foi feito, os valores e o espaço para as assinaturas.
-3. Imprima e entregue ao cliente quando ele vier buscar o carro.
-4. Se quiser avisar pelo WhatsApp, **Enviar por WhatsApp** agora manda "Seu
+4. Imprima e entregue ao cliente quando ele vier buscar o carro.
+5. Se quiser avisar pelo WhatsApp, **Enviar por WhatsApp** agora manda "Seu
    veículo está pronto!".
 
 **Errou algo depois de encerrar?** Use **Reabrir OS**, corrija e encerre de
@@ -147,8 +152,10 @@ pagamento e registre de novo.
 
 ## 7. Financeiro (só proprietário)
 
-- **Cards do topo:** receitas, despesas e saldo do mês (ou do período
-  escolhido), comparados com o período anterior.
+- **Cards do topo:** receitas, despesas e saldo. Abrem no mês atual; em
+  **Período** dá para ver o mês passado ou escolher as datas, e em **Comparar
+  com** escolher a base (período anterior, ano passado ou datas à mão). Os
+  filtros de data da lista de lançamentos valem só para a lista.
 - **Recebido por forma de pagamento:** útil para conferir com o extrato do banco
   e da maquininha.
 - **Despesas por categoria:** onde o dinheiro está indo.
@@ -170,8 +177,13 @@ Escolha o relatório e o período (ou use os atalhos):
 - **Resumo financeiro:** caixa, recebido por forma, mão de obra × peças e margem.
 - **Atividade do cliente:** clientes atendidos, novos e os que mais gastaram.
 
-Todos comparam com o período anterior e podem ser baixados em **CSV** (abre no
-Excel) ou **PDF**.
+Cada relatório abre com gráficos (faturamento ao longo do período, peças e
+clientes que mais renderam, entradas × saídas, mão de obra × peças) e, embaixo,
+as tabelas completas.
+
+Em **Comparar com**, escolha a base da comparação: o **período anterior**, o
+**mesmo período do ano passado** ou **datas escolhidas** à mão. Todos podem ser
+baixados em **CSV** (abre no Excel) ou **PDF**.
 
 ## 9. Equipe (só proprietário)
 

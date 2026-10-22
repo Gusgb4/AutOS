@@ -47,6 +47,7 @@ describe("Anonimização de cliente (LGPD)", () => {
     await prisma.maintenanceReminder.create({
       data: {
         veiculo_id: veiculo.id,
+        nome: "Troca de óleo",
         intervalo_dias: 180,
         intervalo_km: 10000,
         proxima_data: new Date(),

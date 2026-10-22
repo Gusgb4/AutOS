@@ -20,7 +20,7 @@ cada tarefa está no [Manual do usuário](MANUAL.md).
 | Tempo | Tema | O que cada pessoa faz |
 |---|---|---|
 | 10 min | Primeiro acesso | Entra com a senha provisória, cria a própria senha, conhece o menu e o sino |
-| 10 min | Clientes e veículos | Cadastra um cliente e um veículo com lembrete de revisão; busca pelo nome e pela placa |
+| 10 min | Clientes e veículos | Cadastra um cliente e um veículo com dois lembretes (troca de óleo e correia); busca pelo nome e pela placa |
 | 20 min | Ordem de serviço | Abre uma OS com reclamação e previsão; adiciona dois serviços e duas peças; corrige uma quantidade; remove uma peça e vê o estoque voltar |
 | 10 min | Orçamento e entrega | Envia o orçamento pelo WhatsApp (para o próprio celular); preenche as informações ao cliente; encerra a OS; baixa e imprime a nota de entrega |
 | 10 min | Situações do dia a dia | Tenta adicionar peça sem estoque; cancela uma OS; reabre uma OS encerrada; tira dúvidas |

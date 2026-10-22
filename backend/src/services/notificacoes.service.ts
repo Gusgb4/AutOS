@@ -24,6 +24,8 @@ export interface Notificacao {
     cliente_nome: string;
     telefone: string;
     veiculo: string;
+    // Nome do lembrete: "Troca de óleo", "Correia dentada"...
+    lembrete: string;
     proxima_data: string;
     proximo_km: number;
     quilometragem_atual: number;
@@ -54,11 +56,11 @@ async function notificacoesDeRevisao(agora: Date): Promise<Notificacao[]> {
     where: {
       ativo: true,
       cliente: { ativo: true },
-      lembrete_manutencao: { isNot: null },
+      lembretes: { some: {} },
     },
     include: {
       cliente: { select: { id: true, nome: true, telefone: true } },
-      lembrete_manutencao: true,
+      lembretes: true,
     },
   });
 
@@ -66,9 +68,12 @@ async function notificacoesDeRevisao(agora: Date): Promise<Notificacao[]> {
   const vencidas: { data: Date; notificacao: Notificacao }[] = [];
   const proximas: { data: Date; notificacao: Notificacao }[] = [];
 
-  for (const veiculo of veiculos) {
-    const lembrete = veiculo.lembrete_manutencao;
-    if (!lembrete) continue;
+  // Uma notificação por lembrete (o mesmo carro pode ter óleo e correia vencendo)
+  const lembretes = veiculos.flatMap((veiculo) =>
+    veiculo.lembretes.map((lembrete) => ({ veiculo, lembrete })),
+  );
+
+  for (const { veiculo, lembrete } of lembretes) {
 
     const dataVencida = lembrete.proxima_data <= agora;
     const kmRestante = lembrete.proximo_km - veiculo.quilometragem_atual;
@@ -109,15 +114,16 @@ async function notificacoesDeRevisao(agora: Date): Promise<Notificacao[]> {
     const nomeVeiculo = `${veiculo.marca} ${veiculo.modelo} (${veiculo.placa})`;
 
     const notificacao: Notificacao = {
-      id: `revisao-${veiculo.id}`,
+      id: `revisao-${lembrete.id}`,
       tipo: vencida ? "REVISAO_VENCIDA" : "REVISAO_PROXIMA",
-      titulo: `${vencida ? "Revisão vencida" : "Revisão próxima"}: ${veiculo.cliente.nome}`,
+      titulo: `${vencida ? "Revisão vencida" : "Revisão próxima"}: ${veiculo.cliente.nome} · ${lembrete.nome}`,
       descricao: `${nomeVeiculo}, ${motivos.join(" e ")}`,
       link: `/clientes/${veiculo.cliente.id}`,
       revisao: {
         cliente_nome: veiculo.cliente.nome,
         telefone: veiculo.cliente.telefone,
         veiculo: `${veiculo.marca} ${veiculo.modelo}`,
+        lembrete: lembrete.nome,
         proxima_data: lembrete.proxima_data.toISOString(),
         proximo_km: lembrete.proximo_km,
         quilometragem_atual: veiculo.quilometragem_atual,

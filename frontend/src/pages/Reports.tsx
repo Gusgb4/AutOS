@@ -18,6 +18,16 @@ import {
   PackageMinus,
 } from "lucide-react";
 import StatCard from "../components/ui/StatCard";
+import {
+  BarraComposicao,
+  BarrasComparacao,
+  BarrasHorizontais,
+  COR_ATUAL,
+  COR_COMPARADO,
+  ColunasNoTempo,
+  GraficoCard,
+  Legenda,
+} from "../components/reports/Graficos";
 import { downloadCsv } from "../lib/csv";
 import {
   FORMATO_CSV,
@@ -51,6 +61,7 @@ import {
   type StatusInventario,
   type ResumoFinanceiro,
   type AtividadeClientes,
+  type Comparacao,
 } from "../services/reports";
 import { rotuloForma } from "../services/serviceOrders";
 import { mensagemDeErro } from "../lib/errors";
@@ -138,10 +149,26 @@ const ATALHOS: { label: string; intervalo: () => [string, string] }[] = [
   },
 ];
 
+type ModoComparacao = "anterior" | "ano" | "livre";
+
+const MODOS_COMPARACAO: { id: ModoComparacao; label: string }[] = [
+  { id: "anterior", label: "Período anterior" },
+  { id: "ano", label: "Mesmo período do ano passado" },
+  { id: "livre", label: "Escolher datas" },
+];
+
+// "2026-10-22" vira "2025-10-22"; 29/02 vira 28/02
+function umAnoAntes(iso: string) {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  const ultimoDia = new Date(Date.UTC(ano - 1, mes, 0)).getUTCDate();
+  const diaCerto = String(Math.min(dia, ultimoDia)).padStart(2, "0");
+  return `${ano - 1}-${String(mes).padStart(2, "0")}-${diaCerto}`;
+}
+
 function trendDe(variacao: number | null, menorEhMelhor = false) {
   if (variacao === null) return undefined;
   return {
-    value: `${variacao >= 0 ? "↑" : "↓"} ${Math.abs(variacao).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% vs período anterior`,
+    value: `${variacao >= 0 ? "↑" : "↓"} ${Math.abs(variacao).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% vs comparação`,
     positive: menorEhMelhor ? variacao <= 0 : variacao >= 0,
   };
 }
@@ -234,6 +261,11 @@ export default function Reports() {
     toIso(new Date(hoje.getFullYear(), hoje.getMonth(), 1)),
   );
   const [fim, setFim] = useState(toIso(hoje));
+  // Com o que comparar: o período anterior (padrão), o mesmo período do ano
+  // passado ou datas escolhidas à mão
+  const [modoComparacao, setModoComparacao] = useState<ModoComparacao>("anterior");
+  const [compInicio, setCompInicio] = useState("");
+  const [compFim, setCompFim] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -245,43 +277,61 @@ export default function Reports() {
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [erroPdf, setErroPdf] = useState<string | null>(null);
 
-  const periodoInvalido = inicio > fim;
+  const comparacao: Comparacao =
+    modoComparacao === "ano"
+      ? { inicio: umAnoAntes(inicio), fim: umAnoAntes(fim) }
+      : modoComparacao === "livre" && compInicio && compFim
+        ? { inicio: compInicio, fim: compFim }
+        : undefined;
+  // Comparação livre só vale com as duas datas, na ordem certa
+  const comparacaoIncompleta =
+    modoComparacao === "livre" && (!compInicio || !compFim);
+  const comparacaoInvalida =
+    modoComparacao === "livre" && Boolean(compInicio && compFim) && compInicio > compFim;
+  const periodoInvalido = inicio > fim || comparacaoInvalida;
+  const mensagemPeriodoInvalido =
+    inicio > fim
+      ? "A data inicial não pode ser maior que a final."
+      : "Na comparação, a data inicial não pode ser maior que a final.";
 
   // Mudou o relatório ou o período: liga o carregando já nesta renderização,
   // em vez de esperar o efeito (padrão do React para reagir a mudança de estado)
-  const consulta = `${tipo}|${inicio}|${fim}`;
+  const comparacaoInicio = comparacao?.inicio ?? "";
+  const comparacaoFim = comparacao?.fim ?? "";
+  const consulta = `${tipo}|${inicio}|${fim}|${comparacaoInicio}|${comparacaoFim}`;
   const [consultaAnterior, setConsultaAnterior] = useState<string | null>(
     null,
   );
   if (consulta !== consultaAnterior) {
     setConsultaAnterior(consulta);
-    setErro(
-      periodoInvalido ? "A data inicial não pode ser maior que a final." : null,
-    );
+    setErro(periodoInvalido ? mensagemPeriodoInvalido : null);
     setLoading(!periodoInvalido);
   }
 
   useEffect(() => {
     if (periodoInvalido) return;
+    const comparar = comparacaoInicio
+      ? { inicio: comparacaoInicio, fim: comparacaoFim }
+      : undefined;
     // Resposta de uma consulta antiga não sobrescreve a atual
     let ativo = true;
 
     async function buscar() {
       try {
         if (tipo === "vendas") {
-          const dados = await getVendasPorPeriodo(inicio, fim);
+          const dados = await getVendasPorPeriodo(inicio, fim, comparar);
           if (ativo) setVendas(dados);
         }
         if (tipo === "inventario") {
-          const dados = await getStatusInventario(inicio, fim);
+          const dados = await getStatusInventario(inicio, fim, comparar);
           if (ativo) setInventario(dados);
         }
         if (tipo === "resumo") {
-          const dados = await getResumoFinanceiro(inicio, fim);
+          const dados = await getResumoFinanceiro(inicio, fim, comparar);
           if (ativo) setResumo(dados);
         }
         if (tipo === "atividade") {
-          const dados = await getAtividadeClientes(inicio, fim);
+          const dados = await getAtividadeClientes(inicio, fim, comparar);
           if (ativo) setAtividade(dados);
         }
       } catch (err) {
@@ -297,7 +347,7 @@ export default function Reports() {
     return () => {
       ativo = false;
     };
-  }, [tipo, inicio, fim, periodoInvalido]);
+  }, [tipo, inicio, fim, comparacaoInicio, comparacaoFim, periodoInvalido]);
 
   function aplicarAtalho(intervalo: () => [string, string]) {
     const [novoInicio, novoFim] = intervalo();
@@ -313,7 +363,7 @@ export default function Reports() {
         ["Relatório", "Vendas por período"],
         ["Período", periodo],
         [
-          "Período anterior",
+          "Comparado com",
           `${formatDate(vendas.periodo_anterior.inicio)} a ${formatDate(vendas.periodo_anterior.fim)}`,
         ],
         [],
@@ -327,7 +377,7 @@ export default function Reports() {
       downloadCsv(`inventario-${inicio}-a-${fim}.csv`, [
         ["Relatório", "Status do inventário"],
         ["Período", periodo],
-        ["Período anterior", periodoCsv(inventario.consumo.periodo_anterior)],
+        ["Comparado com", periodoCsv(inventario.consumo.periodo_anterior)],
         [],
         ...linhasCsv(tabelaIndicadoresConsumo(inventario, FORMATO_CSV)),
         [],
@@ -343,7 +393,7 @@ export default function Reports() {
       downloadCsv(`resumo-financeiro-${inicio}-a-${fim}.csv`, [
         ["Relatório", "Resumo financeiro"],
         ["Período", periodo],
-        ["Período anterior", periodoCsv(resumo.periodo_anterior)],
+        ["Comparado com", periodoCsv(resumo.periodo_anterior)],
         [],
         ...linhasCsv(tabelaCaixa(resumo, FORMATO_CSV)),
         [],
@@ -359,7 +409,7 @@ export default function Reports() {
       downloadCsv(`atividade-clientes-${inicio}-a-${fim}.csv`, [
         ["Relatório", "Atividade do cliente"],
         ["Período", periodo],
-        ["Período anterior", periodoCsv(atividade.periodo_anterior)],
+        ["Comparado com", periodoCsv(atividade.periodo_anterior)],
         [],
         ...linhasCsv(tabelaIndicadoresAtividade(atividade, FORMATO_CSV)),
         [],
@@ -486,6 +536,73 @@ export default function Reports() {
             ))}
           </div>
         </div>
+
+        <div className="flex flex-col gap-3 border-t border-gray-100 bg-gray-50/50 p-5 lg:flex-row lg:items-end">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold text-[#1B2130]">
+              Comparar com
+            </span>
+            <div
+              role="radiogroup"
+              aria-label="Comparar com"
+              className="flex flex-wrap gap-2"
+            >
+              {MODOS_COMPARACAO.map((m) => {
+                const ativo = modoComparacao === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={ativo}
+                    onClick={() => setModoComparacao(m.id)}
+                    className={`rounded-lg border-[1.5px] px-3 py-2.5 text-xs font-semibold transition ${
+                      ativo
+                        ? "border-[#FF7518] bg-[#FFF4EC] text-[#FF7518]"
+                        : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {modoComparacao === "livre" && (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-[#1B2130]">
+                  Comparar de
+                </label>
+                <input
+                  type="date"
+                  value={compInicio}
+                  max={compFim || undefined}
+                  onChange={(e) => setCompInicio(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-[#1B2130]">
+                  Até
+                </label>
+                <input
+                  type="date"
+                  value={compFim}
+                  min={compInicio || undefined}
+                  onChange={(e) => setCompFim(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            </>
+          )}
+          {comparacaoIncompleta && (
+            <p className="text-xs text-gray-500 lg:pb-3">
+              Escolha as duas datas. Até lá, a comparação usa o período
+              anterior.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Resultado */}
@@ -571,6 +688,12 @@ export default function Reports() {
               Faturamento é o valor das OS finalizadas, pela data de
               finalização. Os pagamentos recebidos estão no Resumo financeiro.
             </p>
+            <GraficoCard
+              titulo="Faturamento no período"
+              subtitulo="OS finalizadas, pela data de finalização. Passe o mouse para ver os valores."
+            >
+              <ColunasNoTempo inicio={inicio} fim={fim} dias={vendas.por_dia} />
+            </GraficoCard>
             <Tabela
               colunas={[
                 { titulo: "Data" },
@@ -619,6 +742,23 @@ export default function Reports() {
               ({inventario.consumo.anterior.quantidade} peças,{" "}
               {formatCurrency(inventario.consumo.anterior.valor)}).
             </ComparadoCom>
+            <GraficoCard
+              titulo="Peças que mais saíram"
+              subtitulo="As 10 de maior valor de venda no período"
+            >
+              <BarrasHorizontais
+                itens={[...inventario.consumo.itens]
+                  .sort((a, b) => b.valor - a.valor)
+                  .slice(0, 10)
+                  .map((i) => ({
+                    chave: i.id,
+                    rotulo: i.nome,
+                    valor: i.valor,
+                    detalhe: `${i.quantidade} un.`,
+                  }))}
+                vazio="Nenhuma peça consumida em OS finalizadas neste período."
+              />
+            </GraficoCard>
             <Tabela
               colunas={[
                 { titulo: "Peça consumida" },
@@ -775,6 +915,73 @@ export default function Reports() {
               {formatCurrency(resumo.anterior.saldo)}). Outras receitas
               (lançamentos sem OS): {formatCurrency(resumo.outras_receitas)}.
             </ComparadoCom>
+            <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x lg:divide-gray-100">
+              <GraficoCard
+                titulo="Entradas e saídas"
+                subtitulo="Caixa do período comparado com a comparação escolhida"
+                legenda={
+                  <Legenda
+                    itens={[
+                      { rotulo: "Período", cor: COR_ATUAL },
+                      { rotulo: "Comparação", cor: COR_COMPARADO },
+                    ]}
+                  />
+                }
+              >
+                <BarrasComparacao
+                  rotuloAtual="Período"
+                  rotuloComparado="Comparação"
+                  grupos={[
+                    {
+                      rotulo: "Entradas",
+                      atual: resumo.entradas,
+                      comparado: resumo.anterior.entradas,
+                    },
+                    {
+                      rotulo: "Saídas",
+                      atual: resumo.saidas,
+                      comparado: resumo.anterior.saidas,
+                    },
+                  ]}
+                />
+              </GraficoCard>
+              <div>
+                <GraficoCard
+                  titulo="Do que vem o faturamento"
+                  subtitulo="OS finalizadas no período"
+                >
+                  <BarraComposicao
+                    vazio="Nenhuma OS finalizada no período."
+                    partes={[
+                      {
+                        rotulo: "Mão de obra",
+                        valor: resumo.composicao_receita_os.mao_de_obra.valor,
+                        percentual:
+                          resumo.composicao_receita_os.mao_de_obra.percentual,
+                        cor: COR_ATUAL,
+                      },
+                      {
+                        rotulo: "Peças",
+                        valor: resumo.composicao_receita_os.pecas.valor,
+                        percentual: resumo.composicao_receita_os.pecas.percentual,
+                        cor: COR_COMPARADO,
+                      },
+                    ]}
+                  />
+                </GraficoCard>
+                <GraficoCard titulo="Recebido por forma de pagamento">
+                  <BarrasHorizontais
+                    itens={resumo.recebido_por_forma.map((r) => ({
+                      chave: r.forma,
+                      rotulo: rotuloForma(r.forma),
+                      valor: r.valor,
+                      detalhe: formatPercent(r.percentual),
+                    }))}
+                    vazio="Nenhuma receita no período."
+                  />
+                </GraficoCard>
+              </div>
+            </div>
             <div className="border-b border-gray-100 px-5 py-3">
               <p className="text-sm font-semibold text-[#1F1F1F]">
                 Recebido por forma de pagamento
@@ -811,7 +1018,7 @@ export default function Reports() {
                 { titulo: "Origem" },
                 { titulo: "Valor", direita: true },
                 { titulo: "% do faturamento", direita: true },
-                { titulo: "Período anterior", direita: true },
+                { titulo: "Comparação", direita: true },
                 { titulo: "Variação", direita: true },
               ]}
               linhas={[
@@ -861,7 +1068,7 @@ export default function Reports() {
               colunas={[
                 { titulo: "Indicador" },
                 { titulo: "Atual", direita: true },
-                { titulo: "Período anterior", direita: true },
+                { titulo: "Comparação", direita: true },
                 { titulo: "Variação", direita: true },
               ]}
               linhas={[
@@ -943,6 +1150,20 @@ export default function Reports() {
               finalizadas no período, pela data de finalização; clientes novos
               são os cadastrados no período.
             </ComparadoCom>
+            <GraficoCard
+              titulo="Clientes que mais gastaram"
+              subtitulo="Os 10 maiores no período"
+            >
+              <BarrasHorizontais
+                itens={atividade.clientes.slice(0, 10).map((c) => ({
+                  chave: c.cliente_id,
+                  rotulo: c.nome,
+                  valor: c.total,
+                  detalhe: `${c.ordens} OS`,
+                }))}
+                vazio="Nenhum cliente atendido neste período."
+              />
+            </GraficoCard>
             <Tabela
               colunas={[
                 { titulo: "Cliente" },

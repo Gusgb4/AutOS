@@ -54,6 +54,7 @@ export async function criarItemEstoque(
 export async function criarLembrete(
   veiculoId: number,
   overrides?: Partial<{
+    nome: string;
     intervalo_dias: number;
     intervalo_km: number;
     proxima_data: Date;
@@ -63,6 +64,7 @@ export async function criarLembrete(
   return prisma.maintenanceReminder.create({
     data: {
       veiculo_id: veiculoId,
+      nome: overrides?.nome ?? "Revisão",
       intervalo_dias: overrides?.intervalo_dias ?? 90,
       intervalo_km: overrides?.intervalo_km ?? 5000,
       proxima_data: overrides?.proxima_data ?? new Date(),

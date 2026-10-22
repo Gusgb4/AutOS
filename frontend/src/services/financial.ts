@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { ConsultaPainel } from "../lib/periodoPainel";
 import type {
   FormaOuNaoInformado,
   FormaPagamento,
@@ -138,9 +139,19 @@ export interface ResumoFinanceiro {
 }
 
 // Sem datas: mês atual comparado com o mês anterior
-export async function getResumoFinanceiro(inicio?: string, fim?: string) {
+// Sem nada: mês atual comparado com o mês anterior
+export async function getResumoFinanceiro(consulta: ConsultaPainel = {}) {
+  const params: Record<string, string> = {};
+  if (consulta.inicio && consulta.fim) {
+    params.inicio = consulta.inicio;
+    params.fim = consulta.fim;
+  }
+  if (consulta.compararInicio && consulta.compararFim) {
+    params.comparar_inicio = consulta.compararInicio;
+    params.comparar_fim = consulta.compararFim;
+  }
   const { data } = await api.get<ResumoFinanceiro>("/financial/resumo", {
-    params: inicio && fim ? { inicio, fim } : undefined,
+    params: Object.keys(params).length ? params : undefined,
   });
   return data;
 }

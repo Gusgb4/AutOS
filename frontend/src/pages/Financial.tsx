@@ -21,6 +21,13 @@ import StatCard from "../components/ui/StatCard";
 import PagamentoBadge from "../components/ui/PagamentoBadge";
 import FinancialEntryModal from "../components/financial/FinancialEntryModal";
 import DistribuicaoCard from "../components/financial/DistribuicaoCard";
+import PainelPeriodo from "../components/financial/PainelPeriodo";
+import {
+  PAINEL_INICIAL,
+  calcularConsulta,
+  type ConsultaPainel,
+  type EstadoPainel,
+} from "../lib/periodoPainel";
 import {
   FORMA_LABEL,
   rotuloForma,
@@ -85,6 +92,7 @@ export default function Financial() {
   const [erro, setErro] = useState<string | null>(null);
 
   const [filtros, setFiltros] = useState(filtrosVazios);
+  const [painel, setPainel] = useState<EstadoPainel>(PAINEL_INICIAL);
 
   const [modalAberto, setModalAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -110,14 +118,8 @@ export default function Financial() {
         estornados: alvo.estornados,
       });
       setLancamentos(data);
-
-      const temPeriodo = Boolean(alvo.inicio && alvo.fim);
-      setResumo(
-        await getResumoFinanceiro(
-          temPeriodo ? alvo.inicio : undefined,
-          temPeriodo ? alvo.fim : undefined,
-        ),
-      );
+      // Lançou ou estornou algo: os cards também mudam
+      await recarregarResumo();
     } catch (e) {
       setErro(
         (isAxiosError(e) ? e.response?.data?.erro : undefined) ??
@@ -148,14 +150,6 @@ export default function Financial() {
         if (ativo) setLoading(false);
       });
 
-    getResumoFinanceiro()
-      .then((data) => {
-        if (ativo) setResumo(data);
-      })
-      .catch(() => {
-        if (ativo) setResumo(null);
-      });
-
     getContasAReceber()
       .then((data) => {
         if (ativo) setAReceber(data);
@@ -169,6 +163,37 @@ export default function Financial() {
     };
   }, []);
 
+  // Cards e blocos do topo seguem o painel de período (abre no mês atual);
+  // os filtros de data da lista de lançamentos são só da lista
+  const consultaPainel = calcularConsulta(painel);
+  const chavePainel = JSON.stringify(consultaPainel);
+
+  async function recarregarResumo() {
+    if (!consultaPainel) return;
+    try {
+      setResumo(await getResumoFinanceiro(consultaPainel));
+    } catch {
+      setResumo(null);
+    }
+  }
+
+  useEffect(() => {
+    const consulta = JSON.parse(chavePainel) as ConsultaPainel | null;
+    if (!consulta) return;
+    // Resposta de uma escolha antiga não sobrescreve a atual
+    let ativo = true;
+    getResumoFinanceiro(consulta)
+      .then((data) => {
+        if (ativo) setResumo(data);
+      })
+      .catch(() => {
+        if (ativo) setResumo(null);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [chavePainel]);
+
   function aplicarFiltro(patch: Partial<Filtros>) {
     const novos = { ...filtros, ...patch };
     // Categoria é só de despesa e forma é só de receita: os dois juntos
@@ -179,7 +204,7 @@ export default function Financial() {
     carregar(novos);
   }
 
-  // Os cards mostram o período (filtro ou mes atual), o mesmo da comparação
+  // Os cards mostram o período do painel, comparado como escolhido lá
   const totalReceitas = resumo?.atual.entradas ?? 0;
   const totalDespesas = resumo?.atual.saidas ?? 0;
   const saldo = resumo?.atual.saldo ?? 0;
@@ -250,6 +275,8 @@ export default function Financial() {
         </button>
       </div>
 
+      <PainelPeriodo estado={painel} onChange={setPainel} />
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="RECEITAS"
@@ -292,7 +319,7 @@ export default function Financial() {
           {dataBR(resumo.periodo.fim)} · comparado com{" "}
           {dataBR(resumo.periodo_anterior.inicio)} a{" "}
           {dataBR(resumo.periodo_anterior.fim)}
-          {!(filtros.inicio && filtros.fim) && " (mês atual)"}
+          {painel.periodo === "mes" && " (mês atual)"}
         </p>
       )}
 
