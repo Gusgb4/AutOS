@@ -4,3 +4,6 @@ dist
 /src/generated/prisma
 .env.test
 coverage
+# Backups do banco: têm dados de clientes, nunca vão pro git
+backups
+*.dump
