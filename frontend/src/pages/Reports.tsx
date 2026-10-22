@@ -374,13 +374,13 @@ export default function Reports() {
     try {
       // O jspdf é pesado: só é carregado quando alguém pede o PDF
       const pdf = await import("../lib/pdfRelatorios");
-      if (tipo === "vendas" && vendas) pdf.baixarPdfVendas(vendas, inicio, fim);
+      if (tipo === "vendas" && vendas) await pdf.baixarPdfVendas(vendas, inicio, fim);
       if (tipo === "inventario" && inventario)
-        pdf.baixarPdfInventario(inventario, inicio, fim);
+        await pdf.baixarPdfInventario(inventario, inicio, fim);
       if (tipo === "resumo" && resumo)
-        pdf.baixarPdfResumoFinanceiro(resumo, inicio, fim);
+        await pdf.baixarPdfResumoFinanceiro(resumo, inicio, fim);
       if (tipo === "atividade" && atividade)
-        pdf.baixarPdfAtividadeClientes(atividade, inicio, fim);
+        await pdf.baixarPdfAtividadeClientes(atividade, inicio, fim);
     } catch (err) {
       console.error(err);
       setErroPdf("Não foi possível gerar o PDF.");

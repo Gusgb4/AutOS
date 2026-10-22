@@ -41,10 +41,19 @@ const mensagemIntervalos = {
   path: ["intervalo_dias"],
 };
 
+// Opcional; vazio apaga
+const corSchema = z
+  .string()
+  .trim()
+  .nullable()
+  .optional()
+  .transform((v) => (v === "" ? null : v));
+
 const createVehicleSchema = z
   .object({
     cliente_id: z.number().int().positive(),
     placa: z.string().min(1, "Placa é obrigatória."),
+    cor: corSchema,
     marca: z.string().min(1, "Marca é obrigatória."),
     modelo: z.string().min(1, "Modelo é obrigatório."),
     ano: z
@@ -62,6 +71,7 @@ const updateVehicleSchema = z
   .object({
     cliente_id: z.number().int().positive().optional(),
     placa: z.string().min(1).optional(),
+    cor: corSchema,
     marca: z.string().min(1).optional(),
     modelo: z.string().min(1).optional(),
     ano: z

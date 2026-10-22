@@ -65,7 +65,8 @@ export default function NewServiceOrder() {
   const [veiculoId, setVeiculoId] = useState<number | "">("");
   const [mecanicoId, setMecanicoId] = useState<number | "">("");
   const [quilometragem, setQuilometragem] = useState("");
-  const [observacoes, setObservacoes] = useState("");
+  const [reclamacao, setReclamacao] = useState("");
+  const [previsaoEntrega, setPrevisaoEntrega] = useState("");
   const [criando, setCriando] = useState(false);
   const [erroCriacao, setErroCriacao] = useState<string | null>(null);
 
@@ -149,7 +150,8 @@ export default function NewServiceOrder() {
         cliente_id: Number(clienteId),
         veiculo_id: Number(veiculoId),
         mecanico_id: Number(mecanicoId),
-        observacoes: observacoes.trim() || undefined,
+        reclamacao: reclamacao.trim() || undefined,
+        previsao_entrega: previsaoEntrega || undefined,
         quilometragem_registrada:
           quilometragem !== "" ? Number(quilometragem) : undefined,
       });
@@ -531,15 +533,28 @@ export default function NewServiceOrder() {
               Vem com a km atual do veículo. Corrija se o painel marcar mais.
             </p>
           </Field>
+          <Field label="Previsão de entrega (opcional)">
+            <input
+              type="date"
+              value={previsaoEntrega}
+              onChange={(e) => setPrevisaoEntrega(e.target.value)}
+              disabled={!!ordem}
+              className={plainInputClass}
+            />
+            <p className="text-xs text-gray-400">
+              Vai no orçamento enviado ao cliente.
+            </p>
+          </Field>
         </div>
 
         <div className="border-t border-gray-100 p-5">
-          <Field label="Observações (opcional)">
+          {/* As informações ao cliente ficam pra tela da OS, depois do diagnóstico */}
+          <Field label="Reclamação do cliente (opcional)">
             <textarea
-              value={observacoes}
-              onChange={(e) => setObservacoes(e.target.value)}
+              value={reclamacao}
+              onChange={(e) => setReclamacao(e.target.value)}
               disabled={!!ordem}
-              placeholder="Alguma anotação para o mecânico responsável..."
+              placeholder="O que o cliente relatou. Ex.: barulho ao frear"
               rows={2}
               className={plainInputClass}
             />

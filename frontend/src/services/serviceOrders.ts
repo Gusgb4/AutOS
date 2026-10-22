@@ -58,13 +58,19 @@ export interface ServiceOrder {
   valor_pago: string;
   saldo: string;
   status_pagamento: StatusPagamento | null;
+  // Informações ao cliente: saem no PDF
   observacoes: string | null;
+  // O que o cliente relatou na entrada, antes do diagnóstico
+  reclamacao: string | null;
+  previsao_entrega: string | null;
   quilometragem_registrada: number | null;
   created_at: string;
+  finalizada_em: string | null;
   cliente: { id: number; nome: string; telefone: string };
   veiculo: {
     id: number;
     placa: string;
+    cor?: string | null;
     marca: string;
     modelo: string;
     ano: number;
@@ -114,6 +120,8 @@ export async function createServiceOrder(dados: {
   veiculo_id: number;
   mecanico_id: number;
   observacoes?: string;
+  reclamacao?: string;
+  previsao_entrega?: string; // "2026-10-25"
   quilometragem_registrada?: number;
 }): Promise<ServiceOrder> {
   const { data } = await api.post<ServiceOrder>("/service-orders", dados);
@@ -171,15 +179,18 @@ export async function removePartFromOrder(ordemId: number, partId: number) {
   return data;
 }
 
-export async function updateServiceOrderObservacoes(
+// Só os campos enviados mudam; "" apaga o campo
+export async function updateServiceOrderDetalhes(
   ordemId: number,
-  observacoes: string,
+  dados: {
+    observacoes?: string;
+    reclamacao?: string;
+    previsao_entrega?: string; // "2026-10-25"
+  },
 ) {
   const { data } = await api.patch<ServiceOrder>(
-    `/service-orders/${ordemId}/observacoes`,
-    {
-      observacoes,
-    },
+    `/service-orders/${ordemId}/detalhes`,
+    dados,
   );
   return data;
 }

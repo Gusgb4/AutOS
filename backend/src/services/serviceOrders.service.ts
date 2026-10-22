@@ -256,7 +256,9 @@ interface CreateServiceOrderInput {
   veiculo_id: number;
   mecanico_id: number;
   quilometragem_registrada?: number;
-  observacoes?: string;
+  observacoes?: string | null;
+  reclamacao?: string | null;
+  previsao_entrega?: Date | null;
 }
 
 export async function create(
@@ -505,9 +507,17 @@ export async function changeStatus(
   });
 }
 
-export async function updateObservacoes(
+interface DetalhesOrdemInput {
+  observacoes?: string | null;
+  reclamacao?: string | null;
+  previsao_entrega?: Date | null;
+}
+
+// Reclamação, previsão de entrega e informações ao cliente.
+// undefined = não mexe; null = apaga
+export async function updateDetalhes(
   ordemId: number,
-  observacoes: string | undefined,
+  dados: DetalhesOrdemInput,
   perfil: Perfil | undefined,
 ) {
   const ordem = await prisma.serviceOrder.findUnique({
@@ -520,7 +530,7 @@ export async function updateObservacoes(
 
   const atualizada = await prisma.serviceOrder.update({
     where: { id: ordemId },
-    data: { observacoes },
+    data: dados,
     include: ordemCompleta,
   });
 

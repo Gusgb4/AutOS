@@ -65,6 +65,7 @@ model Vehicle {
   marca               String
   modelo              String
   ano                 Int
+  cor                 String?
   quilometragem_atual Int       @default(0)
   ativo               Boolean   @default(true)
   arquivado_em        DateTime?
@@ -115,7 +116,11 @@ model ServiceOrder {
   mecanico_id              Int
   status                   StatusOrdemServico @default(ABERTA)
   valor_total              Decimal            @default(0) @db.Decimal(10, 2)
+  // Informações ao cliente: saem no PDF
   observacoes              String?
+  // O que o cliente relatou na entrada ("barulho ao frear"), antes do diagnóstico
+  reclamacao               String?
+  previsao_entrega         DateTime?
   quilometragem_registrada Int?
   finalizada_em            DateTime?
   created_at               DateTime           @default(now())

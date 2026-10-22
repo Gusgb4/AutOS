@@ -14,20 +14,32 @@ export function montarLinkWhatsApp(telefone: string, mensagem: string) {
   return `https://wa.me/${comDDI}?text=${encodeURIComponent(mensagem)}`;
 }
 
-// Orçamento da OS
+// Orçamento da OS: mensagem curta, no formato que a oficina já manda.
+// A resposta do cliente fica como a autorização do serviço.
+// Depois de finalizada, vira o aviso de que o carro está pronto.
 export function buildWhatsAppLink(order: ServiceOrder) {
   const linhasServicos = order.servicos
-    .map((s) => `- ${s.descricao}: ${formatCurrency(s.valor)}`)
+    .map((s) => `${s.descricao}: ${formatCurrency(s.valor)}`)
     .join("\n");
 
   const linhasPecas = order.pecas
     .map(
       (p) =>
-        `- ${p.item_estoque.nome} (x${p.quantidade}): ${formatCurrency(Number(p.valor_unitario) * p.quantidade)}`,
+        `${p.item_estoque.nome} (x${p.quantidade}): ${formatCurrency(Number(p.valor_unitario) * p.quantidade)}`,
     )
     .join("\n");
 
-  const mensagem = `Olá ${order.cliente?.nome}!\n\nSegue o orçamento da sua *OS #${order.id}*.\nVeículo: *${order.veiculo?.marca} ${order.veiculo?.modelo}*.\n\n*Serviços:*\n${linhasServicos || "Nenhum serviço."}\n\n*Peças:*\n${linhasPecas || "Nenhuma peça."}\n\n*Valor total: ${formatCurrency(order.valor_total)}*`;
+  const finalizada = order.status === "FINALIZADA";
+
+  const partes = [
+    `Olá ${order.cliente?.nome}!`,
+    `${finalizada ? "Seu veículo está pronto!" : "Segue o orçamento:"}\nVeículo: *${order.veiculo?.marca} ${order.veiculo?.modelo}*`,
+    `*Serviços:*\n${linhasServicos || "Nenhum serviço."}`,
+    `*Peças:*\n${linhasPecas || "Nenhuma peça."}`,
+    `*Valor total: ${formatCurrency(order.valor_total)}*`,
+    finalizada ? null : "Para autorizar o serviço, é só responder esta mensagem.",
+  ];
+  const mensagem = partes.filter(Boolean).join("\n\n");
 
   return montarLinkWhatsApp(order.cliente?.telefone ?? "", mensagem);
 }
