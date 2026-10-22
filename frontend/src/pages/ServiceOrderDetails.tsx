@@ -18,6 +18,7 @@ import {
   PackageSearch,
   AlertTriangle,
   TrendingUp,
+  Bell,
 } from "lucide-react";
 import StatusBadge from "../components/ui/StatusBadge";
 import { listStock, type StockItem } from "../services/stock";
@@ -38,6 +39,7 @@ import PagamentosCard from "../components/serviceOrders/PagamentosCard";
 import { useAuth } from "../contexts/AuthContext";
 import { formatPercent } from "../lib/relatorios";
 import { mensagemDeErro } from "../lib/errors";
+import { isLembreteVencido } from "../lib/maintenance";
 
 const plainInputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] px-3 py-2.5 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
@@ -121,6 +123,8 @@ export default function ServiceOrderDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processando, setProcessando] = useState(false);
+  // Lembretes do veículo marcados como feitos nesta OS (reiniciam ao encerrar)
+  const [lembretesFeitos, setLembretesFeitos] = useState<number[]>([]);
   const [erroAcao, setErroAcao] = useState<string | null>(null);
   const [gerandoPdf, setGerandoPdf] = useState(false);
 
@@ -437,7 +441,12 @@ export default function ServiceOrderDetails() {
       if (atual.status === "ABERTA") {
         atual = await changeServiceOrderStatus(ordem.id, "EM_ANDAMENTO");
       }
-      const finalizada = await changeServiceOrderStatus(atual.id, "FINALIZADA");
+      const finalizada = await changeServiceOrderStatus(
+        atual.id,
+        "FINALIZADA",
+        lembretesFeitos,
+      );
+      setLembretesFeitos([]);
       setOrdem(finalizada);
     } catch (err) {
       setErroAcao(mensagemDeErro(err, "Erro ao encerrar a ordem de serviço."));
@@ -703,6 +712,70 @@ export default function ServiceOrderDetails() {
           <p className="px-5 pb-4 text-sm text-red-500">{erroDetalhes}</p>
         )}
       </div>
+
+      {/* LEMBRETES DO VEÍCULO: o que for feito nesta OS reinicia ao encerrar */}
+      {podeAgir && (ordem.veiculo?.lembretes?.length ?? 0) > 0 && (
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+          <div className="flex items-center gap-3 border-b border-gray-100 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+              <Bell size={18} />
+            </div>
+            <div>
+              <p className="font-semibold text-[#1F1F1F]">
+                Lembretes do veículo
+              </p>
+              <p className="text-xs text-gray-500">
+                Marque o que foi feito nesta OS. Ao encerrar, a contagem desses
+                lembretes recomeça a partir de hoje e da km atual.
+              </p>
+            </div>
+          </div>
+          <ul className="divide-y divide-gray-50">
+            {ordem.veiculo.lembretes!.map((l) => {
+              const vencido = isLembreteVencido(
+                l,
+                ordem.veiculo.quilometragem_atual,
+              );
+              const marcado = lembretesFeitos.includes(l.id);
+              return (
+                <li key={l.id}>
+                  <label className="flex cursor-pointer items-center gap-3 px-5 py-3 hover:bg-gray-50/60">
+                    <input
+                      type="checkbox"
+                      checked={marcado}
+                      onChange={(e) =>
+                        setLembretesFeitos((atuais) =>
+                          e.target.checked
+                            ? [...atuais, l.id]
+                            : atuais.filter((id) => id !== l.id),
+                        )
+                      }
+                      className="h-4 w-4 accent-[#FF7518]"
+                    />
+                    <span className="flex-1 text-sm text-[#1F1F1F]">
+                      {l.nome}
+                      <span
+                        className={`ml-2 text-xs ${
+                          vencido ? "font-semibold text-red-600" : "text-gray-400"
+                        }`}
+                      >
+                        {vencido ? "vencido" : "próximo"}:{" "}
+                        {new Date(l.proxima_data).toLocaleDateString("pt-BR")}{" "}
+                        ou {Number(l.proximo_km).toLocaleString("pt-BR")} km
+                      </span>
+                    </span>
+                    {marcado && (
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                        Feito nesta OS
+                      </span>
+                    )}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* SERVIÇOS */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">

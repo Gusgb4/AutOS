@@ -63,7 +63,7 @@ function textoCelula(celula: Celula) {
 }
 
 /**
- * Cabeçalho com o período do relatório e, logo abaixo, o período anterior
+ * Cabeçalho com o período do relatório e, logo abaixo, o período comparado
  * usado no comparativo. Devolve o Y em que o conteúdo deve começar.
  */
 function desenharInicio(
@@ -79,7 +79,7 @@ function desenharInicio(
     titulo,
     `${formatDate(inicio)} a ${formatDate(fim)}`,
   );
-  const comparativo = `Comparado com o período anterior: ${formatDate(anterior.inicio)} a ${formatDate(anterior.fim)}.`;
+  const comparativo = `Comparado com: ${formatDate(anterior.inicio)} a ${formatDate(anterior.fim)}.`;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);

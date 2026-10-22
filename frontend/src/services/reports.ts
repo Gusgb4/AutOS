@@ -131,34 +131,62 @@ export interface AtividadeClientes {
   }[];
 }
 
-export async function getVendasPorPeriodo(inicio: string, fim: string) {
+// Período de comparação escolhido na tela; sem ele, o backend usa o anterior
+export type Comparacao = PeriodoDatas | undefined;
+
+function params(inicio: string, fim: string, comparacao: Comparacao) {
+  return comparacao
+    ? {
+        inicio,
+        fim,
+        comparar_inicio: comparacao.inicio,
+        comparar_fim: comparacao.fim,
+      }
+    : { inicio, fim };
+}
+
+export async function getVendasPorPeriodo(
+  inicio: string,
+  fim: string,
+  comparacao?: Comparacao,
+) {
   const { data } = await api.get<VendasPorPeriodo>("/reports/sales", {
-    params: { inicio, fim },
+    params: params(inicio, fim, comparacao),
   });
   return data;
 }
 
-export async function getStatusInventario(inicio: string, fim: string) {
+export async function getStatusInventario(
+  inicio: string,
+  fim: string,
+  comparacao?: Comparacao,
+) {
   const { data } = await api.get<StatusInventario>("/reports/inventory", {
-    params: { inicio, fim },
+    params: params(inicio, fim, comparacao),
   });
   return data;
 }
 
-export async function getResumoFinanceiro(inicio: string, fim: string) {
+export async function getResumoFinanceiro(
+  inicio: string,
+  fim: string,
+  comparacao?: Comparacao,
+) {
   const { data } = await api.get<ResumoFinanceiro>(
     "/reports/financial-summary",
-    { params: { inicio, fim } },
+    { params: params(inicio, fim, comparacao) },
   );
   return data;
 }
 
-export async function getAtividadeClientes(inicio: string, fim: string) {
+export async function getAtividadeClientes(
+  inicio: string,
+  fim: string,
+  comparacao?: Comparacao,
+) {
   const { data } = await api.get<AtividadeClientes>(
     "/reports/client-activity",
-    {
-      params: { inicio, fim },
-    },
+    { params: params(inicio, fim, comparacao) },
   );
   return data;
 }

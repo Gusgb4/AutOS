@@ -269,8 +269,8 @@ describe("Transições de status", () => {
   });
 });
 
-describe("Lembrete de manutenção ao finalizar a OS", () => {
-  it("recalcula próximo_km e próxima_data com base na quilometragem atual do veículo", async () => {
+describe("Lembretes de manutenção ao finalizar a OS", () => {
+  it("o lembrete marcado como feito recalcula próximo_km e próxima_data pela km atual", async () => {
     const { token } = await criarProprietario();
     const mecanico = await criarFuncionario();
     const ordem = await criarOrdem(mecanico.usuario.id, "EM_ANDAMENTO");
@@ -280,7 +280,7 @@ describe("Lembrete de manutenção ao finalizar a OS", () => {
       data: { quilometragem_atual: 50000 },
     });
 
-    await criarLembrete(ordem.veiculo_id, {
+    const criado = await criarLembrete(ordem.veiculo_id, {
       intervalo_dias: 90,
       intervalo_km: 5000,
       proxima_data: new Date("2020-01-01"),
@@ -290,12 +290,12 @@ describe("Lembrete de manutenção ao finalizar a OS", () => {
     const res = await request(app)
       .patch(`/api/service-orders/${ordem.id}/status`)
       .set("Authorization", `Bearer ${token}`)
-      .send({ status: "FINALIZADA" });
+      .send({ status: "FINALIZADA", lembretes_feitos: [criado.id] });
 
     expect(res.status).toBe(200);
 
     const lembrete = await prisma.maintenanceReminder.findUniqueOrThrow({
-      where: { veiculo_id: ordem.veiculo_id },
+      where: { id: criado.id },
     });
     expect(lembrete.proximo_km).toBe(55000);
 
@@ -304,6 +304,74 @@ describe("Lembrete de manutenção ao finalizar a OS", () => {
     expect(lembrete.proxima_data.toISOString().slice(0, 10)).toBe(
       esperado.toISOString().slice(0, 10),
     );
+  });
+
+  it("só os lembretes marcados reiniciam; os outros ficam como estavam", async () => {
+    const { token } = await criarProprietario();
+    const mecanico = await criarFuncionario();
+    const ordem = await criarOrdem(mecanico.usuario.id, "EM_ANDAMENTO");
+    const antiga = new Date("2020-01-01");
+    const oleo = await criarLembrete(ordem.veiculo_id, {
+      nome: "Troca de óleo",
+      proxima_data: antiga,
+      proximo_km: 1000,
+    });
+    const correia = await criarLembrete(ordem.veiculo_id, {
+      nome: "Correia dentada",
+      proxima_data: antiga,
+      proximo_km: 1000,
+    });
+
+    await request(app)
+      .patch(`/api/service-orders/${ordem.id}/status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "FINALIZADA", lembretes_feitos: [oleo.id] });
+
+    const oleoDepois = await prisma.maintenanceReminder.findUniqueOrThrow({
+      where: { id: oleo.id },
+    });
+    const correiaDepois = await prisma.maintenanceReminder.findUniqueOrThrow({
+      where: { id: correia.id },
+    });
+    expect(oleoDepois.proxima_data.getTime()).toBeGreaterThan(antiga.getTime());
+    expect(correiaDepois.proxima_data.getTime()).toBe(antiga.getTime());
+    expect(correiaDepois.proximo_km).toBe(1000);
+  });
+
+  it("sem marcar nada, nenhum lembrete reinicia", async () => {
+    const { token } = await criarProprietario();
+    const mecanico = await criarFuncionario();
+    const ordem = await criarOrdem(mecanico.usuario.id, "EM_ANDAMENTO");
+    const lembrete = await criarLembrete(ordem.veiculo_id, { proximo_km: 1000 });
+
+    await request(app)
+      .patch(`/api/service-orders/${ordem.id}/status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "FINALIZADA" });
+
+    const depois = await prisma.maintenanceReminder.findUniqueOrThrow({
+      where: { id: lembrete.id },
+    });
+    expect(depois.proximo_km).toBe(1000);
+  });
+
+  it("recusa lembrete de outro veículo (400) e não finaliza a OS", async () => {
+    const { token } = await criarProprietario();
+    const mecanico = await criarFuncionario();
+    const ordem = await criarOrdem(mecanico.usuario.id, "EM_ANDAMENTO");
+    const outra = await criarOrdem(mecanico.usuario.id, "EM_ANDAMENTO");
+    const deOutroCarro = await criarLembrete(outra.veiculo_id);
+
+    const res = await request(app)
+      .patch(`/api/service-orders/${ordem.id}/status`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({ status: "FINALIZADA", lembretes_feitos: [deOutroCarro.id] });
+
+    expect(res.status).toBe(400);
+    const depois = await prisma.serviceOrder.findUniqueOrThrow({
+      where: { id: ordem.id },
+    });
+    expect(depois.status).toBe("EM_ANDAMENTO");
   });
 
   it("sem lembrete cadastrado, finalizar a OS não falha", async () => {

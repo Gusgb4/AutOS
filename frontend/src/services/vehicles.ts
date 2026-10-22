@@ -1,6 +1,9 @@
 import { api } from "./api";
 
 export interface MaintenanceReminder {
+  id: number;
+  // "Troca de óleo", "Correia dentada"...
+  nome: string;
   intervalo_dias: number;
   intervalo_km: number;
   proxima_data: string;
@@ -16,7 +19,15 @@ export interface Vehicle {
   modelo: string;
   ano: number;
   quilometragem_atual?: number;
-  lembrete_manutencao?: MaintenanceReminder | null;
+  lembretes?: MaintenanceReminder[];
+}
+
+// Lembrete enviado ao salvar o veículo: com id é um que já existe
+export interface LembretePayload {
+  id?: number;
+  nome: string;
+  intervalo_dias: number;
+  intervalo_km: number;
 }
 
 export interface CreateVehiclePayload {
@@ -27,8 +38,8 @@ export interface CreateVehiclePayload {
   modelo: string;
   ano: number;
   quilometragem_atual?: number;
-  intervalo_dias?: number | null;
-  intervalo_km?: number | null;
+  // Ao editar, a lista enviada substitui os lembretes do veículo
+  lembretes?: LembretePayload[];
 }
 
 export interface UpdateVehiclePayload {
@@ -39,8 +50,8 @@ export interface UpdateVehiclePayload {
   modelo?: string;
   ano?: number;
   quilometragem_atual?: number;
-  intervalo_dias?: number | null;
-  intervalo_km?: number | null;
+  // Ao editar, a lista enviada substitui os lembretes do veículo
+  lembretes?: LembretePayload[];
 }
 
 export async function listVehicles(placa?: string): Promise<Vehicle[]> {

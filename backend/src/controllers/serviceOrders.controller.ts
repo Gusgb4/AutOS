@@ -134,13 +134,20 @@ export async function removeServiceController(req: Request, res: Response) {
 
 const changeStatusSchema = z.object({
   status: statusSchema,
+  // Ao finalizar: ids dos lembretes do veículo feitos nesta OS
+  lembretes_feitos: z.array(z.number().int().positive()).optional(),
 });
 
 // PATCH /api/service-orders/:id/status
 export async function changeStatusController(req: Request, res: Response) {
   const ordemId = Number(req.params.id);
-  const { status } = changeStatusSchema.parse(req.body);
-  const ordem = await changeStatus(ordemId, status, req.user?.perfil);
+  const { status, lembretes_feitos } = changeStatusSchema.parse(req.body);
+  const ordem = await changeStatus(
+    ordemId,
+    status,
+    req.user?.perfil,
+    lembretes_feitos,
+  );
   return res.status(200).json(ordem);
 }
 

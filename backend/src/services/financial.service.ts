@@ -194,7 +194,12 @@ function mesAnterior(mes: string) {
 
 // Com período: compara com o anterior de mesma duração.
 // Sem período: mês atual contra o mês anterior.
-export async function resumoComparativo(inicio?: string, fim?: string) {
+export async function resumoComparativo(
+  inicio?: string,
+  fim?: string,
+  compararInicio?: string,
+  compararFim?: string,
+) {
   let atual: Periodo;
   let anterior: Periodo;
 
@@ -205,6 +210,11 @@ export async function resumoComparativo(inicio?: string, fim?: string) {
     const mes = mesAtual();
     atual = parseMes(mes);
     anterior = parseMes(mesAnterior(mes));
+  }
+
+  // Comparação escolhida na tela vale mais que a automática
+  if (compararInicio && compararFim) {
+    anterior = parsePeriodo(compararInicio, compararFim);
   }
 
   const [totaisAtual, totaisAnterior, porCategoria, porForma] =

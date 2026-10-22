@@ -48,6 +48,8 @@ interface DadosRevisao {
   cliente_nome: string;
   telefone: string;
   veiculo: string;
+  // Nome do lembrete: "Troca de óleo", "Correia dentada"...
+  lembrete: string;
   proxima_data: string;
   proximo_km: number;
   quilometragem_atual: number;
@@ -77,7 +79,7 @@ export function buildRevisaoWhatsAppLink(revisao: DadosRevisao) {
   const kmAtual = revisao.quilometragem_atual.toLocaleString("pt-BR");
   const situacao = revisao.vencida ? "já venceu" : "está chegando";
 
-  const mensagem = `Olá ${revisao.cliente_nome}!\n\nA revisão do seu *${revisao.veiculo}* ${situacao}.\n\n*Previsto para a revisão:*\n- Data: *${data}* (${situacaoData})\n- Quilometragem: *${kmPrevisto} km* (o veículo está com *${kmAtual} km*)\n\nA revisão vale pelo que chegar primeiro: a data ou a quilometragem.\n\nQuer agendar um horário?`;
+  const mensagem = `Olá ${revisao.cliente_nome}!\n\nO lembrete de *${revisao.lembrete}* do seu *${revisao.veiculo}* ${situacao}.\n\n*Previsto:*\n- Data: *${data}* (${situacaoData})\n- Quilometragem: *${kmPrevisto} km* (o veículo está com *${kmAtual} km*)\n\nVale o que chegar primeiro: a data ou a quilometragem.\n\nQuer agendar um horário?`;
 
   return montarLinkWhatsApp(revisao.telefone, mensagem);
 }

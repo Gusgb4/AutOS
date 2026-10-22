@@ -52,9 +52,12 @@ no PDF pelo Gustavo Franz na atividade do Teams.
 - Pagamentos da OS (parciais, com forma de pagamento e estorno) e contas a receber
 - Financeiro com comparativo de período, despesas por categoria e recebido por
   forma de pagamento
-- Relatórios em PDF e CSV com comparativo, giro de estoque, previsão de falta e
+- Relatórios com gráficos, em PDF e CSV, comparando com o período anterior, com
+  o ano passado ou com datas escolhidas; giro de estoque, previsão de falta e
   produtividade por mecânico
-- Notificações: revisões, estoque baixo e pagamentos atrasados
+- Lembretes de manutenção com nome (troca de óleo, correia...), vários por
+  veículo, marcados como feitos na OS
+- Notificações: lembretes vencidos, estoque baixo e pagamentos atrasados
 - Senha provisória com troca obrigatória e limite de tentativas de login
 - LGPD: remoção de dados do cliente (anonimização), registro de acesso por 6
   meses, Termos de Uso e Política de Privacidade
@@ -137,9 +140,9 @@ O banco `autos_test` é criado sozinho na primeira execução. Os testes ficam e
 `backend/tests/`, e os helpers em `backend/tests/helpers/` criam usuários de
 cada perfil (`criarProprietario`, `criarFuncionario`) já com o token deles.
 
-São 87 testes em 8 arquivos: autenticação e perfis, contas de usuário, ordens
-de serviço, pagamentos e contas a receber, lançamentos manuais, LGPD e
-detalhes da OS.
+São 105 testes em 11 arquivos: autenticação e perfis, contas de usuário,
+ordens de serviço, lembretes de manutenção, relatórios, pagamentos e contas a
+receber, lançamentos manuais, LGPD e detalhes da OS.
 
 No frontend, `npm run lint` e `npm run build` (que inclui a checagem de tipos)
 devem passar sem erros.

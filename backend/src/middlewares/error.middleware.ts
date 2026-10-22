@@ -22,8 +22,16 @@ export function errorMiddleware(
 
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     if (err.code === "P2002") {
+      // Diz qual campo repetiu, em vez de uma mensagem genérica
+      const alvo = JSON.stringify(err.meta?.target ?? "");
+      const mensagens: [string, string][] = [
+        ["placa", "Já existe um veículo com essa placa."],
+        ["email", "Já existe um cadastro com esse e-mail."],
+        ["documento", "Já existe um cliente com esse documento."],
+      ];
+      const mensagem = mensagens.find(([campo]) => alvo.includes(campo))?.[1];
       return res.status(409).json({
-        erro: "Já existe um registro com esse valor único.",
+        erro: mensagem ?? "Já existe um registro com esse valor único.",
         campo: err.meta?.target,
       });
     }

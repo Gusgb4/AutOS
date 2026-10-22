@@ -1,4 +1,5 @@
 import { api } from "./api";
+import type { MaintenanceReminder } from "./vehicles";
 
 export type StatusOS = "ABERTA" | "EM_ANDAMENTO" | "FINALIZADA" | "CANCELADA";
 
@@ -74,6 +75,8 @@ export interface ServiceOrder {
     marca: string;
     modelo: string;
     ano: number;
+    quilometragem_atual?: number;
+    lembretes?: MaintenanceReminder[];
   };
   mecanico: { id: number; nome: string; email: string; perfil: string };
   servicos: { id: number; descricao: string; valor: string }[];
@@ -151,13 +154,16 @@ export async function addPartToOrder(
   return data;
 }
 
+// Ao finalizar, lembretesFeitos são os lembretes do veículo feitos nesta OS
+// (só eles reiniciam a contagem)
 export async function changeServiceOrderStatus(
   ordemId: number,
   status: StatusOS,
+  lembretesFeitos?: number[],
 ) {
   const { data } = await api.patch<ServiceOrder>(
     `/service-orders/${ordemId}/status`,
-    { status },
+    lembretesFeitos ? { status, lembretes_feitos: lembretesFeitos } : { status },
   );
   return data;
 }

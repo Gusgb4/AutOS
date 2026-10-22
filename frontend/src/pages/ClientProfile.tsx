@@ -43,7 +43,7 @@ import {
 } from "../services/serviceOrders";
 import { mensagemDeErro } from "../lib/errors";
 import { getUserRole } from "../lib/auth";
-import { isMaintenanceOverdue } from "../lib/maintenance";
+import { isLembreteVencido } from "../lib/maintenance";
 
 function formatCurrency(value: string | number) {
   return Number(value).toLocaleString("pt-BR", {
@@ -170,17 +170,13 @@ export default function ClientProfile() {
       data.quilometragem_atual !== ""
         ? Number(data.quilometragem_atual)
         : undefined;
-    const intervalo_dias =
-      data.intervalo_dias !== "" ? Number(data.intervalo_dias) : null;
-    const intervalo_km =
-      data.intervalo_km !== "" ? Number(data.intervalo_km) : null;
-
-    if ((intervalo_dias === null) !== (intervalo_km === null)) {
-      alert(
-        "Informe os dois intervalos (dias e km) ou deixe os dois em branco.",
-      );
-      return;
-    }
+    // O formulário já exige os campos; aqui só converte para número
+    const lembretes = data.lembretes.map((l) => ({
+      id: l.id,
+      nome: l.nome.trim(),
+      intervalo_dias: Number(l.intervalo_dias),
+      intervalo_km: Number(l.intervalo_km),
+    }));
 
     setSavingVehicle(true);
     try {
@@ -192,8 +188,7 @@ export default function ClientProfile() {
           cor: data.cor.trim(),
           ano: data.ano,
           quilometragem_atual,
-          intervalo_dias,
-          intervalo_km,
+          lembretes,
         });
       } else {
         await createVehicle({
@@ -204,8 +199,7 @@ export default function ClientProfile() {
           cor: data.cor.trim(),
           ano: data.ano,
           quilometragem_atual,
-          intervalo_dias,
-          intervalo_km,
+          lembretes,
         });
       }
       setVehicleModalOpen(false);
@@ -637,10 +631,12 @@ export default function ClientProfile() {
                 cor: editingVehicle.cor ?? "",
                 ano: editingVehicle.ano,
                 quilometragem_atual: editingVehicle.quilometragem_atual ?? "",
-                intervalo_dias:
-                  editingVehicle.lembrete_manutencao?.intervalo_dias ?? "",
-                intervalo_km:
-                  editingVehicle.lembrete_manutencao?.intervalo_km ?? "",
+                lembretes: (editingVehicle.lembretes ?? []).map((l) => ({
+                  id: l.id,
+                  nome: l.nome,
+                  intervalo_dias: l.intervalo_dias,
+                  intervalo_km: l.intervalo_km,
+                })),
               }
             : undefined
         }
@@ -684,21 +680,28 @@ function MiniStat({ icon: Icon, label, value, accentColor }: MiniStatProps) {
   );
 }
 
+// Uma linha por lembrete, com o vencido em vermelho
 function MaintenanceInfo({ vehicle }: { vehicle: Vehicle }) {
-  const lembrete = vehicle.lembrete_manutencao;
-  if (!lembrete) return null;
-
-  const vencido = isMaintenanceOverdue(vehicle);
+  const lembretes = vehicle.lembretes ?? [];
+  if (lembretes.length === 0) return null;
 
   return (
-    <span
-      className={`mt-1 block text-xs ${
-        vencido ? "font-semibold text-red-600" : "text-gray-500"
-      }`}
-    >
-      {vencido ? "Revisão vencida: " : "Próxima revisão: "}
-      {new Date(lembrete.proxima_data).toLocaleDateString("pt-BR")} ou{" "}
-      {Number(lembrete.proximo_km).toLocaleString("pt-BR")} km
+    <span className="mt-1 block space-y-0.5">
+      {lembretes.map((l) => {
+        const vencido = isLembreteVencido(l, vehicle.quilometragem_atual);
+        return (
+          <span
+            key={l.id}
+            className={`block text-xs ${
+              vencido ? "font-semibold text-red-600" : "text-gray-500"
+            }`}
+          >
+            {l.nome}: {vencido ? "vencido " : "próximo "}
+            {new Date(l.proxima_data).toLocaleDateString("pt-BR")} ou{" "}
+            {Number(l.proximo_km).toLocaleString("pt-BR")} km
+          </span>
+        );
+      })}
     </span>
   );
 }

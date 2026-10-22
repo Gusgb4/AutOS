@@ -9,10 +9,13 @@ import {
   Car,
   Tag,
   Hash,
-  Gauge, // <-- Importado para o ícone de KM
+  Gauge,
   Trash2,
   Check,
+  Palette,
 } from "lucide-react";
+import LembretesEditor, { type LembreteForm } from "./LembretesEditor";
+import type { LembretePayload } from "../../services/vehicles";
 
 export interface ClientFormData {
   nome: string;
@@ -25,8 +28,10 @@ export interface NewVehicleData {
   marca: string;
   modelo: string;
   placa: string;
+  cor: string;
   ano: number;
-  quilometragem_atual: number; // <-- Adicionado aqui
+  quilometragem_atual: number;
+  lembretes: LembretePayload[];
 }
 
 interface ClientFormModalProps {
@@ -51,8 +56,9 @@ const emptyVehicle = {
   marca: "",
   modelo: "",
   placa: "",
+  cor: "",
   ano: "",
-  quilometragem_atual: "", // <-- Adicionado aqui
+  quilometragem_atual: "",
 };
 
 function ClientFormModalContent({
@@ -69,6 +75,7 @@ function ClientFormModalContent({
 
   const [wantsVehicle, setWantsVehicle] = useState(false);
   const [vehicle, setVehicle] = useState(emptyVehicle);
+  const [lembretes, setLembretes] = useState<LembreteForm[]>([]);
 
   function handleChange<K extends keyof ClientFormData>(
     key: K,
@@ -103,8 +110,15 @@ function ClientFormModalContent({
         marca: vehicle.marca,
         modelo: vehicle.modelo,
         placa: vehicle.placa,
+        cor: vehicle.cor.trim(),
         ano: Number(vehicle.ano),
         quilometragem_atual: Number(vehicle.quilometragem_atual),
+        // Os campos dos lembretes já são obrigatórios no formulário
+        lembretes: lembretes.map((l) => ({
+          nome: l.nome.trim(),
+          intervalo_dias: Number(l.intervalo_dias),
+          intervalo_km: Number(l.intervalo_km),
+        })),
       };
     }
 
@@ -302,7 +316,20 @@ function ClientFormModalContent({
                         />
                       </InputWithIcon>
                     </Field>
-                    <Field label="Quilometragem (KM)" full>
+                    <Field label="Cor (opcional)">
+                      <InputWithIcon icon={Palette}>
+                        <input
+                          type="text"
+                          value={vehicle.cor}
+                          onChange={(e) =>
+                            handleVehicleChange("cor", e.target.value)
+                          }
+                          placeholder="Ex: Prata"
+                          className="input-field"
+                        />
+                      </InputWithIcon>
+                    </Field>
+                    <Field label="Quilometragem (KM)">
                       <InputWithIcon icon={Gauge}>
                         <input
                           type="number"
@@ -320,6 +347,7 @@ function ClientFormModalContent({
                       </InputWithIcon>
                     </Field>
                   </div>
+                  <LembretesEditor lembretes={lembretes} onChange={setLembretes} />
                 </div>
               )}
             </>

@@ -74,7 +74,7 @@ model Vehicle {
 
   cliente             Client               @relation(fields: [cliente_id], references: [id], onDelete: Restrict)
   ordens_servico      ServiceOrder[]
-  lembrete_manutencao MaintenanceReminder?
+  lembretes           MaintenanceReminder[]
 
   @@index([placa])
   @@index([cliente_id])
@@ -172,9 +172,12 @@ model ServiceOrderPart {
   @@map("service_order_parts")
 }
 
+// Um veículo pode ter vários lembretes (troca de óleo, correia dentada...).
+// Vence pelo que chegar primeiro: a data ou a quilometragem.
 model MaintenanceReminder {
   id             Int      @id @default(autoincrement())
-  veiculo_id     Int      @unique
+  veiculo_id     Int
+  nome           String
   intervalo_dias Int
   intervalo_km   Int
   proxima_data   DateTime
@@ -184,6 +187,7 @@ model MaintenanceReminder {
 
   veiculo Vehicle @relation(fields: [veiculo_id], references: [id], onDelete: Cascade)
 
+  @@index([veiculo_id])
   @@map("maintenance_reminders")
 }
 

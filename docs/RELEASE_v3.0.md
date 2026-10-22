@@ -37,7 +37,8 @@ Inclui tudo o que entrou depois da release MVP2.5 (PRs #19 a #45).
 
 ## Financeiro
 
-- **Comparativo período a período** nos cards do dashboard.
+- **Painel de período**: abre no mês atual, com opção de mês passado ou datas
+  escolhidas, e comparação com o período anterior, o ano passado ou datas à mão.
 - **Despesas por categoria** (aluguel, salário, peças, energia, outros), com
   filtro e gráfico de barras.
 - **Recebido por forma de pagamento**, para conferir com o banco e a maquininha.
@@ -46,7 +47,11 @@ Inclui tudo o que entrou depois da release MVP2.5 (PRs #19 a #45).
 ## Relatórios
 
 - Exportação em **PDF**, além do CSV.
-- **Comparativo** com o período anterior em todos os relatórios.
+- **Comparativo** em todos os relatórios: com o período anterior, com o mesmo
+  período do ano passado ou com datas escolhidas.
+- **Gráficos** em cada relatório: faturamento ao longo do período (por dia ou
+  por mês), peças que mais saíram, clientes que mais gastaram, entradas ×
+  saídas e mão de obra × peças.
 - Relatórios de faturamento contam só OS finalizadas.
 - Resumo financeiro com mão de obra × peças, margem das peças e recebido por
   forma de pagamento.
@@ -55,8 +60,11 @@ Inclui tudo o que entrou depois da release MVP2.5 (PRs #19 a #45).
 
 ## Notificações
 
-- Sino com revisões vencidas ou próximas, estoque abaixo do mínimo e, para o
-  proprietário, pagamentos atrasados.
+- **Lembretes de manutenção com nome** (troca de óleo, correia dentada...):
+  vários por veículo, cada um com o seu intervalo em dias e km. Na OS, marca-se
+  o que foi feito, e só esses recomeçam a contagem ao encerrar.
+- Sino com um aviso por lembrete vencido ou próximo, estoque abaixo do mínimo e,
+  para o proprietário, pagamentos atrasados.
 
 ## Usuários, permissões e segurança
 
@@ -79,10 +87,10 @@ Inclui tudo o que entrou depois da release MVP2.5 (PRs #19 a #45).
 
 ## Qualidade
 
-- **87 testes automatizados** no backend (Vitest + Supertest), em banco
+- **105 testes automatizados** no backend (Vitest + Supertest), em banco
   separado: autenticação e perfis, contas de usuário, OS (estoque, km, status e
-  lembrete), pagamentos e contas a receber, lançamentos manuais, LGPD e
-  detalhes da OS.
+  lembretes), lembretes de manutenção, relatórios, pagamentos e contas a
+  receber, lançamentos manuais, LGPD e detalhes da OS.
 - Lint do frontend zerado (de 24 erros para 0).
 - Mensagens de erro claras no estoque e no login.
 - Telas ajustadas para o celular.
@@ -92,6 +100,10 @@ Inclui tudo o que entrou depois da release MVP2.5 (PRs #19 a #45).
 - Apagar o texto das observações da OS não limpava o campo.
 - Relatório de vendas contava OS que não estavam finalizadas.
 - Link da Política de Privacidade dentro dos Termos levava à página 404.
+- Cadastrar de novo a placa de um veículo excluído dava erro; agora o veículo é
+  reaproveitado (até para outro cliente), e placa repetida mostra mensagem clara.
+- O cadastro rápido de veículo (no novo cliente) não salvava a quilometragem;
+  agora salva, e também pede cor e lembretes.
 
 ## Removido
 

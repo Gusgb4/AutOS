@@ -30,9 +30,13 @@ Marque cada item. O que falhar vira uma correção antes de liberar para uso.
 ## 2. Clientes e veículos
 
 - [ ] Cadastrar cliente com nome e telefone; editar e incluir e-mail e endereço
-- [ ] Cadastrar veículo com cor e lembrete de revisão (dias e km)
+- [ ] Cadastrar veículo com cor e dois lembretes (ex.: troca de óleo e correia), um pela sugestão e outro em "Outro"
+- [ ] Editar o veículo: renomear um lembrete (a data prevista não muda), mudar o intervalo de outro (a data recalcula) e remover um
 - [ ] Buscar o cliente pelo nome e pela placa
 - [ ] Arquivar e desarquivar cliente e veículo
+- [ ] Excluir um veículo e cadastrar de novo a mesma placa (até em outro cliente): o cadastro funciona
+- [ ] Cadastrar placa de um veículo ativo: aparece "Já existe um veículo com essa placa"
+- [ ] No "Adicionar Cliente", cadastrar já com veículo (cor, km e lembretes) e conferir no perfil
 - [ ] Perfil do cliente mostra veículos (com a cor), histórico de OS e total gasto
 
 ## 3. Estoque
@@ -51,7 +55,8 @@ Marque cada item. O que falhar vira uma correção antes de liberar para uso.
 - [ ] **Baixar PDF** da OS aberta: "Orçamento", com a logo e a previsão (ou "A combinar")
 - [ ] Editar os detalhes do atendimento; "Descartar" volta ao que estava salvo
 - [ ] A quilometragem informada na abertura atualiza a do veículo
-- [ ] **Encerrar OS** (confirma e finaliza)
+- [ ] A seção "Lembretes do veículo" aparece na OS aberta; marcar só a troca de óleo
+- [ ] **Encerrar OS** (confirma e finaliza): só o lembrete marcado recomeça a contagem no perfil do cliente
 - [ ] **Baixar PDF** da OS finalizada: "Nota de entrega", em uma página, com assinaturas no pé
 - [ ] **Imprimir** a nota numa impressora de verdade e conferir a leitura no papel
 - [ ] WhatsApp da OS finalizada diz "Seu veículo está pronto!"
@@ -69,7 +74,8 @@ Marque cada item. O que falhar vira uma correção antes de liberar para uso.
 - [ ] Contas a receber lista as OS finalizadas com saldo
 - [ ] Lançar despesa com categoria e receita manual; estornar um lançamento manual
 - [ ] Filtros do Financeiro (tipo, categoria, forma, período, mostrar estornados)
-- [ ] Cards do topo comparam com o período anterior
+- [ ] Painel abre em "Este mês"; testar "Mês passado" e "Escolher datas"
+- [ ] "Comparar com": período anterior, ano passado e datas escolhidas mudam a comparação dos cards
 - [ ] Blocos "Recebido por forma de pagamento" e "Despesas por categoria" batem com os lançamentos
 - [ ] "Ocultar valores" esconde todos os valores
 
@@ -77,13 +83,15 @@ Marque cada item. O que falhar vira uma correção antes de liberar para uso.
 
 - [ ] Vendas, inventário, resumo financeiro e atividade do cliente abrem com dados
 - [ ] Atalhos de período e período personalizado; data inicial maior que a final mostra aviso
+- [ ] Gráficos de cada relatório aparecem e batem com as tabelas (passar o mouse nas colunas de vendas)
+- [ ] "Comparar com": período anterior, mesmo período do ano passado e datas escolhidas mudam os números comparados
 - [ ] Exportar cada relatório em CSV (abre certo no Excel) e em PDF (com a logo)
 - [ ] Produtividade por mecânico na tela de equipe
 
 ## 7. Notificações
 
-- [ ] Sino mostra revisão vencida ou próxima, estoque baixo e pagamento atrasado
-- [ ] Botão de WhatsApp da revisão abre a mensagem para o cliente
+- [ ] Sino mostra um aviso por lembrete vencido ou próximo (com o nome dele), estoque baixo e pagamento atrasado
+- [ ] Botão de WhatsApp do lembrete abre a mensagem com o nome do serviço (ex.: troca de óleo)
 
 ## 8. LGPD
 
