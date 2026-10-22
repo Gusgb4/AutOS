@@ -39,7 +39,7 @@ interface Logo {
 
 // Fração cortada em cima e embaixo da logo (as laterais ficam inteiras):
 // a imagem da oficina tem uma faixa preta sobrando nas duas pontas
-const CORTE_VERTICAL = 0.22;
+const CORTE_VERTICAL = 0.17;
 
 function cortarLogo(imagem: HTMLImageElement): Logo {
   const largura = imagem.naturalWidth;
