@@ -1,5 +1,7 @@
 # AutOS - Sistema de Gestão para Oficina Mecânica
 
+[![CI](https://github.com/Gusgb4/AutOS/actions/workflows/ci.yml/badge.svg)](https://github.com/Gusgb4/AutOS/actions/workflows/ci.yml)
+
 Sistema web para gerenciar clientes, veículos, estoque, ordens de serviço,
 financeiro e relatórios de uma oficina mecânica, acessível de qualquer lugar,
 sem instalação local.
@@ -141,6 +143,12 @@ detalhes da OS.
 
 No frontend, `npm run lint` e `npm run build` (que inclui a checagem de tipos)
 devem passar sem erros.
+
+**CI:** a cada PR e a cada push na `main`, o GitHub Actions roda tudo isso
+sozinho ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): build e os
+testes do backend num PostgreSQL descartável (com relatório de cobertura para
+baixar em cada execução) e lint e build do frontend. O resultado aparece no PR
+antes do merge e no selo do topo deste README.
 
 ## Equipe
 
