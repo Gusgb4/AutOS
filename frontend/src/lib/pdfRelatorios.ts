@@ -9,6 +9,7 @@ import type {
 } from "../services/reports";
 import {
   MARGEM,
+  carregarLogo,
   criarPdf,
   desenharCabecalho,
   desenharRodape,
@@ -159,11 +160,12 @@ function desenharTabelaRelatorio(
   });
 }
 
-export function baixarPdfVendas(
+export async function baixarPdfVendas(
   vendas: VendasPorPeriodo,
   inicio: string,
   fim: string,
 ) {
+  await carregarLogo();
   const doc = criarPdf();
   let y = desenharInicio(
     doc,
@@ -185,11 +187,12 @@ export function baixarPdfVendas(
   doc.save(`vendas-${inicio}-a-${fim}.pdf`);
 }
 
-export function baixarPdfInventario(
+export async function baixarPdfInventario(
   inventario: StatusInventario,
   inicio: string,
   fim: string,
 ) {
+  await carregarLogo();
   const doc = criarPdf();
   let y = desenharInicio(
     doc,
@@ -225,11 +228,12 @@ export function baixarPdfInventario(
   doc.save(`inventario-${inicio}-a-${fim}.pdf`);
 }
 
-export function baixarPdfResumoFinanceiro(
+export async function baixarPdfResumoFinanceiro(
   resumo: ResumoFinanceiro,
   inicio: string,
   fim: string,
 ) {
+  await carregarLogo();
   const doc = criarPdf();
   let y = desenharInicio(
     doc,
@@ -254,11 +258,12 @@ export function baixarPdfResumoFinanceiro(
   doc.save(`resumo-financeiro-${inicio}-a-${fim}.pdf`);
 }
 
-export function baixarPdfAtividadeClientes(
+export async function baixarPdfAtividadeClientes(
   atividade: AtividadeClientes,
   inicio: string,
   fim: string,
 ) {
+  await carregarLogo();
   const doc = criarPdf();
   let y = desenharInicio(
     doc,

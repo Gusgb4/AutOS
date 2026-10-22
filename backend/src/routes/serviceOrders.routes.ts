@@ -8,7 +8,7 @@ import {
   addServiceController,
   removeServiceController,
   changeStatusController,
-  updateObservacoesController,
+  updateDetalhesController,
   registrarPagamentoController,
   listarPagamentosController,
   estornarPagamentoController,
@@ -41,7 +41,7 @@ router.delete(
   "/:id/services/:serviceId",
   asyncHandler(removeServiceController),
 );
-router.patch("/:id/observacoes", asyncHandler(updateObservacoesController));
+router.patch("/:id/detalhes", asyncHandler(updateDetalhesController));
 
 router.get("/:id/pagamentos", asyncHandler(listarPagamentosController));
 router.post(

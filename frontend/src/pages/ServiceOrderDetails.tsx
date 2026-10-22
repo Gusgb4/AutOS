@@ -24,7 +24,7 @@ import { listStock, type StockItem } from "../services/stock";
 import {
   getServiceOrderById,
   changeServiceOrderStatus,
-  updateServiceOrderObservacoes,
+  updateServiceOrderDetalhes,
   addServiceToOrder,
   addPartToOrder,
   removeServiceFromOrder,
@@ -58,6 +58,16 @@ function capitalizeName(nome: string) {
     .filter(Boolean)
     .map((palavra) => palavra.charAt(0).toUpperCase() + palavra.slice(1))
     .join(" ");
+}
+
+// Valores do formulário de detalhes a partir da OS salva
+// (a previsão vem como meio-dia de Brasília, então os 10 primeiros caracteres são o dia)
+function detalhesDaOrdem(ordem: ServiceOrder | null) {
+  return {
+    reclamacao: ordem?.reclamacao ?? "",
+    observacoes: ordem?.observacoes ?? "",
+    previsao_entrega: ordem?.previsao_entrega?.slice(0, 10) ?? "",
+  };
 }
 
 function formatDateTime(value: string) {
@@ -116,9 +126,10 @@ export default function ServiceOrderDetails() {
 
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
 
-  const [observacoesTexto, setObservacoesTexto] = useState("");
-  const [savingObservacoes, setSavingObservacoes] = useState(false);
-  const [erroObservacoes, setErroObservacoes] = useState<string | null>(null);
+  // Reclamação, previsão de entrega e informações ao cliente: salvos juntos
+  const [detalhes, setDetalhes] = useState(detalhesDaOrdem(null));
+  const [savingDetalhes, setSavingDetalhes] = useState(false);
+  const [erroDetalhes, setErroDetalhes] = useState<string | null>(null);
 
   const [descricaoServico, setDescricaoServico] = useState("");
   const [valorServico, setValorServico] = useState("");
@@ -157,7 +168,7 @@ export default function ServiceOrderDetails() {
       .then((data) => {
         if (!ativo) return;
         setOrdem(data);
-        setObservacoesTexto(data.observacoes || "");
+        setDetalhes(detalhesDaOrdem(data));
       })
       .catch((err) => {
         console.error(err);
@@ -186,24 +197,28 @@ export default function ServiceOrderDetails() {
     [stockItems, itemEstoqueId],
   );
 
-  const observacoesDirty =
-    observacoesTexto.trim() !== (ordem?.observacoes || "").trim();
+  const salvos = detalhesDaOrdem(ordem);
+  const detalhesDirty =
+    detalhes.reclamacao.trim() !== salvos.reclamacao ||
+    detalhes.observacoes.trim() !== salvos.observacoes ||
+    detalhes.previsao_entrega !== salvos.previsao_entrega;
 
-  async function handleSaveObservacoes() {
+  async function handleSaveDetalhes() {
     if (!ordem) return;
-    setSavingObservacoes(true);
-    setErroObservacoes(null);
+    setSavingDetalhes(true);
+    setErroDetalhes(null);
     try {
-      const atualizada = await updateServiceOrderObservacoes(
-        ordem.id,
-        observacoesTexto.trim(),
-      );
+      const atualizada = await updateServiceOrderDetalhes(ordem.id, {
+        reclamacao: detalhes.reclamacao.trim(),
+        observacoes: detalhes.observacoes.trim(),
+        previsao_entrega: detalhes.previsao_entrega,
+      });
       setOrdem(atualizada);
-      setObservacoesTexto(atualizada.observacoes || "");
+      setDetalhes(detalhesDaOrdem(atualizada));
     } catch (err) {
-      setErroObservacoes(mensagemDeErro(err, "Erro ao salvar observações."));
+      setErroDetalhes(mensagemDeErro(err, "Erro ao salvar os detalhes."));
     } finally {
-      setSavingObservacoes(false);
+      setSavingDetalhes(false);
     }
   }
 
@@ -478,7 +493,7 @@ export default function ServiceOrderDetails() {
     try {
       // O jspdf é pesado: só é carregado quando alguém pede o PDF
       const { baixarPdfOrdemServico } = await import("../lib/pdfOrdemServico");
-      baixarPdfOrdemServico(ordem);
+      await baixarPdfOrdemServico(ordem);
     } catch (err) {
       console.error(err);
       setErroAcao("Não foi possível gerar o PDF.");
@@ -576,6 +591,7 @@ export default function ServiceOrderDetails() {
             <p className="mt-1.5 flex items-center gap-2 text-xs text-gray-400">
               <Hash size={12} />
               {ordem.veiculo?.placa}
+              {ordem.veiculo?.cor && ` · ${ordem.veiculo.cor}`}
             </p>
           </div>
           <div>
@@ -592,53 +608,99 @@ export default function ServiceOrderDetails() {
           <p className="border-t border-gray-100 bg-gray-50 px-5 py-3 text-xs text-gray-500">
             Esta OS está{" "}
             {ordem.status === "FINALIZADA" ? "finalizada" : "cancelada"}. Reabra
-            a ordem para editar serviços, peças ou observações.
+            a ordem para editar serviços, peças ou os detalhes do atendimento.
           </p>
         )}
       </div>
 
-      {/* OBSERVAÇÕES */}
+      {/* DETALHES DO ATENDIMENTO */}
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <div className="flex items-center gap-3 border-b border-gray-100 p-5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
             <StickyNote size={18} />
           </div>
           <div>
-            <p className="font-semibold text-[#1F1F1F]">Observações</p>
+            <p className="font-semibold text-[#1F1F1F]">
+              Detalhes do atendimento
+            </p>
             <p className="text-xs text-gray-500">
-              Anotações para o mecânico responsável
+              Aparecem no orçamento do WhatsApp e no PDF entregue ao cliente
             </p>
           </div>
         </div>
-        <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
-          <div className="flex-1">
+        <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-[1fr_180px]">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-[#1B2130]">
+              Reclamação do cliente
+            </label>
             <textarea
-              value={observacoesTexto}
-              disabled={savingObservacoes || !podeAgir}
-              onChange={(e) => setObservacoesTexto(e.target.value)}
-              placeholder="Nenhuma observação registrada..."
+              value={detalhes.reclamacao}
+              disabled={savingDetalhes || !podeAgir}
+              onChange={(e) =>
+                setDetalhes((d) => ({ ...d, reclamacao: e.target.value }))
+              }
+              placeholder="O que o cliente relatou. Ex.: barulho ao frear"
               rows={2}
               className={plainInputClass}
             />
           </div>
-          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center">
-            {observacoesDirty && !savingObservacoes && podeAgir && (
-              <button
-                type="button"
-                onClick={handleSaveObservacoes}
-                aria-label="Salvar observações"
-                className="flex h-full w-full items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50"
-              >
-                <Check size={16} />
-              </button>
-            )}
-            {savingObservacoes && (
-              <Loader2 size={16} className="animate-spin text-gray-400" />
-            )}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-[#1B2130]">
+              Previsão de entrega
+            </label>
+            <input
+              type="date"
+              value={detalhes.previsao_entrega}
+              disabled={savingDetalhes || !podeAgir}
+              onChange={(e) =>
+                setDetalhes((d) => ({ ...d, previsao_entrega: e.target.value }))
+              }
+              className={plainInputClass}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 md:col-span-2">
+            <label className="text-xs font-semibold text-[#1B2130]">
+              Informações ao cliente
+            </label>
+            <textarea
+              value={detalhes.observacoes}
+              disabled={savingDetalhes || !podeAgir}
+              onChange={(e) =>
+                setDetalhes((d) => ({ ...d, observacoes: e.target.value }))
+              }
+              placeholder="Recomendações e avisos. Ex.: trocar os pneus nos próximos 3 meses"
+              rows={2}
+              className={plainInputClass}
+            />
           </div>
         </div>
-        {erroObservacoes && (
-          <p className="px-5 pb-4 text-sm text-red-500">{erroObservacoes}</p>
+        {podeAgir && (detalhesDirty || savingDetalhes) && (
+          <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-3">
+            <button
+              type="button"
+              onClick={() => setDetalhes(salvos)}
+              disabled={savingDetalhes}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            >
+              Descartar
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveDetalhes}
+              disabled={savingDetalhes}
+              className="flex items-center gap-2 rounded-lg bg-[#FF7518] px-4 py-2 text-sm font-semibold text-white hover:bg-[#e6690f] disabled:opacity-60"
+            >
+              {savingDetalhes ? (
+                <Loader2 size={15} className="animate-spin" />
+              ) : (
+                <Check size={15} />
+              )}
+              Salvar
+            </button>
+          </div>
+        )}
+        {erroDetalhes && (
+          <p className="px-5 pb-4 text-sm text-red-500">{erroDetalhes}</p>
         )}
       </div>
 
@@ -966,19 +1028,22 @@ export default function ServiceOrderDetails() {
               Enviar por WhatsApp
             </a>
           )}
-          <button
-            type="button"
-            onClick={handleBaixarPdf}
-            disabled={gerandoPdf}
-            className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60 md:justify-start"
-          >
-            {gerandoPdf ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <FileDown size={16} />
-            )}
-            Baixar PDF
-          </button>
+          {/* OS cancelada não tem o que entregar ao cliente */}
+          {ordem.status !== "CANCELADA" && (
+            <button
+              type="button"
+              onClick={handleBaixarPdf}
+              disabled={gerandoPdf}
+              className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60 md:justify-start"
+            >
+              {gerandoPdf ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <FileDown size={16} />
+              )}
+              Baixar PDF
+            </button>
+          )}
           {podeAgir && (
             <button
               type="button"

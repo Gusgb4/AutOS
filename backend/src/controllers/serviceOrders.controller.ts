@@ -52,15 +52,29 @@ export async function getByIdController(req: Request, res: Response) {
   return res.status(200).json(ordem);
 }
 
+// Texto opcional: vazio vira null (limpa o campo); ausente fica undefined (não mexe)
+const textoOpcional = z
+  .string()
+  .trim()
+  .nullable()
+  .optional()
+  .transform((v) => (v === "" ? null : v));
+
+// "2026-10-25" vira meio-dia de Brasília, pra data não voltar um dia pelo fuso
+const dataOpcional = z
+  .union([z.iso.date("Use o formato AAAA-MM-DD."), z.literal(""), z.null()])
+  .optional()
+  .transform((v) =>
+    v === undefined ? undefined : v ? new Date(`${v}T12:00:00-03:00`) : null,
+  );
+
 const createServiceOrderSchema = z.object({
   cliente_id: z.number().int().positive(),
   veiculo_id: z.number().int().positive(),
   mecanico_id: z.number().int().positive(),
-  observacoes: z
-    .string()
-    .trim()
-    .optional()
-    .transform((v) => (v === "" ? undefined : v)),
+  observacoes: textoOpcional,
+  reclamacao: textoOpcional,
+  previsao_entrega: dataOpcional,
   quilometragem_registrada: z.number().int().nonnegative().optional(),
 });
 
@@ -130,25 +144,20 @@ export async function changeStatusController(req: Request, res: Response) {
   return res.status(200).json(ordem);
 }
 
-import { updateObservacoes } from "../services/serviceOrders.service";
+import { updateDetalhes } from "../services/serviceOrders.service";
 
-const updateObservacoesSchema = z.object({
-  observacoes: z
-    .string()
-    .trim()
-    .optional()
-    .transform((v) => (v === "" ? undefined : v)),
+// Só os campos enviados mudam; mandar "" apaga o campo
+const updateDetalhesSchema = z.object({
+  observacoes: textoOpcional,
+  reclamacao: textoOpcional,
+  previsao_entrega: dataOpcional,
 });
 
-// PATCH /api/service-orders/:id/observacoes
-export async function updateObservacoesController(req: Request, res: Response) {
+// PATCH /api/service-orders/:id/detalhes
+export async function updateDetalhesController(req: Request, res: Response) {
   const ordemId = Number(req.params.id);
-  const { observacoes } = updateObservacoesSchema.parse(req.body);
-  const ordem = await updateObservacoes(
-    ordemId,
-    observacoes,
-    req.user?.perfil,
-  );
+  const dados = updateDetalhesSchema.parse(req.body);
+  const ordem = await updateDetalhes(ordemId, dados, req.user?.perfil);
   return res.status(200).json(ordem);
 }
 

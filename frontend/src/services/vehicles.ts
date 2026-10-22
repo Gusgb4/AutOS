@@ -11,6 +11,7 @@ export interface Vehicle {
   id: number;
   cliente_id: number;
   placa: string;
+  cor?: string | null;
   marca: string;
   modelo: string;
   ano: number;
@@ -21,6 +22,7 @@ export interface Vehicle {
 export interface CreateVehiclePayload {
   cliente_id: number;
   placa: string;
+  cor?: string;
   marca: string;
   modelo: string;
   ano: number;
@@ -32,6 +34,7 @@ export interface CreateVehiclePayload {
 export interface UpdateVehiclePayload {
   cliente_id?: number;
   placa?: string;
+  cor?: string;
   marca?: string;
   modelo?: string;
   ano?: number;

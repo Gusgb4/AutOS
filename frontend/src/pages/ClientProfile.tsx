@@ -189,6 +189,7 @@ export default function ClientProfile() {
           marca: data.marca,
           modelo: data.modelo,
           placa: data.placa,
+          cor: data.cor.trim(),
           ano: data.ano,
           quilometragem_atual,
           intervalo_dias,
@@ -200,6 +201,7 @@ export default function ClientProfile() {
           marca: data.marca,
           modelo: data.modelo,
           placa: data.placa,
+          cor: data.cor.trim(),
           ano: data.ano,
           quilometragem_atual,
           intervalo_dias,
@@ -472,6 +474,11 @@ export default function ClientProfile() {
                       <span className="flex items-center gap-2 font-medium text-[#1F1F1F]">
                         <Car size={14} className="text-[#FF7518]" />
                         {vehicle.marca} {vehicle.modelo}
+                        {vehicle.cor && (
+                          <span className="font-normal text-gray-400">
+                            · {vehicle.cor}
+                          </span>
+                        )}
                       </span>
                       <MaintenanceInfo vehicle={vehicle} />
                     </td>
@@ -627,6 +634,7 @@ export default function ClientProfile() {
                 marca: editingVehicle.marca,
                 modelo: editingVehicle.modelo,
                 placa: editingVehicle.placa,
+                cor: editingVehicle.cor ?? "",
                 ano: editingVehicle.ano,
                 quilometragem_atual: editingVehicle.quilometragem_atual ?? "",
                 intervalo_dias:

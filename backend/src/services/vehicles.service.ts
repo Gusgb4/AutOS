@@ -30,6 +30,7 @@ export async function findById(id: number) {
 interface CreateVehicleInput {
   cliente_id: number;
   placa: string;
+  cor?: string | null;
   marca: string;
   modelo: string;
   ano: number;
@@ -68,6 +69,7 @@ export async function create(dados: CreateVehicleInput) {
 interface UpdateVehicleInput {
   cliente_id?: number;
   placa?: string;
+  cor?: string | null;
   marca?: string;
   modelo?: string;
   ano?: number;

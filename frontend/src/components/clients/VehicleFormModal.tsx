@@ -8,12 +8,14 @@ import {
   Trash2,
   Check,
   Gauge,
+  Palette,
 } from "lucide-react";
 
 export interface VehicleFormData {
   marca: string;
   modelo: string;
   placa: string;
+  cor: string;
   ano: number | "";
   quilometragem_atual: number | "";
   intervalo_dias: number | "";
@@ -34,6 +36,7 @@ const emptyForm: VehicleFormData = {
   marca: "",
   modelo: "",
   placa: "",
+  cor: "",
   ano: "",
   quilometragem_atual: "",
   intervalo_dias: "",
@@ -169,26 +172,36 @@ export default function VehicleFormModal({
               </InputWithIcon>
             </Field>
 
-            <div className="sm:col-span-2">
-              <Field label="Quilometragem Atual (KM)">
-                <InputWithIcon icon={Gauge}>
-                  <input
-                    type="number"
-                    value={form.quilometragem_atual}
-                    onChange={(e) =>
-                      handleChange(
-                        "quilometragem_atual",
-                        e.target.value ? Number(e.target.value) : "",
-                      )
-                    }
-                    placeholder="Ex: 45000"
-                    min={0}
-                    required
-                    className="input-field"
-                  />
-                </InputWithIcon>
-              </Field>
-            </div>
+            <Field label="Cor (opcional)">
+              <InputWithIcon icon={Palette}>
+                <input
+                  type="text"
+                  value={form.cor}
+                  onChange={(e) => handleChange("cor", e.target.value)}
+                  placeholder="Ex: Prata"
+                  className="input-field"
+                />
+              </InputWithIcon>
+            </Field>
+
+            <Field label="Quilometragem Atual (KM)">
+              <InputWithIcon icon={Gauge}>
+                <input
+                  type="number"
+                  value={form.quilometragem_atual}
+                  onChange={(e) =>
+                    handleChange(
+                      "quilometragem_atual",
+                      e.target.value ? Number(e.target.value) : "",
+                    )
+                  }
+                  placeholder="Ex: 45000"
+                  min={0}
+                  required
+                  className="input-field"
+                />
+              </InputWithIcon>
+            </Field>
           </div>
 
           {/* Manutenção periódica */}
