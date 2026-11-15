@@ -154,6 +154,23 @@ export async function addPartToOrder(
   return data;
 }
 
+// Peça comprada na hora: cadastra no estoque e já coloca na OS (só proprietário)
+export async function addPecaRapida(
+  ordemId: number,
+  dados: {
+    nome: string;
+    valor_final: number;
+    valor_entrada?: number;
+    quantidade: number;
+  },
+) {
+  const { data } = await api.post<{
+    ordem: ServiceOrder;
+    item_estoque_id: number;
+  }>(`/service-orders/${ordemId}/parts/nova`, dados);
+  return data;
+}
+
 // Ao finalizar, lembretesFeitos são os lembretes do veículo feitos nesta OS
 // (só eles reiniciam a contagem)
 export async function changeServiceOrderStatus(

@@ -51,6 +51,8 @@ Marque cada item. O que falhar vira uma correção antes de liberar para uso.
 - [ ] Adicionar serviços e peças; o valor total é recalculado
 - [ ] A peça baixa o estoque; removê-la devolve ao estoque
 - [ ] Peça com estoque insuficiente mostra erro e não entra
+- [ ] (Proprietário) "Peça nova (comprada agora)": a peça entra na OS e aparece no estoque com zero
+- [ ] (Funcionário) o botão "Peça nova" não aparece
 - [ ] **Enviar por WhatsApp** abre o WhatsApp com o orçamento no formato da oficina
 - [ ] **Baixar PDF** da OS aberta: "Orçamento", com a logo e a previsão (ou "A combinar")
 - [ ] Editar os detalhes do atendimento; "Descartar" volta ao que estava salvo
@@ -92,6 +94,7 @@ Marque cada item. O que falhar vira uma correção antes de liberar para uso.
 
 - [ ] Sino mostra um aviso por lembrete vencido ou próximo (com o nome dele), estoque baixo e pagamento atrasado
 - [ ] Botão de WhatsApp do lembrete abre a mensagem com o nome do serviço (ex.: troca de óleo)
+- [ ] O X dispensa a notificação e o número do sino diminui; "Ver dispensadas" mostra e restaura
 
 ## 8. LGPD
 

@@ -385,6 +385,50 @@ export async function addPart(
   });
 }
 
+interface PecaRapidaInput {
+  nome: string;
+  valor_final: number;
+  valor_entrada?: number;
+  quantidade: number;
+}
+
+// Peça comprada na hora pra esta OS: cadastra no estoque e já usa na OS.
+// O estoque fica com zero (entrou e saiu a mesma quantidade), mas a peça
+// passa a existir no cadastro, com preço e custo, pra próxima vez.
+// Tudo numa transação: se a OS não puder receber a peça, nada é cadastrado.
+export async function addPecaRapida(
+  ordemId: number,
+  dados: PecaRapidaInput,
+  perfil: Perfil | undefined,
+) {
+  return prisma.$transaction(async (tx) => {
+    await buscarOrdemEditavel(tx, ordemId);
+
+    const item = await tx.stockItem.create({
+      data: {
+        nome: dados.nome,
+        quantidade: 0,
+        quantidade_minima: 0,
+        valor_final: dados.valor_final,
+        valor_entrada: dados.valor_entrada ?? null,
+      },
+    });
+
+    await tx.serviceOrderPart.create({
+      data: {
+        ordem_id: ordemId,
+        item_estoque_id: item.id,
+        quantidade: dados.quantidade,
+        valor_unitario: item.valor_final,
+        valor_custo: item.valor_entrada,
+      },
+    });
+
+    const ordem = await recalcularTotal(tx, ordemId, perfil);
+    return { ordem, item_estoque_id: item.id };
+  });
+}
+
 export async function removePart(
   ordemId: number,
   partId: number,

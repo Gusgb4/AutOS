@@ -93,6 +93,7 @@ Cliente anonimizado fica travado: editar, desarquivar ou cadastrar veículo nele
 | POST | `/:id/services` | todos | Adiciona um serviço: `{ descricao, valor }` |
 | DELETE | `/:id/services/:serviceId` | todos | Remove um serviço |
 | POST | `/:id/parts` | todos | Adiciona uma peça do estoque (baixa o estoque) |
+| POST | `/:id/parts/nova` | Dono | Peça comprada na hora: `{ nome, valor_final, valor_entrada?, quantidade }`. Cadastra no estoque (fica com zero) e já coloca na OS, numa transação |
 | DELETE | `/:id/parts/:partId` | todos | Remove a peça (devolve ao estoque) |
 | GET | `/:id/pagamentos` | todos | Pagamentos da OS |
 | POST | `/:id/pagamentos` | Dono | Registra pagamento de OS finalizada: `{ valor, forma_pagamento, data? }`. Formas: `PIX`, `DINHEIRO`, `DEBITO`, `CREDITO`, `OUTRO` |

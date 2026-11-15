@@ -140,7 +140,7 @@ O banco `autos_test` é criado sozinho na primeira execução. Os testes ficam e
 `backend/tests/`, e os helpers em `backend/tests/helpers/` criam usuários de
 cada perfil (`criarProprietario`, `criarFuncionario`) já com o token deles.
 
-São 105 testes em 11 arquivos: autenticação e perfis, contas de usuário,
+São 109 testes em 12 arquivos: autenticação e perfis, contas de usuário,
 ordens de serviço, lembretes de manutenção, relatórios, pagamentos e contas a
 receber, lançamentos manuais, LGPD e detalhes da OS.
 

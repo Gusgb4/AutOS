@@ -25,6 +25,8 @@ import {
 } from "../services/serviceOrders";
 import ServicoRow from "../components/serviceOrders/ServicoRow";
 import PecaRow from "../components/serviceOrders/PecaRow";
+import PecaRapida from "../components/serviceOrders/PecaRapida";
+import { getUserRole } from "../lib/auth";
 import { mensagemDeErro } from "../lib/errors";
 
 const inputClass =
@@ -710,6 +712,9 @@ export default function NewServiceOrder() {
                 Adicionar
               </button>
             </div>
+            {getUserRole() === "PROPRIETARIO" && (
+              <PecaRapida ordemId={ordem.id} onAdicionada={setOrdem} />
+            )}
             {erroPeca && (
               <p className="flex items-center gap-1.5 px-5 pb-4 text-sm text-red-500">
                 <AlertTriangle size={14} />
