@@ -122,7 +122,17 @@ provisória (é assim que se recupera o acesso se o dono esquecer a senha).
 
 Para criar a conta em produção, rode o mesmo comando com a `DATABASE_URL` do
 banco de produção, do mesmo jeito que o `npx prisma migrate deploy`.
-## Testes automatizados (backend)
+## Testes automatizados
+
+O projeto tem três níveis de teste:
+
+| Nível | O que testa | Ferramenta |
+|---|---|---|
+| **Integração** (backend) | Cada rota da API com o banco de verdade: validação, regras de negócio e permissões | Vitest + Supertest |
+| **End-to-end** | O sistema como o usuário usa: o navegador abre a tela, clica e confere o resultado (tela + API + banco) | Playwright |
+| **Aceitação** | Roteiro manual em produção, com computador, celular e impressora | [Plano de testes](docs/PLANO_DE_TESTES.md) |
+
+### Integração (backend)
 
 Os testes usam Vitest e Supertest e rodam contra um **banco separado** no
 Postgres local. A cada execução esse banco é apagado e recriado com todas as
@@ -147,11 +157,35 @@ receber, lançamentos manuais, LGPD e detalhes da OS.
 No frontend, `npm run lint` e `npm run build` (que inclui a checagem de tipos)
 devem passar sem erros.
 
+### End-to-end (Playwright)
+
+Ficam na pasta `e2e/`. O Playwright sobe sozinho o backend (porta 3334) e o
+frontend (porta 5174) num banco só do E2E, que é recriado e preenchido com
+dados de teste a cada execução. O nome do banco precisa ter "e2e" (o backend se
+recusa a apagar outro). Os fluxos cobertos: login e permissões, OS completa
+(serviço, peça do estoque, peça comprada na hora, encerrar e receber), cliente
+com veículo e lembrete, despesa com estorno e relatórios com comparação.
+
+```bash
+cd e2e
+npm install
+npx playwright install chromium   # baixa o navegador (só na primeira vez)
+npm test                          # roda os testes sem abrir janela
+npm run test:visivel              # roda mostrando o navegador
+npm run relatorio                 # abre o relatório (com prints das falhas)
+```
+
+O banco do E2E usa o mesmo usuário e senha do `backend/.env.test` (o dos
+testes de integração), com o nome trocado para `autos_e2e`, e é criado sozinho
+na primeira execução. Para usar outro, defina `E2E_DATABASE_URL` antes de rodar
+(no CMD: `set "E2E_DATABASE_URL=postgresql://..."`).
+
 **CI:** a cada PR e a cada push na `main`, o GitHub Actions roda tudo isso
 sozinho ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): build e os
-testes do backend num PostgreSQL descartável (com relatório de cobertura para
-baixar em cada execução) e lint e build do frontend. O resultado aparece no PR
-antes do merge e no selo do topo deste README.
+testes de integração do backend num PostgreSQL descartável (com relatório de
+cobertura), lint e build do frontend e os testes end-to-end no navegador (com
+o relatório do Playwright para baixar quando algum falha). O resultado aparece
+no PR antes do merge e no selo do topo deste README.
 
 ## Equipe
 

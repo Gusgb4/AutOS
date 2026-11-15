@@ -96,3 +96,61 @@ jobs:
 
       - name: Build (checagem de tipos e build de produção)
         run: npm run build
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+
+    # Banco descartável só do E2E: o nome precisa ter "e2e"
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: autos_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Instalar dependências (backend, frontend e e2e)
+        run: |
+          npm ci --prefix backend
+          npm ci --prefix frontend
+          npm ci --prefix e2e
+
+      - name: Instalar o navegador do Playwright
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      # O Playwright recria o banco, sobe o backend e o frontend e roda os testes
+      - name: Rodar os testes E2E
+        working-directory: e2e
+        env:
+          E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/autos_e2e?schema=public
+        run: npx playwright test
+
+      # Em caso de falha, o relatório tem print e o passo a passo de cada teste
+      - name: Guardar relatório do Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-e2e
+          path: e2e/playwright-report/
+          retention-days: 14

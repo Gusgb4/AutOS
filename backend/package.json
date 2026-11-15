@@ -12,7 +12,9 @@
     "test:coverage": "vitest run --coverage",
     "prisma:seed": "ts-node prisma/seed.ts",
     "criar-proprietario": "ts-node --transpile-only src/scripts/criar-proprietario.ts",
-    "backup": "ts-node --transpile-only src/scripts/backup.ts"
+    "backup": "ts-node --transpile-only src/scripts/backup.ts",
+    "e2e:preparar": "ts-node --transpile-only src/scripts/e2e-preparar.ts",
+    "e2e:servidor": "npm run e2e:preparar && ts-node --transpile-only src/server.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
