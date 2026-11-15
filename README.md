@@ -72,6 +72,7 @@ Tudo o que entrou nesta versão está em [docs/RELEASE_v3.0.md](docs/RELEASE_v3.
 - [Deploy em produção e backup](docs/DEPLOY.md)
 - [Notas da versão 3.0](docs/RELEASE_v3.0.md)
 - [Plano de testes de aceitação](docs/PLANO_DE_TESTES.md)
+- [Teste de carga](docs/TESTE_DE_CARGA.md)
 
 ## Stack
 
@@ -130,6 +131,7 @@ O projeto tem três níveis de teste:
 |---|---|---|
 | **Integração** (backend) | Cada rota da API com o banco de verdade: validação, regras de negócio e permissões | Vitest + Supertest |
 | **End-to-end** | O sistema como o usuário usa: o navegador abre a tela, clica e confere o resultado (tela + API + banco) | Playwright |
+| **Carga** | Até 20 usuários simultâneos na API, medindo tempo de resposta e erros | k6 ([como rodar e resultados](docs/TESTE_DE_CARGA.md)) |
 | **Aceitação** | Roteiro manual em produção, com computador, celular e impressora | [Plano de testes](docs/PLANO_DE_TESTES.md) |
 
 ### Integração (backend)
