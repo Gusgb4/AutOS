@@ -4,6 +4,7 @@ import {
   getByIdController,
   createController,
   addPartController,
+  addPecaRapidaController,
   removePartController,
   addServiceController,
   removeServiceController,
@@ -33,6 +34,12 @@ router.patch("/:id/status", asyncHandler(changeStatusController));
 
 //Adiciona as peças utilizadas na OS e da baixa no estoque
 router.post("/:id/parts", asyncHandler(addPartController));
+// Peça comprada na hora: cadastra no estoque, então só o proprietário
+router.post(
+  "/:id/parts/nova",
+  requireRole(["PROPRIETARIO"]),
+  asyncHandler(addPecaRapidaController),
+);
 router.delete("/:id/parts/:partId", asyncHandler(removePartController));
 
 //Serviços do mecanico feitos

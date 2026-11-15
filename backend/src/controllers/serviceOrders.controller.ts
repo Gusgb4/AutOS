@@ -6,6 +6,7 @@ import {
   findById,
   create,
   addPart,
+  addPecaRapida,
   removePart,
   addService,
   removeService,
@@ -100,6 +101,33 @@ export async function addPartController(req: Request, res: Response) {
     dados.quantidade,
     req.user?.perfil,
   );
+  return res.status(201).json(resultado);
+}
+
+// Peça comprada na hora: nome, preço de venda, custo (opcional) e quantidade
+const pecaRapidaSchema = z.object({
+  nome: z
+    .string({ message: "Informe o nome da peça." })
+    .trim()
+    .min(1, "Informe o nome da peça."),
+  valor_final: z
+    .number({ message: "Informe o preço de venda." })
+    .positive("O preço de venda deve ser maior que zero."),
+  valor_entrada: z
+    .number()
+    .nonnegative("O custo não pode ser negativo.")
+    .optional(),
+  quantidade: z
+    .number({ message: "Informe a quantidade." })
+    .int()
+    .positive("Quantidade deve ser maior que zero."),
+});
+
+// POST /api/service-orders/:id/parts/nova (só proprietário: cadastra no estoque)
+export async function addPecaRapidaController(req: Request, res: Response) {
+  const ordemId = Number(req.params.id);
+  const dados = pecaRapidaSchema.parse(req.body);
+  const resultado = await addPecaRapida(ordemId, dados, req.user?.perfil);
   return res.status(201).json(resultado);
 }
 

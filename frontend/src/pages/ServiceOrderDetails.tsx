@@ -34,6 +34,7 @@ import {
 } from "../services/serviceOrders";
 import ServicoRow from "../components/serviceOrders/ServicoRow";
 import PecaRow from "../components/serviceOrders/PecaRow";
+import PecaRapida from "../components/serviceOrders/PecaRapida";
 import { buildWhatsAppLink } from "../lib/whatsapp";
 import PagamentosCard from "../components/serviceOrders/PagamentosCard";
 import { useAuth } from "../contexts/AuthContext";
@@ -931,6 +932,9 @@ export default function ServiceOrderDetails() {
                 <AlertTriangle size={13} />
                 Não foi possível carregar a lista de peças do estoque.
               </p>
+            )}
+            {user?.perfil === "PROPRIETARIO" && (
+              <PecaRapida ordemId={ordem.id} onAdicionada={setOrdem} />
             )}
             {erroPeca && (
               <p className="flex items-center gap-1.5 bg-gray-50/50 px-5 pb-4 text-sm text-red-500">

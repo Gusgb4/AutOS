@@ -33,7 +33,9 @@ clique em **Sair**.
 | **Equipe** (só proprietário) | Contas dos funcionários e produtividade |
 
 O **sino** no topo mostra os avisos: revisões vencidas ou chegando, peças
-abaixo do estoque mínimo e, para o proprietário, pagamentos atrasados.
+abaixo do estoque mínimo e, para o proprietário, pagamentos atrasados. O **X**
+de cada aviso dispensa ele: o aviso volta sozinho se piorar ou se o problema
+acontecer de novo, e **Ver dispensadas** mostra os escondidos.
 
 ## 3. Clientes e veículos
 
@@ -77,6 +79,11 @@ Na própria tela da OS:
 - **Peça:** escolha a peça do estoque e a quantidade e clique em **Adicionar**.
   A peça sai do estoque na hora. Se não tiver quantidade suficiente, o sistema
   avisa.
+
+**Peça que não está no estoque (só proprietário):** clique em **Peça nova
+(comprada agora)**, preencha nome, preço de venda, custo (opcional) e
+quantidade, e clique em **Cadastrar e adicionar**. A peça é cadastrada no
+estoque e já entra na OS; o estoque dela fica com zero.
 
 O **valor total** da OS é somado sozinho. Para corrigir uma quantidade ou um
 valor, edite direto na linha. Para tirar, use a lixeira (a peça volta para o

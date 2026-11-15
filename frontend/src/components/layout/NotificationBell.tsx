@@ -8,6 +8,8 @@ import {
   Loader2,
   MessageCircle,
   Package,
+  RotateCcw,
+  X,
 } from "lucide-react";
 import {
   listNotificacoes,
@@ -15,6 +17,13 @@ import {
   type Notificacao,
 } from "../../services/notificacoes";
 import { buildRevisaoWhatsAppLink } from "../../lib/whatsapp";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  estaDispensada,
+  lerDispensadas,
+  limparResolvidas,
+  salvarDispensadas,
+} from "../../lib/notificacoesDispensadas";
 
 function IconeNotificacao({ tipo }: { tipo: Notificacao["tipo"] }) {
   if (tipo === "REVISAO_VENCIDA") {
@@ -52,17 +61,51 @@ export default function NotificationBell() {
   const [erro, setErro] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
 
+  // Dispensadas no X ficam guardadas por usuário, neste navegador
+  const { user } = useAuth();
+  const usuarioId = user?.id ?? 0;
+  const [dispensadas, setDispensadas] = useState(() => lerDispensadas(usuarioId));
+  const [verDispensadas, setVerDispensadas] = useState(false);
+
+  // Chegou a lista nova: esquece as dispensadas já resolvidas, pra que
+  // voltem a aparecer se o problema acontecer de novo
+  const receberLista = useCallback(
+    (lista: ListaNotificacoes) => {
+      setDados(lista);
+      const atualizadas = limparResolvidas(
+        lerDispensadas(usuarioId),
+        lista.notificacoes,
+      );
+      salvarDispensadas(usuarioId, atualizadas);
+      setDispensadas(atualizadas);
+    },
+    [usuarioId],
+  );
+
+  function dispensar(n: Notificacao) {
+    const atualizadas = { ...dispensadas, [n.id]: n.tipo };
+    salvarDispensadas(usuarioId, atualizadas);
+    setDispensadas(atualizadas);
+  }
+
+  function restaurar(n: Notificacao) {
+    const atualizadas = { ...dispensadas };
+    delete atualizadas[n.id];
+    salvarDispensadas(usuarioId, atualizadas);
+    setDispensadas(atualizadas);
+  }
+
   const carregar = useCallback(async () => {
     try {
       setCarregando(true);
       setErro(false);
-      setDados(await listNotificacoes());
+      receberLista(await listNotificacoes());
     } catch {
       setErro(true);
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [receberLista]);
 
   // Atualiza ao abrir o sistema
   useEffect(() => {
@@ -70,7 +113,7 @@ export default function NotificationBell() {
 
     listNotificacoes()
       .then((lista) => {
-        if (ativo) setDados(lista);
+        if (ativo) receberLista(lista);
       })
       .catch(() => {
         if (ativo) setErro(true);
@@ -79,7 +122,7 @@ export default function NotificationBell() {
     return () => {
       ativo = false;
     };
-  }, []);
+  }, [receberLista]);
 
   // Fecha ao clicar fora ou apertar Esc
   useEffect(() => {
@@ -108,8 +151,12 @@ export default function NotificationBell() {
     setAberto((atual) => !atual);
   }
 
-  const total = dados?.total ?? 0;
-  const lista = dados?.notificacoes ?? [];
+  const todas = dados?.notificacoes ?? [];
+  const pendentes = todas.filter((n) => !estaDispensada(n, dispensadas));
+  const escondidas = todas.filter((n) => estaDispensada(n, dispensadas));
+  // O número do sino conta só o que não foi dispensado
+  const total = pendentes.length;
+  const lista = verDispensadas ? escondidas : pendentes;
 
   return (
     <div ref={raiz} className="relative md:absolute md:-right-2 md:-top-3">
@@ -133,10 +180,25 @@ export default function NotificationBell() {
       {aberto && (
         <div className="fixed left-3 right-3 top-16 z-50 overflow-hidden rounded-2xl bg-[#1F1F1F] text-left shadow-2xl ring-1 ring-white/10 md:bottom-4 md:left-28 md:right-auto md:top-auto md:w-96 md:max-w-[calc(100vw-8rem)]">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-            <p className="text-sm font-semibold text-white">Notificações</p>
-            {carregando && (
-              <Loader2 size={14} className="animate-spin text-gray-500" />
-            )}
+            <p className="text-sm font-semibold text-white">
+              {verDispensadas ? "Dispensadas" : "Notificações"}
+            </p>
+            <div className="flex items-center gap-3">
+              {carregando && (
+                <Loader2 size={14} className="animate-spin text-gray-500" />
+              )}
+              {(escondidas.length > 0 || verDispensadas) && (
+                <button
+                  type="button"
+                  onClick={() => setVerDispensadas((v) => !v)}
+                  className="text-xs font-medium text-gray-400 hover:text-white"
+                >
+                  {verDispensadas
+                    ? "Voltar"
+                    : `Ver dispensadas (${escondidas.length})`}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="max-h-[min(28rem,70vh)] overflow-y-auto [color-scheme:dark]">
@@ -148,7 +210,9 @@ export default function NotificationBell() {
               <p className="p-6 text-center text-sm text-gray-400">
                 {carregando
                   ? "Carregando..."
-                  : "Nada precisa de atenção agora."}
+                  : verDispensadas
+                    ? "Nenhuma notificação dispensada."
+                    : "Nada precisa de atenção agora."}
               </p>
             ) : (
               <ul>
@@ -182,6 +246,28 @@ export default function NotificationBell() {
                       >
                         <MessageCircle size={15} />
                       </a>
+                    )}
+
+                    {verDispensadas ? (
+                      <button
+                        type="button"
+                        onClick={() => restaurar(n)}
+                        title="Voltar a mostrar"
+                        aria-label="Voltar a mostrar esta notificação"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-white/10 hover:text-white"
+                      >
+                        <RotateCcw size={14} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => dispensar(n)}
+                        title="Dispensar (volta se piorar ou acontecer de novo)"
+                        aria-label="Dispensar notificação"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-white/10 hover:text-white"
+                      >
+                        <X size={15} />
+                      </button>
                     )}
                   </li>
                 ))}
