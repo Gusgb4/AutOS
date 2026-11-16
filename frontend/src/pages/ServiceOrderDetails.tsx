@@ -40,6 +40,7 @@ import PagamentosCard from "../components/serviceOrders/PagamentosCard";
 import { useAuth } from "../contexts/AuthContext";
 import { formatPercent } from "../lib/relatorios";
 import { mensagemDeErro } from "../lib/errors";
+import { capitalizeName } from "../lib/nomes";
 import { isLembreteVencido } from "../lib/maintenance";
 
 const plainInputClass =
@@ -52,15 +53,6 @@ function formatCurrency(value: string | number) {
   return Number(value)
     .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     .replace(/\u00A0/g, " ");
-}
-
-function capitalizeName(nome: string) {
-  return nome
-    .toLowerCase()
-    .split(" ")
-    .filter(Boolean)
-    .map((palavra) => palavra.charAt(0).toUpperCase() + palavra.slice(1))
-    .join(" ");
 }
 
 // Valores do formulário de detalhes a partir da OS salva

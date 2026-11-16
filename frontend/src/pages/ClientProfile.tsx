@@ -212,7 +212,12 @@ export default function ClientProfile() {
   }
 
   async function handleDeleteVehicle(vehicle: Vehicle) {
-    if (!confirm(`Remover o veículo ${vehicle.placa}?`)) return;
+    if (
+      !confirm(
+        `Remover o veículo ${vehicle.placa}? Ele some do perfil, mas o histórico de OS continua guardado.`,
+      )
+    )
+      return;
     try {
       await deleteVehicle(vehicle.id);
       await fetchClient();
@@ -504,7 +509,8 @@ export default function ClientProfile() {
                           <button
                             type="button"
                             onClick={() => handleDeleteVehicle(vehicle)}
-                            aria-label="Arquivar"
+                            aria-label="Remover veículo"
+                            title="Remover veículo"
                             className="flex h-11 w-11 items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 md:h-8 md:w-8"
                           >
                             <Trash2 size={14} />

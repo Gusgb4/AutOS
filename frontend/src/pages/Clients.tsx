@@ -204,7 +204,12 @@ export default function Clients() {
 
   async function handleDelete() {
     if (!editingClient) return;
-    if (!confirm(`Remover o cliente "${editingClient.nome}"?`)) return;
+    if (
+      !confirm(
+        `Remover o cliente "${editingClient.nome}"? Ele some da lista, mas o histórico de OS continua guardado.`,
+      )
+    )
+      return;
 
     setSubmitting(true);
     try {
@@ -220,7 +225,12 @@ export default function Clients() {
   }
 
   async function handleDeleteDirect(client: Client) {
-    if (!confirm(`Remover o cliente "${client.nome}"?`)) return;
+    if (
+      !confirm(
+        `Remover o cliente "${client.nome}"? Ele some da lista, mas o histórico de OS continua guardado.`,
+      )
+    )
+      return;
     try {
       await deleteClient(client.id);
       await fetchClients(search || undefined);
