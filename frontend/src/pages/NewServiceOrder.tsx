@@ -28,6 +28,7 @@ import PecaRow from "../components/serviceOrders/PecaRow";
 import PecaRapida from "../components/serviceOrders/PecaRapida";
 import { getUserRole } from "../lib/auth";
 import { mensagemDeErro } from "../lib/errors";
+import { capitalizeName } from "../lib/nomes";
 
 const inputClass =
   "w-full rounded-lg border-[1.5px] border-gray-200 bg-[#FBFBFC] py-2.5 pl-9 pr-3 text-base text-[#1B2130] outline-none transition focus:border-[#FF7518] focus:bg-white focus:ring-2 focus:ring-[#FDE7DA] md:text-sm";
@@ -38,15 +39,6 @@ function formatCurrency(value: string | number) {
   return Number(value)
     .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     .replace(/\u00A0/g, " ");
-}
-
-function capitalizeName(nome: string) {
-  return nome
-    .toLowerCase()
-    .split(" ")
-    .filter(Boolean)
-    .map((palavra) => palavra.charAt(0).toUpperCase() + palavra.slice(1))
-    .join(" ");
 }
 
 type ServicoItem = ServiceOrder["servicos"][number];

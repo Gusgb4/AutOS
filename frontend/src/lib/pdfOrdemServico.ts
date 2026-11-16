@@ -2,6 +2,7 @@ import type { jsPDF } from "jspdf";
 import type { CellDef, Styles, UserOptions } from "jspdf-autotable";
 import type { ServiceOrder } from "../services/serviceOrders";
 import { OFICINA } from "../config/oficina";
+import { capitalizeName } from "./nomes";
 import {
   carregarLogo,
   criarPdf,
@@ -119,7 +120,7 @@ function montar(ordem: ServiceOrder, escala: number): jsPDF {
             ? formatarData(ordem.previsao_entrega)
             : "A combinar",
       ],
-      ["Mecânico", ordem.mecanico.nome, "Quilometragem", quilometragem],
+      ["Mecânico", capitalizeName(ordem.mecanico.nome), "Quilometragem", quilometragem],
     ],
     columnStyles: {
       0: { fontStyle: "bold", cellWidth: 26 },

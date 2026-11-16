@@ -1,4 +1,4 @@
-# Plano de testes de aceitação (v3.0)
+# Plano de testes de aceitação (v3.0.1)
 
 Roteiro para conferir o sistema inteiro **em produção**, logo depois do deploy,
 seguindo a jornada real da oficina. Os testes automatizados do backend cobrem
@@ -22,7 +22,7 @@ Marque cada item. O que falhar vira uma correção antes de liberar para uso.
 - [ ] Depois de 10 tentativas erradas, o login fica bloqueado por alguns minutos
 - [ ] Proprietário cria um funcionário e recebe a senha provisória dele
 - [ ] Funcionário entra, troca a senha e **não vê** Financeiro, Relatórios e Equipe
-- [ ] Funcionário não consegue editar nem arquivar cliente, veículo ou item de estoque
+- [ ] Funcionário não consegue editar nem remover cliente ou veículo, nem mexer no estoque
 - [ ] Proprietário redefine a senha do funcionário, desativa e reativa a conta
 - [ ] Conta desativada não consegue entrar
 - [ ] F5 numa tela qualquer mantém o usuário logado; sair leva ao login
@@ -33,7 +33,7 @@ Marque cada item. O que falhar vira uma correção antes de liberar para uso.
 - [ ] Cadastrar veículo com cor e dois lembretes (ex.: troca de óleo e correia), um pela sugestão e outro em "Outro"
 - [ ] Editar o veículo: renomear um lembrete (a data prevista não muda), mudar o intervalo de outro (a data recalcula) e remover um
 - [ ] Buscar o cliente pelo nome e pela placa
-- [ ] Arquivar e desarquivar cliente e veículo
+- [ ] Remover um cliente e um veículo: somem da lista e da busca, e as OS antigas deles continuam abrindo normalmente
 - [ ] Excluir um veículo e cadastrar de novo a mesma placa (até em outro cliente): o cadastro funciona
 - [ ] Cadastrar placa de um veículo ativo: aparece "Já existe um veículo com essa placa"
 - [ ] No "Adicionar Cliente", cadastrar já com veículo (cor, km e lembretes) e conferir no perfil
@@ -119,22 +119,26 @@ Marque cada item. O que falhar vira uma correção antes de liberar para uso.
 ## Depois do teste
 
 1. Anotar as falhas encontradas e corrigir antes de liberar.
-2. **Zerar o banco de produção** (apaga todos os dados do teste):
-   ```bash
+2. Fazer o treinamento da equipe, ainda com os dados de teste
+   ([roteiro](TREINAMENTO.md)).
+3. **Zerar o banco de produção e criar a conta do proprietário de verdade.**
+   Apaga todos os dados do teste e não tem volta. Num terminal só para
+   produção (CMD), com o backup antes por precaução:
+   ```cmd
    cd backend
-   # com a DATABASE_URL do banco de produção
+   set "DATABASE_URL=<connection string do Neon>"
+   npm run backup
    npx prisma migrate reset --force --skip-seed
-   ```
-3. Criar a conta do proprietário de verdade:
-   ```bash
    npm run criar-proprietario -- email@dono.com "Nome do Dono"
+   exit
    ```
-4. Entregar a senha provisória ao proprietário e começar o uso piloto.
+4. Entregar a senha provisória ao proprietário pessoalmente e começar o uso
+   piloto, com backup semanal (`npm run backup`).
 
 ## Falhas encontradas
 
-| # | Seção | O que aconteceu | Corrigido? |
-|---|---|---|---|
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
+| #   | Seção | O que aconteceu | Corrigido? |
+| --- | ----- | --------------- | ---------- |
+| 1   |       |                 |            |
+| 2   |       |                 |            |
+| 3   |       |                 |            |
